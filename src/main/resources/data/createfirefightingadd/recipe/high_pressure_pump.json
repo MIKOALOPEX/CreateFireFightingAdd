@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " P ",
+    " S ",
+    " R "
+  ],
+  "key": {
+    "P": { "item": "create:mechanical_pump" },
+    "S": { "item": "create:sturdy_sheet" },
+    "R": { "item": "create:propeller" }
+  },
+  "result": {
+    "id": "createfirefightingadd:high_pressure_pump",
+    "count": 1
+  }
+}

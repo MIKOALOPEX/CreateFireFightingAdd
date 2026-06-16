@@ -1,0 +1,33 @@
+# Gradle and build output
+.gradle/
+build/
+repo/
+out/
+
+# IDE files
+.idea/
+*.iml
+
+# Minecraft run directory and generated logs
+run/
+runClient-codex*.log
+runClient-codex*.err.log
+*.log
+crash-reports/
+
+# Local backups, scratch files, and extracted dependency sources
+/tempbackup/
+/tempmods/
+/assets/
+/com/
+/dev/
+/net/
+topology.txt
+*.bak
+
+# Local test jars in libs; keep explicit compile dependencies.
+libs/createfirefightingadd-*.jar
+
+# OS files
+Thumbs.db
+.DS_Store

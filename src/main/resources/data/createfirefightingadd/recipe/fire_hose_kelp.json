@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "   ",
+    "PKP",
+    "   "
+  ],
+  "key": {
+    "P": { "item": "create:fluid_pipe" },
+    "K": { "item": "minecraft:dried_kelp" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_hose",
+    "count": 1
+  }
+}

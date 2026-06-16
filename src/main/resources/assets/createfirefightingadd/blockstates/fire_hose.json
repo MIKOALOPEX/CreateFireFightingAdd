@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=down":  { "model": "createfirefightingadd:block/fire_hose", "x": 180 },
+    "facing=east":  { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 90 },
+    "facing=north": { "model": "createfirefightingadd:block/fire_hose", "x": 90 },
+    "facing=south": { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 180 },
+    "facing=up":    { "model": "createfirefightingadd:block/fire_hose" },
+    "facing=west":  { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 270 }
+  }
+}

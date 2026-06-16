@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "mappings": [
+    {
+      "old_name": "firefighting_nozzle",
+      "new_name": "cone_nozzle",
+      "note": "v0.1.6: Renamed to cone_nozzle for clearer semantics. Legacy alias registered automatically."
+    }
+  ]
+}

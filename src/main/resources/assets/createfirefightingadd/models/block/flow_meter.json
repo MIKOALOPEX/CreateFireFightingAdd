@@ -1,0 +1,49 @@
+{
+	"parent": "block/block",
+	"texture_size": [128, 128],
+	"textures": {
+		"0": "createfirefightingadd:block/hydraulic_rod",
+		"particle": "createfirefightingadd:block/hydraulic_rod"
+	},
+	"elements": [
+		{
+			"name": "rod_base",
+			"from": [4, 0, 4],
+			"to": [12, 16, 12],
+			"faces": {
+				"north": {"uv": [1, 1, 2, 3], "texture": "#0"},
+				"east":  {"uv": [0, 1, 1, 3], "texture": "#0"},
+				"south": {"uv": [3, 1, 4, 3], "texture": "#0"},
+				"west":  {"uv": [2, 1, 3, 3], "texture": "#0"},
+				"up":    {"uv": [2, 1, 1, 0], "texture": "#0"},
+				"down":  {"uv": [3, 0, 2, 1], "texture": "#0"}
+			}
+		},
+		{
+			"name": "rod_rim_top",
+			"from": [3, 14, 3],
+			"to": [13, 16, 13],
+			"faces": {
+				"north": {"uv": [5.25, 1.25, 6.5, 1.5], "texture": "#0"},
+				"east":  {"uv": [4, 1.25, 5.25, 1.5], "texture": "#0"},
+				"south": {"uv": [7.75, 1.25, 9, 1.5], "texture": "#0"},
+				"west":  {"uv": [6.5, 1.25, 7.75, 1.5], "texture": "#0"},
+				"up":    {"uv": [6.5, 1.25, 5.25, 0], "texture": "#0"},
+				"down":  {"uv": [7.75, 0, 6.5, 1.25], "texture": "#0"}
+			}
+		},
+		{
+			"name": "rod_rim_bottom",
+			"from": [3, 0, 3],
+			"to": [13, 2, 13],
+			"faces": {
+				"north": {"uv": [5.25, 2.75, 6.5, 3], "texture": "#0"},
+				"east":  {"uv": [4, 2.75, 5.25, 3], "texture": "#0"},
+				"south": {"uv": [7.75, 2.75, 9, 3], "texture": "#0"},
+				"west":  {"uv": [6.5, 2.75, 7.75, 3], "texture": "#0"},
+				"up":    {"uv": [6.5, 2.75, 5.25, 1.5], "texture": "#0"},
+				"down":  {"uv": [7.75, 1.5, 6.5, 2.75], "texture": "#0"}
+			}
+		}
+	]
+}

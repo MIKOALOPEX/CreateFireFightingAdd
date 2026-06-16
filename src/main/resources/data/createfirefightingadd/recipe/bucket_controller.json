@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " D ",
+    "TET",
+    " V "
+  ],
+  "key": {
+    "D": { "item": "create:item_drain" },
+    "T": { "item": "create:fluid_tank" },
+    "V": { "item": "create:fluid_valve" },
+    "E": { "item": "create:transmitter" }
+  },
+  "result": {
+    "id": "createfirefightingadd:bucket_controller",
+    "count": 1
+  }
+}

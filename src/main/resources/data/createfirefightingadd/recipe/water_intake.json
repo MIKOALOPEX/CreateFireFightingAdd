@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " T ",
+    "PDH",
+    " B "
+  ],
+  "key": {
+    "T": { "item": "create:transmitter" },
+    "P": { "item": "create:mechanical_pump" },
+    "D": { "item": "create:item_drain" },
+    "H": { "item": "create:hose_pulley" },
+    "B": { "item": "minecraft:bucket" }
+  },
+  "result": {
+    "id": "createfirefightingadd:water_intake",
+    "count": 1
+  }
+}

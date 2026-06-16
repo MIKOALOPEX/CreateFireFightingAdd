@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=down": { "model": "createfirefightingadd:block/flat_nozzle", "x": 180 },
+    "facing=up": { "model": "createfirefightingadd:block/flat_nozzle" },
+    "facing=north": { "model": "createfirefightingadd:block/flat_nozzle", "x": 90 },
+    "facing=south": { "model": "createfirefightingadd:block/flat_nozzle", "x": 90, "y": 180 },
+    "facing=west": { "model": "createfirefightingadd:block/flat_nozzle", "x": 90, "y": 270 },
+    "facing=east": { "model": "createfirefightingadd:block/flat_nozzle", "x": 90, "y": 90 }
+  }
+}

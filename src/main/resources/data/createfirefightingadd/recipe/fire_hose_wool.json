@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "   ",
+    "PWP",
+    "   "
+  ],
+  "key": {
+    "P": { "item": "create:fluid_pipe" },
+    "W": { "tag": "minecraft:wool" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_hose",
+    "count": 1
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "   ",
+    "ISI",
+    "   "
+  ],
+  "key": {
+    "I": { "item": "create:iron_sheet" },
+    "S": { "item": "create:fluid_pipe" }
+  },
+  "result": {
+    "id": "createfirefightingadd:cone_nozzle",
+    "count": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    " F ",
+    " N "
+  ],
+  "key": {
+    "C": { "item": "create:copper_sheet" },
+    "F": { "item": "create:fluid_pipe" },
+    "N": { "item": "createfirefightingadd:cone_nozzle" }
+  },
+  "result": {
+    "id": "createfirefightingadd:flat_nozzle",
+    "count": 1
+  }
+}
