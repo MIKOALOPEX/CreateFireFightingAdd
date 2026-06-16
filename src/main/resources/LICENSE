@@ -1,12 +1,11 @@
-Create Firefighting Add v1.1
-================================
+Create Firefighting Add uses a split license:
 
-STATUS: IN DEVELOPMENT — 本模组尚处于开发阶段，功能可能不完整或存在变更。
+- Source code: MIT License.
+- Art assets: All Rights Reserved.
 
-License / 许可协议
-------------------
-- Assets（资源文件，包括但不限于纹理、模型、音效、本地化文本）：
-  All Rights Reserved (ARR) — 保留所有权利，未经授权不得复制、分发或修改。
+Art assets include textures, models, Ponder scene structure files, and other
+visual or media assets distributed with the mod. These assets may not be
+copied, redistributed, modified, relicensed, or reused outside this project
+without explicit permission from MikoAlopex.
 
-- Source Code（源代码）及其他部分：
-  （未指定协议内容）
+See the repository LICENSE file for the full license text.

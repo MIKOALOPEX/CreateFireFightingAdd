@@ -1,9 +1,20 @@
+Create Firefighting Add License
+================================
+
+This project uses a split license.
+
+Source Code
+-----------
+
+All source code is licensed under the MIT License, unless a file states
+otherwise.
+
 MIT License
 
 Copyright (c) 2026 MikoAlopex
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
+of the source code and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
@@ -19,3 +30,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Art Assets
+----------
+
+All art assets are All Rights Reserved, unless a file states otherwise.
+This includes textures, models, Ponder scene structure files, and other
+visual or media assets distributed with the mod.
+
+You may not copy, redistribute, modify, relicense, or reuse these art assets
+outside this project without explicit permission from MikoAlopex.
+
+中文说明
+--------
+
+本项目采用分离许可证：
+
+- 源代码：MIT License，除非具体文件另有声明。
+- 美术资源：All Rights Reserved，除非具体文件另有声明。包括但不限于贴图、
+  模型、Ponder 场景结构文件，以及随模组分发的其它视觉或媒体资源。
+
+未经 MikoAlopex 明确授权，不得在本项目之外复制、分发、修改、再授权或复用
+这些美术资源。
