@@ -41,14 +41,14 @@ visual or media assets distributed with the mod.
 You may not copy, redistribute, modify, relicense, or reuse these art assets
 outside this project without explicit permission from MikoAlopex.
 
-中文说明
---------
+Summary
+-------
 
-本项目采用分离许可证：
+This project uses a split license:
+- Source code: MIT License, unless a specific file states otherwise.
+- Art assets: All Rights Reserved, unless a specific file states otherwise.
+  This includes, but is not limited to, textures, models, Ponder scene
+  structure files, and other visual or media assets distributed with the mod.
 
-- 源代码：MIT License，除非具体文件另有声明。
-- 美术资源：All Rights Reserved，除非具体文件另有声明。包括但不限于贴图、
-  模型、Ponder 场景结构文件，以及随模组分发的其它视觉或媒体资源。
-
-未经 MikoAlopex 明确授权，不得在本项目之外复制、分发、修改、再授权或复用
-这些美术资源。
+Without explicit permission from MikoAlopex, these art assets may not be
+copied, redistributed, modified, relicensed, or reused outside this project.

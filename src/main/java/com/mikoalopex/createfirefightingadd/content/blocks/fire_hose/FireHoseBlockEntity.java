@@ -95,6 +95,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     private int pumpSourceKind = SOURCE_NONE;
     private boolean wasTankEmpty = true;
     private int pumpDistance = Integer.MAX_VALUE;
+    private int pumpRange;
     int pumpSide = PUMP_SIDE_NONE;
     boolean pumpPushesTowardHose;
 
@@ -106,6 +107,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     private boolean cacheValid;
     private int lastPumpSide = PUMP_SIDE_NONE;
     private int lastPumpDistance = Integer.MAX_VALUE;
+    private int lastPumpRange;
     private float lastPumpSpeed;
     private int lastPumpSourceKind = SOURCE_NONE;
     private boolean lastPull;
@@ -247,6 +249,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             if (!cacheValid
                 || pumpSide != lastPumpSide
                 || pumpDistance != lastPumpDistance
+                || pumpRange != lastPumpRange
                 || pumpSpeed != lastPumpSpeed
                 || pumpSourceKind != lastPumpSourceKind
                 || pull != lastPull
@@ -261,6 +264,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
                 lastPumpSide = pumpSide;
                 lastPumpDistance = pumpDistance;
+                lastPumpRange = pumpRange;
                 lastPumpSpeed = pumpSpeed;
                 lastPumpSourceKind = pumpSourceKind;
                 lastPull = pull;
@@ -306,17 +310,20 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         boolean oldPumpPushesTowardHose = pumpPushesTowardHose;
         float oldPumpSpeed = pumpSpeed;
         int oldPumpSourceKind = pumpSourceKind;
+        int oldPumpRange = pumpRange;
 
         PumpScanResult backInfo = findPumpInfo(back);
         int backDist = backInfo.distance();
         boolean backPushesToward = backInfo.pushesTowardRequester();
         float backSpeed = backInfo.speed();
         int backSourceKind = backInfo.sourceKind();
+        int backRange = backInfo.pumpRange();
 
         int partnerDist = Integer.MAX_VALUE;
         boolean partnerPushesToward = false;
         float partnerSpeed = 0;
         int partnerSourceKind = SOURCE_NONE;
+        int partnerRange = 0;
         if (partner != null) {
             Direction partnerBack = partner.getBlockState()
                 .getValue(FireHoseBlock.FACING).getOpposite();
@@ -325,6 +332,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             partnerPushesToward = partnerInfo.pushesTowardRequester();
             partnerSpeed = partnerInfo.speed();
             partnerSourceKind = partnerInfo.sourceKind();
+            partnerRange = partnerInfo.pumpRange();
         }
 
         if (backDist == Integer.MAX_VALUE && hasRecentExternalInput()) {
@@ -332,6 +340,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             backPushesToward = externalInputPushesTowardHose;
             backSpeed = getExternalInputPressure();
             backSourceKind = SOURCE_EXTERNAL_FILL;
+            backRange = Config.hoseExternalInputOutputRange;
         }
 
         if (partnerDist == Integer.MAX_VALUE && partner != null && partner.hasRecentExternalInput()) {
@@ -339,6 +348,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             partnerPushesToward = partner.externalInputPushesTowardHose;
             partnerSpeed = partner.getExternalInputPressure();
             partnerSourceKind = SOURCE_EXTERNAL_FILL;
+            partnerRange = Config.hoseExternalInputOutputRange;
         }
 
         if (backDist < Integer.MAX_VALUE) {
@@ -347,41 +357,48 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             pumpPushesTowardHose = backPushesToward;
             pumpSpeed = backSpeed;
             pumpSourceKind = backSourceKind;
+            pumpRange = backRange;
         } else if (partnerDist < Integer.MAX_VALUE) {
             pumpSide = PUMP_SIDE_PARTNER;
             pumpDistance = partnerDist;
             pumpPushesTowardHose = partnerPushesToward;
             pumpSpeed = partnerSpeed;
             pumpSourceKind = partnerSourceKind;
+            pumpRange = partnerRange;
         } else {
             pumpSide = PUMP_SIDE_NONE;
             pumpDistance = Integer.MAX_VALUE;
             pumpPushesTowardHose = false;
             pumpSpeed = 0;
             pumpSourceKind = SOURCE_NONE;
+            pumpRange = 0;
         }
 
         if (oldPumpSide != pumpSide
             || oldPumpDistance != pumpDistance
             || oldPumpPushesTowardHose != pumpPushesTowardHose
             || oldPumpSpeed != pumpSpeed
-            || oldPumpSourceKind != pumpSourceKind) {
+            || oldPumpSourceKind != pumpSourceKind
+            || oldPumpRange != pumpRange) {
             markPressureDirty();
             if (partner != null)
                 partner.markPressureDirty();
         }
 
-        FireHoseDebugLog.logRaw("scan pos={} ctrl={} back={} backDist={} backPush={} partner={} partnerDist={} partnerPush={} -> side={} dist={} push={} pull={} rule={}",
+        FireHoseDebugLog.logRaw("scan pos={} ctrl={} back={} backDist={} backRange={} backPush={} partner={} partnerDist={} partnerRange={} partnerPush={} -> side={} dist={} range={} push={} pull={} rule={}",
             worldPosition.toShortString(),
             isController,
             back,
             distanceLabel(backDist),
+            distanceLabel(backRange),
             backPushesToward,
             partner != null ? partner.getBlockPos().toShortString() : "null",
             distanceLabel(partnerDist),
+            distanceLabel(partnerRange),
             partnerPushesToward,
             pumpSideLabel(pumpSide),
             distanceLabel(pumpDistance),
+            distanceLabel(pumpRange),
             pumpPushesTowardHose,
             isPulling(),
             backDist < Integer.MAX_VALUE ? "LOCAL_PUMP" : partnerDist < Integer.MAX_VALUE ? "PARTNER_PUMP" : "NO_PUMP");
@@ -620,7 +637,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         Map<BlockPos, BlockPos> parents = new HashMap<>();
         frontier.add(Pair.of(1, startPos));
         parents.put(startPos, worldPosition);
-        int maxSearch = Config.hoseMaxLength;
+        int maxSearch = getPumpSearchRange();
 
         while (!frontier.isEmpty()) {
             Pair<Integer, BlockPos> entry = frontier.poll();
@@ -649,7 +666,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
                 BlockState pumpState = pumpBe.getBlockState();
                 Direction pumpFacing = pumpState.getValue(PumpBlock.FACING);
                 boolean pushesTowardHose = towardParent == pumpFacing;
-                return PumpScanResult.found(dist, pushesTowardHose, speed, SOURCE_REAL_PUMP);
+                return PumpScanResult.found(dist, pushesTowardHose, speed, getPumpRangeFallback(pumpBe), SOURCE_REAL_PUMP);
             }
 
             if (dist >= maxSearch) continue;
@@ -697,11 +714,15 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         float speed = sourceHose.getActivePumpSpeed();
         if (speed <= 0)
             return PumpScanResult.none();
-        return PumpScanResult.found(dist, !sourcePulling, speed, sourceHose.getRelaySourceKind());
+        return PumpScanResult.found(dist, !sourcePulling, speed, sourceHose.getRelayPumpRange(), sourceHose.getRelaySourceKind());
     }
 
     private int getRelaySourceKind() {
         return pumpSourceKind == SOURCE_EXTERNAL_FILL ? SOURCE_EXTERNAL_FILL : SOURCE_VIRTUAL_HOSE;
+    }
+
+    private int getRelayPumpRange() {
+        return pumpSourceKind == SOURCE_EXTERNAL_FILL ? Config.hoseExternalInputOutputRange : pumpRange;
     }
 
     private static float clampPumpSpeed(float speed) {
@@ -728,24 +749,36 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         return clampPumpSpeed(pressure);
     }
 
-    private record PumpScanResult(int distance, boolean pushesTowardRequester, float speed, int sourceKind) {
+    private static int getPumpRangeFallback(PumpBlockEntity pump) {
+        if (pump instanceof FireFightingPumpPressureProvider provider)
+            return Math.max(1, provider.CreateFireFightingAdd$getPumpRange());
+        return Math.max(1, FluidPropagator.getPumpRange());
+    }
+
+    private static int getPumpSearchRange() {
+        int configuredRange = Math.round(FluidPropagator.getPumpRange() * Config.highPressurePumpMultiplier);
+        return Math.max(Config.hoseMaxLength, configuredRange);
+    }
+
+    private record PumpScanResult(int distance, boolean pushesTowardRequester, float speed, int pumpRange, int sourceKind) {
         private static PumpScanResult none() {
-            return new PumpScanResult(Integer.MAX_VALUE, false, 0, SOURCE_NONE);
+            return new PumpScanResult(Integer.MAX_VALUE, false, 0, 0, SOURCE_NONE);
         }
 
-        private static PumpScanResult found(int distance, boolean pushesTowardRequester, float speed, int sourceKind) {
-            return new PumpScanResult(distance, pushesTowardRequester, clampPumpSpeed(speed), sourceKind);
+        private static PumpScanResult found(int distance, boolean pushesTowardRequester, float speed, int pumpRange, int sourceKind) {
+            return new PumpScanResult(distance, pushesTowardRequester, clampPumpSpeed(speed), Math.max(1, pumpRange), sourceKind);
         }
     }
 
     // Pressure distribution
 
     private int getDrivenOutputRange(int partnerDist) {
-        if (pumpSourceKind == SOURCE_EXTERNAL_FILL)
-            return Config.hoseExternalInputOutputRange;
+        int range = pumpSourceKind == SOURCE_EXTERNAL_FILL ? Config.hoseExternalInputOutputRange : pumpRange;
+        if (range <= 0)
+            range = Config.hoseMaxLength;
         if (partnerDist < Integer.MAX_VALUE)
-            return Math.max(0, Config.hoseMaxLength - partnerDist);
-        return Config.hoseMaxLength;
+            return Math.max(0, range - partnerDist);
+        return range;
     }
 
     private void buildPipeGraph(Direction side, float pumpSpeed, boolean pull, int maxDistance,
