@@ -2,9 +2,15 @@ package com.mikoalopex.createfirefightingadd;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseItem;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseItemHandler;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseMountedFluidStorageType;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseRenderer;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDynamicRenderer;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_pole.FirePoleBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.AbstractSprayDeviceBlockEntity;
@@ -16,6 +22,9 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleRend
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDebugRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMountedFluidStorageType;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.BoundBlockHighlightHandler;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
@@ -23,17 +32,23 @@ import com.mikoalopex.createfirefightingadd.content.items.WaterIntakeBindingItem
 import com.mikoalopex.createfirefightingadd.content.kinetics.pump.HighPressurePumpBlock;
 import com.mikoalopex.createfirefightingadd.content.kinetics.pump.HighPressurePumpBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.kinetics.pump.HighPressurePumpRenderer;
+import com.mikoalopex.createfirefightingadd.content.kinetics.turbine.PipelineTurbineBlock;
+import com.mikoalopex.createfirefightingadd.content.kinetics.turbine.PipelineTurbineBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.ponder.CreateFireFightingPonderPlugin;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
+import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
+import com.simibubi.create.api.contraption.storage.fluid.MountedFluidStorageType;
+import com.simibubi.create.api.registry.CreateRegistries;
 import com.simibubi.create.api.stress.BlockStressValues;
 import com.simibubi.create.content.kinetics.base.ShaftRenderer;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
+import com.mojang.logging.LogUtils;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -44,6 +59,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
@@ -57,18 +73,19 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
 
 // Spray behaviour is inspired by Create Diesel Generators' chemical sprayer system (MIT License).
 @Mod(CreateFireFightingAdd.MODID)
 public class CreateFireFightingAdd {
 	public static final String MODID = "createfirefightingadd";
+	public static final Logger LOGGER = LogUtils.getLogger();
 
 	public static ResourceLocation path(String path) {
 		return ResourceLocation.fromNamespaceAndPath(MODID, path);
@@ -78,6 +95,8 @@ public class CreateFireFightingAdd {
 	public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
 	public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 	public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
+	public static final DeferredRegister<MountedFluidStorageType<?>> MOUNTED_FLUID_STORAGE_TYPES =
+		DeferredRegister.create(CreateRegistries.MOUNTED_FLUID_STORAGE_TYPE, MODID);
 	public static final DeferredBlock<HighPressurePumpBlock> HIGH_PRESSURE_PUMP = BLOCKS.register("high_pressure_pump",
 		() -> new HighPressurePumpBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0f).noOcclusion()));
 
@@ -105,10 +124,30 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> WATER_INTAKE_ITEM = ITEMS.registerSimpleBlockItem("water_intake", WATER_INTAKE);
 
 	public static final DeferredBlock<FireHoseBlock> FIRE_HOSE = BLOCKS.register("fire_hose",
-		() -> new FireHoseBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> SableStructureCompat.createFireHoseBlock(
+			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
 
 	public static final DeferredItem<FireHoseItem> FIRE_HOSE_ITEM = ITEMS.register("fire_hose",
 		() -> new FireHoseItem(new Item.Properties()));
+
+	public static final DeferredBlock<FireHoseConnectorBlock> FIRE_HOSE_CONNECTOR = BLOCKS.register("fire_hose_connector",
+		() -> new FireHoseConnectorBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+
+	public static final DeferredItem<BlockItem> FIRE_HOSE_CONNECTOR_ITEM =
+		ITEMS.registerSimpleBlockItem("fire_hose_connector", FIRE_HOSE_CONNECTOR);
+
+	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
+		() -> new PipelineTurbineBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+
+	public static final DeferredItem<BlockItem> PIPELINE_TURBINE_ITEM =
+		ITEMS.registerSimpleBlockItem("pipeline_turbine", PIPELINE_TURBINE);
+
+	public static final DeferredBlock<FirePoleBlock> FIRE_POLE = BLOCKS.register("fire_pole",
+		() -> new FirePoleBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).noOcclusion()));
+
+	public static final DeferredItem<BlockItem> FIRE_POLE_ITEM =
+		ITEMS.registerSimpleBlockItem("fire_pole", FIRE_POLE);
+
 	// Experimental flow monitor. Kept separate from the stable firefighting blocks.
 	public static final DeferredBlock<FlowMeterBlock> FLOW_METER = BLOCKS.register("flow_meter",
 		() -> new FlowMeterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
@@ -123,6 +162,10 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("high_pressure_pump",
 			() -> BlockEntityType.Builder.of(HighPressurePumpBlockEntity::new, HIGH_PRESSURE_PUMP.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PipelineTurbineBlockEntity>> PIPELINE_TURBINE_BE =
+		BLOCK_ENTITY_TYPES.register("pipeline_turbine",
+			() -> BlockEntityType.Builder.of(PipelineTurbineBlockEntity::new, PIPELINE_TURBINE.get()).build(null));
+
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ConeNozzleBlockEntity>> CONE_NOZZLE_BE =
 		BLOCK_ENTITY_TYPES.register("cone_nozzle",
 			() -> {
@@ -131,7 +174,7 @@ public class CreateFireFightingAdd {
 				all[0] = CONE_NOZZLE.get();
 				for (int i = 0; i < legacies.size(); i++)
 					all[i + 1] = (Block) legacies.get(i).get();
-				return BlockEntityType.Builder.of(ConeNozzleBlockEntity::new, all).build(null);
+				return BlockEntityType.Builder.of(SableStructureCompat::createConeNozzleBlockEntity, all).build(null);
 			});
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FlatNozzleBlockEntity>> FLAT_NOZZLE_BE =
@@ -142,20 +185,30 @@ public class CreateFireFightingAdd {
 				all[0] = FLAT_NOZZLE.get();
 				for (int i = 0; i < legacies.size(); i++)
 					all[i + 1] = (Block) legacies.get(i).get();
-				return BlockEntityType.Builder.of(FlatNozzleBlockEntity::new, all).build(null);
+				return BlockEntityType.Builder.of(SableStructureCompat::createFlatNozzleBlockEntity, all).build(null);
 			});
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BucketControllerBlockEntity>> BUCKET_CONTROLLER_BE =
 		BLOCK_ENTITY_TYPES.register("bucket_controller",
-			() -> BlockEntityType.Builder.of(BucketControllerBlockEntity::new, BUCKET_CONTROLLER.get()).build(null));
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createBucketControllerBlockEntity, BUCKET_CONTROLLER.get()).build(null));
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WaterIntakeBlockEntity>> WATER_INTAKE_BE =
 		BLOCK_ENTITY_TYPES.register("water_intake",
-			() -> BlockEntityType.Builder.of(WaterIntakeBlockEntity::new, WATER_INTAKE.get()).build(null));
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createWaterIntakeBlockEntity, WATER_INTAKE.get()).build(null));
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireHoseBlockEntity>> FIRE_HOSE_BE =
 		BLOCK_ENTITY_TYPES.register("fire_hose",
-			() -> BlockEntityType.Builder.of(FireHoseBlockEntity::new, FIRE_HOSE.get()).build(null));
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createFireHoseBlockEntity, FIRE_HOSE.get()).build(null));
+
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireHoseConnectorBlockEntity>> FIRE_HOSE_CONNECTOR_BE =
+		BLOCK_ENTITY_TYPES.register("fire_hose_connector",
+			() -> BlockEntityType.Builder.of(FireHoseConnectorBlockEntity::new, FIRE_HOSE_CONNECTOR.get()).build(null));
+
+	public static final DeferredHolder<MountedFluidStorageType<?>, SprayDeviceMountedFluidStorageType> SPRAY_DEVICE_MOUNTED_FLUID_STORAGE =
+		MOUNTED_FLUID_STORAGE_TYPES.register("spray_device", SprayDeviceMountedFluidStorageType::new);
+
+	public static final DeferredHolder<MountedFluidStorageType<?>, FireHoseMountedFluidStorageType> FIRE_HOSE_MOUNTED_FLUID_STORAGE =
+		MOUNTED_FLUID_STORAGE_TYPES.register("fire_hose", FireHoseMountedFluidStorageType::new);
 
 
 	public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_MODE_TABS.register("tab",
@@ -169,6 +222,9 @@ public class CreateFireFightingAdd {
 				output.accept(BUCKET_CONTROLLER_ITEM.get());
 				output.accept(WATER_INTAKE_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
+				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
+				output.accept(PIPELINE_TURBINE_ITEM.get());
+				output.accept(FIRE_POLE_ITEM.get());
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
@@ -185,9 +241,9 @@ public class CreateFireFightingAdd {
 		ITEMS.register(modEventBus);
 		CREATIVE_MODE_TABS.register(modEventBus);
 		BLOCK_ENTITY_TYPES.register(modEventBus);
+		MOUNTED_FLUID_STORAGE_TYPES.register(modEventBus);
 
 		NeoForge.EVENT_BUS.register(this);
-		modEventBus.addListener(this::addCreative);
 
 		modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
 		modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
@@ -196,6 +252,34 @@ public class CreateFireFightingAdd {
 	private void commonSetup(final FMLCommonSetupEvent event) {
 		BlockStressValues.IMPACTS.register(HIGH_PRESSURE_PUMP.get(), () -> 8.0);
 		BlockStressValues.IMPACTS.register(WATER_INTAKE.get(), () -> 4.0);
+		BlockStressValues.CAPACITIES.register(PIPELINE_TURBINE.get(), () -> 4.0);
+		event.enqueueWork(CreateFireFightingAdd::registerCreateContraptionCompat);
+		if (ModList.get().isLoaded("sable_schematic_api"))
+			event.enqueueWork(CreateFireFightingAdd::registerSableSchematicCompat);
+	}
+
+	private static void registerCreateContraptionCompat() {
+		MovementBehaviour.REGISTRY.register(CONE_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
+
+		MountedFluidStorageType.REGISTRY.register(CONE_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
+		MountedFluidStorageType.REGISTRY.register(FLAT_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
+		MountedFluidStorageType.REGISTRY.register(BUCKET_CONTROLLER.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
+		MountedFluidStorageType.REGISTRY.register(FIRE_HOSE.get(), FIRE_HOSE_MOUNTED_FLUID_STORAGE.get());
+	}
+
+	private static void registerSableSchematicCompat() {
+		try {
+			Class<?> compat = Class.forName(
+				"com.mikoalopex.createfirefightingadd.integration.sableschematic.SableSchematicCompat",
+				true,
+				CreateFireFightingAdd.class.getClassLoader());
+			compat.getMethod("register").invoke(null);
+		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
+			CreateFireFightingAdd.LOGGER.warn("Sable Blueprint compatibility could not be registered.", e);
+		}
 	}
 
 
@@ -232,11 +316,6 @@ public class CreateFireFightingAdd {
 		);
 	}
 
-	private void addCreative(BuildCreativeModeTabContentsEvent event) {
-		if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS)
-			event.accept(HIGH_PRESSURE_PUMP_ITEM);
-	}
-
 	@SubscribeEvent
 	public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
 		if (event.getLevel().isClientSide()) return;
@@ -263,6 +342,10 @@ public class CreateFireFightingAdd {
 				.factory(SingleAxisRotatingVisual.of(PartialModels.HIGH_PRESSURE_PUMP_COG))
 				.apply();
 
+			SimpleBlockEntityVisualizer.builder(PIPELINE_TURBINE_BE.get())
+				.factory(SingleAxisRotatingVisual::shaft)
+				.apply();
+
 			ItemBlockRenderTypes.setRenderLayer(BUCKET_CONTROLLER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(CONE_NOZZLE.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLOW_METER.get(), RenderType.cutout());
@@ -274,6 +357,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());
 			event.registerBlockEntityRenderer(WATER_INTAKE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
+			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
 		}
 
@@ -283,6 +367,12 @@ public class CreateFireFightingAdd {
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 			}
+		}
+
+		@SubscribeEvent
+		public static void onRenderLevel(net.neoforged.neoforge.client.event.RenderLevelStageEvent event) {
+			SprayDebugRenderer.renderDynamicSprays(event);
+			FireHoseDynamicRenderer.render(event);
 		}
 
 		@SubscribeEvent

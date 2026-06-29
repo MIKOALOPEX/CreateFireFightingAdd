@@ -11,9 +11,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * FireHose debug monitor. Set {@code ENABLED = false} to disable all logging.
+ * Opt-in diagnostics for fire hose pressure and transfer behaviour.
  */
-public class FireHoseDebugLog {
+final class FireHoseDebugLog {
 
     static final boolean ENABLED = false;
     static final String TAG = "[FH_DBG]";
@@ -24,6 +24,9 @@ public class FireHoseDebugLog {
     private static long lastTickNanos;
     private static double avgTickMs = 50.0;
     private static int tickCount;
+
+    private FireHoseDebugLog() {
+    }
 
     public static void init() {
         if (!ENABLED) return;

@@ -3,6 +3,7 @@ package com.mikoalopex.createfirefightingadd.content.fluids.water_intake;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControllerBlockEntity;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.content.fluids.FluidTransportBehaviour;
@@ -16,10 +17,6 @@ import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.data.Pair;
 import net.createmod.catnip.math.BlockFace;
 
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.schematic.SubLevelSchematicSerializationContext;
-import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
-import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -47,12 +44,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class WaterIntakeBlockEntity extends KineticBlockEntity
-		implements BlockEntitySubLevelActor {
+public class WaterIntakeBlockEntity extends KineticBlockEntity {
 
 	private static final int TANK_CAPACITY = 1000;
 	private static final int CAULDRON_LEVEL_AMOUNT = 333;
 	private static final String TAG_BOUND_BUCKET_POS = "BoundBucketPos";
+	private static final String TAG_BOUND_BUCKET_SUB_LEVEL = "BoundBucketSubLevel";
 
 	private SmartFluidTankBehaviour tank;
 	private BlockPos boundBucketPos;
@@ -128,12 +125,8 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity
 	}
 
 	private void scanForInfiniteWater() {
-		SubLevel mySL = Sable.HELPER.getContaining(this);
-		Level scanLevel = mySL != null ? mySL.getLevel() : level;
-		BlockPos scanCenter = worldPosition;
-		if (mySL != null)
-			scanCenter = BlockPos.containing(
-				mySL.logicalPose().transformPosition(Vec3.atCenterOf(worldPosition)));
+		Level scanLevel = SableStructureCompat.worldLevel(this);
+		BlockPos scanCenter = SableStructureCompat.worldBlockPos(this);
 
 		int range = Config.intakeScanRange;
 		for (BlockPos checkPos : BlockPos.betweenClosed(
@@ -399,8 +392,7 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity
 		if (boundBucketPos == null)
 			return;
 
-		SubLevel mySL = Sable.HELPER.getContaining(this);
-		Level worldLevel = mySL != null ? mySL.getLevel() : level;
+		Level worldLevel = SableStructureCompat.worldLevel(this);
 
 		if (!worldLevel.isLoaded(boundBucketPos)) {
 			return;
@@ -413,10 +405,7 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity
 			return;
 		}
 
-		double distSqr = Sable.HELPER.distanceSquaredWithSubLevels(
-			worldLevel,
-			worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5,
-			boundBucketPos.getX() + 0.5, boundBucketPos.getY() + 0.5, boundBucketPos.getZ() + 0.5);
+		double distSqr = SableStructureCompat.distanceSquared(worldLevel, worldPosition, boundBucketPos);
 		if (distSqr > (double) Config.wirelessMaxBindDistance * Config.wirelessMaxBindDistance) {
 			boundBucketPos = null;
 			setChanged();
@@ -478,34 +467,16 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity
 		if (boundBucketPos == null)
 			return;
 
-		BlockPos pos = transformBoundPosForWrite(boundBucketPos);
-		if (pos != null)
-			tag.putLong(TAG_BOUND_BUCKET_POS, pos.asLong());
+		SableStructureCompat.writeLinkedBlock(tag, TAG_BOUND_BUCKET_POS, TAG_BOUND_BUCKET_SUB_LEVEL,
+			boundBucketPos, null);
 	}
 
 	private void readBoundBucket(CompoundTag tag) {
 		if (!tag.contains(TAG_BOUND_BUCKET_POS))
 			return;
 
-		BlockPos pos = BlockPos.of(tag.getLong(TAG_BOUND_BUCKET_POS));
-		boundBucketPos = transformBoundPosForRead(pos);
-	}
-
-	private static BlockPos transformBoundPosForWrite(BlockPos pos) {
-		SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-		if (ctx == null)
-			return pos;
-		if (ctx.getType() == SubLevelSchematicSerializationContext.Type.PLACE)
-			return ctx.getSetupTransform().apply(pos);
-		if (!ctx.getBoundingBox().contains(pos.getX(), pos.getY(), pos.getZ()))
-			return null;
-		return ctx.getPlaceTransform().apply(pos);
-	}
-
-	private static BlockPos transformBoundPosForRead(BlockPos pos) {
-		SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-		if (ctx == null || ctx.getType() != SubLevelSchematicSerializationContext.Type.PLACE)
-			return pos;
-		return ctx.getPlaceTransform().apply(pos);
+		SableStructureCompat.LinkedBlockRef ref = SableStructureCompat.readLinkedBlock(
+			tag, TAG_BOUND_BUCKET_POS, TAG_BOUND_BUCKET_SUB_LEVEL);
+		boundBucketPos = ref.pos();
 	}
 }

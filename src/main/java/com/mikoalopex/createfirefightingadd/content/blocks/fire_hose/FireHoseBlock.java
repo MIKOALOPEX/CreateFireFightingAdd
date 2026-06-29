@@ -1,15 +1,15 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
+import com.simibubi.create.api.contraption.ContraptionMovementSetting;
 import com.simibubi.create.foundation.block.IBE;
 import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener;
-import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.createmod.catnip.math.VoxelShaper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.item.ItemStack;
@@ -30,7 +30,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 
 public class FireHoseBlock extends WrenchableDirectionalBlock
-        implements IBE<FireHoseBlockEntity>, BlockSubLevelAssemblyListener, IWrenchable {
+        implements IBE<FireHoseBlockEntity>, IWrenchable, ContraptionMovementSetting.MovementSettingProvider {
 
     private static final VoxelShaper SHAPE = VoxelShaper.forDirectional(
             Block.box(3, 0, 3, 13, 4, 13), Direction.UP);
@@ -55,6 +55,11 @@ public class FireHoseBlock extends WrenchableDirectionalBlock
     }
 
     @Override
+    public ContraptionMovementSetting getContraptionMovementSetting() {
+        return ContraptionMovementSetting.MOVABLE;
+    }
+
+    @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         return SHAPE.get(state.getValue(FACING));
     }
@@ -71,6 +76,18 @@ public class FireHoseBlock extends WrenchableDirectionalBlock
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state,
             Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hit) {
+        if (stack.is(Items.SHEARS)) {
+            if (level.isClientSide())
+                return ItemInteractionResult.SUCCESS;
+            if (level.getBlockEntity(pos) instanceof FireHoseBlockEntity hose) {
+                boolean hadConnection = hose.getFireHosePartnerPos() != null;
+                FireHoseConnections.disconnect(hose);
+                if (hadConnection)
+                    level.playSound(null, pos, SoundEvents.SHEEP_SHEAR, SoundSource.BLOCKS, 1.0F, 1.0F);
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         Boolean black = null;
         if (stack.is(Items.BLACK_DYE))
             black = true;
@@ -88,26 +105,6 @@ public class FireHoseBlock extends WrenchableDirectionalBlock
         if (changed && !player.getAbilities().instabuild)
             stack.shrink(1);
         return ItemInteractionResult.SUCCESS;
-    }
-
-    @Override
-    public void beforeMove(ServerLevel originLevel, ServerLevel newLevel, BlockState newState,
-                            BlockPos oldPos, BlockPos newPos) {
-        if (newLevel.getBlockEntity(oldPos) instanceof FireHoseBlockEntity hose) {
-            hose.assembling = true;
-        }
-    }
-
-    @Override
-    public void afterMove(ServerLevel oldLevel, ServerLevel newLevel, BlockState state,
-                           BlockPos oldPos, BlockPos newPos) {
-        if (newLevel.getBlockEntity(newPos) instanceof FireHoseBlockEntity hose) {
-            FireHoseBlockEntity partner = hose.getPairedHose();
-            if (partner != null) {
-                SubLevel subLevel = Sable.HELPER.getContaining(newLevel, newPos);
-                partner.setPartnerPos(newPos, subLevel != null ? subLevel.getUniqueId() : null);
-            }
-        }
     }
 
     @Override

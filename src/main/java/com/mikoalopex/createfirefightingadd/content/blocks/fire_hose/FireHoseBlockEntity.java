@@ -12,7 +12,9 @@ import java.util.UUID;
 
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseConnectionAccess;
+import com.mikoalopex.createfirefightingadd.content.fluids.SafeFluidStacks;
 import com.mikoalopex.createfirefightingadd.content.kinetics.pump.FireFightingPumpPressureProvider;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.content.fluids.FluidTransportBehaviour;
 import com.simibubi.create.content.fluids.PipeConnection;
@@ -21,14 +23,6 @@ import com.simibubi.create.content.fluids.pump.PumpBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
-import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
-import dev.ryanhcode.sable.api.schematic.SubLevelSchematicSerializationContext;
-import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
-import dev.ryanhcode.sable.companion.math.JOMLConversion;
-import dev.ryanhcode.sable.sublevel.ServerSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.data.Couple;
@@ -58,13 +52,17 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
-public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntitySubLevelActor, FireHoseConnectionAccess {
+public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseConnectionAccess {
 
     private static final double TIME_TO_SNAP = 3.0;
     private static final String TAG_CONTROLLER = "Controller";
     private static final String TAG_BLACK_HOSE = "BlackHose";
+    private static final String TAG_ENDPOINT_ID = "EndpointId";
     private static final String TAG_PARTNER_POS = "PartnerPos";
     private static final String TAG_PARTNER_SUB_LEVEL = "PartnerSubLevel";
+    private static final String TAG_PARTNER_ENDPOINT_ID = "PartnerEndpointId";
+    private static final String TAG_PARTNER_MOVING = "PartnerMoving";
+    private static final int MOVING_PARTNER_LEASE_TICKS = 8;
 
     // Rendering
     protected LerpedFloat renderLength = LerpedFloat.linear();
@@ -72,9 +70,16 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     // Partner
     protected boolean isController;
     protected boolean assembling;
+    private UUID endpointId = UUID.randomUUID();
     protected BlockPos partnerPos;
     @Nullable
     private UUID partnerSubLevel;
+    @Nullable
+    private UUID partnerEndpointId;
+    private boolean partnerMoving;
+    @Nullable
+    private UUID movingPartnerRuntimeId;
+    private long movingPartnerLeaseExpiresAt;
     private boolean blackHose;
     private float ticksWithoutPartner;
     private double snappingTime;
@@ -154,10 +159,11 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         Direction facing = state.getValue(FireHoseBlock.FACING);
         Vec3i facingVec = facing.getNormal();
         double scale = 0.5 - 4.0 / 16.0;
-        return JOMLConversion.atCenterOf(this.worldPosition)
-                .sub(facingVec.getX() * scale,
-                     facingVec.getY() * scale,
-                     facingVec.getZ() * scale);
+        Vec3 center = Vec3.atCenterOf(worldPosition);
+        return new Vector3d(
+                center.x - facingVec.getX() * scale,
+                center.y - facingVec.getY() * scale,
+                center.z - facingVec.getZ() * scale);
     }
 
     public double getRenderLength(float pt) {
@@ -179,20 +185,29 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         }
 
         if (partnerPos == null) {
-            level.destroyBlock(worldPosition, false);
+            updateDisconnectedEndpoint();
             return;
         }
 
         if (level.isLoaded(partnerPos)) {
-            if (getPairedHose() == null) {
-                ticksWithoutPartner++;
-                if (ticksWithoutPartner > 20) {
-                    level.destroyBlock(worldPosition, false);
-                    return;
+            if (getPairedHose() == null && !FireHoseMovingEndpoints.isMovingPartner(level, partnerPos, this)) {
+                if (isWaitingForMovingPartner()) {
+                    ticksWithoutPartner = 0;
+                } else {
+                    ticksWithoutPartner++;
+                    if (ticksWithoutPartner > 20) {
+                        FireHoseConnections.disconnect(this);
+                        return;
+                    }
                 }
             } else {
                 ticksWithoutPartner = 0;
             }
+        }
+
+        if (isWaitingForMovingPartner()) {
+            snappingTime = 0;
+            return;
         }
 
         double distance = getHoseDistance();
@@ -203,7 +218,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             snappingTime = 0;
         }
         if (snappingTime > TIME_TO_SNAP) {
-            level.destroyBlock(worldPosition, false);
+            FireHoseConnections.disconnect(this);
             return;
         }
 
@@ -299,6 +314,19 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
             return;
         topologyRefreshTimer = Config.hoseTopologyRefreshInterval;
         cacheValid = false;
+    }
+
+    private void updateDisconnectedEndpoint() {
+        ticksWithoutPartner = 0;
+        snappingTime = 0;
+        pumpSide = PUMP_SIDE_NONE;
+        pumpDistance = Integer.MAX_VALUE;
+        pumpPushesTowardHose = false;
+        pumpSpeed = 0;
+        pumpSourceKind = SOURCE_NONE;
+        pumpRange = 0;
+        lastDriveBackPressure = false;
+        invalidateFluidTopology(false);
     }
 
     // Pump detection
@@ -1001,63 +1029,74 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
         return atLeastOneBranchSuccessful;
     }
 
-    // Sable integration
-
-    @Override
-    public void sable$physicsTick(ServerSubLevel subLevel, RigidBodyHandle handle, double timeStep) {
-    }
-
-    @Override
-    @Nullable
-    public Iterable<@NotNull SubLevel> sable$getConnectionDependencies() {
-        if (partnerSubLevel != null && level != null) {
-            SubLevel subLevel = SubLevelContainer.getContainer(level).getSubLevel(partnerSubLevel);
-            if (subLevel != null)
-                return List.of(subLevel);
-        }
-        return List.of();
-    }
-
     // Lifecycle
 
     @Override
     public void remove() {
         BlockPos wasPartner = partnerPos;
-        boolean wasController = isController;
         partnerPos = null;
-        if (!level.isClientSide && wasPartner != null && !assembling) {
-            BlockEntity be = level.getBlockEntity(wasPartner);
-            if (be instanceof FireHoseBlockEntity partnerBe) {
-                partnerBe.partnerPos = null;
+        partnerSubLevel = null;
+        if (!level.isClientSide && !assembling) {
+            FireHoseMovingEndpoints.disconnectAttachedTo(level, worldPosition);
+            if (wasPartner != null) {
+                BlockEntity be = level.getBlockEntity(wasPartner);
+                if (be instanceof FireHoseBlockEntity partnerBe && isConnectedTo(partnerBe))
+                    partnerBe.clearFireHoseConnection();
+                else
+                    FireHoseMovingEndpoints.disconnect(level, wasPartner, worldPosition);
             }
-            BlockPos dropPos = wasController ? worldPosition : wasPartner;
-            Block.popResource(level, dropPos, new ItemStack(FIRE_HOSE_ITEM.get()));
-            level.destroyBlock(wasPartner, false);
+            Block.popResource(level, worldPosition, new ItemStack(FIRE_HOSE_ITEM.get()));
         }
+    }
+
+    void clearFireHoseConnection() {
+        partnerPos = null;
+        partnerSubLevel = null;
+        partnerEndpointId = null;
+        partnerMoving = false;
+        onFireHoseConnectionChanged();
+    }
+
+    void onFireHoseConnectionChanged() {
+        movingPartnerRuntimeId = null;
+        movingPartnerLeaseExpiresAt = 0;
+        ticksWithoutPartner = 0;
+        snappingTime = 0;
+        markPressureDirty();
+        if (partnerPos != null && partnerEndpointId != null)
+            FireHoseConnectorBlockEntity.refreshAdjacentTo(this);
+        notifyUpdate();
     }
 
     // Distance & rendering
 
     private double getCurrentLength() {
         if (partnerPos == null) return 0;
-        Vec3 center = worldPosition.getCenter();
-        Vec3 partnerCenter = partnerPos.getCenter();
-        SubLevel subLevel = Sable.HELPER.getContaining(this);
-        SubLevel partnerSL = Sable.HELPER.getContaining(level, partnerPos);
-        if (partnerSL != null) {
-            partnerCenter = partnerSL.logicalPose().transformPosition(partnerCenter);
-        }
-        if (subLevel != null) {
-            partnerCenter = subLevel.logicalPose().transformPositionInverse(partnerCenter);
-        }
+        Vec3 movingPartnerCenter = getMovingPartnerWorldCenter();
+        if (movingPartnerCenter != null)
+            return getWorldCenterVec().distanceTo(movingPartnerCenter);
+        Vec3 center = Vec3.atCenterOf(worldPosition);
+        Vec3 partnerCenter = SableStructureCompat.partnerCenterInOwnerSpace(this, partnerPos);
         return center.distanceTo(partnerCenter);
     }
 
     private double getHoseDistance() {
-        return Math.sqrt(Sable.HELPER.distanceSquaredWithSubLevels(
-                level,
-                worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5,
-                partnerPos.getX() + 0.5, partnerPos.getY() + 0.5, partnerPos.getZ() + 0.5));
+        if (partnerPos == null)
+            return 0;
+        Vec3 movingPartnerCenter = getMovingPartnerWorldCenter();
+        if (movingPartnerCenter != null)
+            return getWorldCenterVec().distanceTo(movingPartnerCenter);
+        return SableStructureCompat.distance(level, worldPosition, partnerPos);
+    }
+
+    private boolean isWaitingForMovingPartner() {
+        if (!partnerMoving || partnerPos == null || partnerEndpointId == null || level == null)
+            return false;
+        if (FireHoseMovingEndpoints.isMovingPartner(level, partnerPos, this))
+            return false;
+        if (!level.isLoaded(partnerPos))
+            return true;
+        return !(level.getBlockEntity(partnerPos) instanceof FireHoseBlockEntity);
     }
 
     // Capability
@@ -1071,10 +1110,102 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
     // Public accessors
 
-    public void setPartnerPos(BlockPos pos, @Nullable UUID subLevel) {
+    public void setPartnerPos(@Nullable BlockPos pos, @Nullable UUID subLevel) {
         this.partnerPos = pos;
-        this.partnerSubLevel = subLevel;
-        this.sendData();
+        this.partnerSubLevel = pos == null ? null : subLevel;
+        if (pos == null) {
+            this.partnerEndpointId = null;
+            this.partnerMoving = false;
+        } else {
+            this.partnerMoving = false;
+        }
+        onFireHoseConnectionChanged();
+    }
+
+    boolean acceptMovingPartner(BlockPos originPos, UUID endpointId, UUID runtimeId) {
+        if (partnerPos == null || !partnerPos.equals(originPos))
+            return false;
+        if (partnerEndpointId == null || !partnerEndpointId.equals(endpointId))
+            return false;
+        long now = level == null ? 0 : level.getGameTime();
+        if (movingPartnerRuntimeId == null) {
+            partnerMoving = true;
+            movingPartnerRuntimeId = runtimeId;
+            movingPartnerLeaseExpiresAt = now + MOVING_PARTNER_LEASE_TICKS;
+            return true;
+        }
+        if (movingPartnerRuntimeId.equals(runtimeId)) {
+            partnerMoving = true;
+            movingPartnerLeaseExpiresAt = now + MOVING_PARTNER_LEASE_TICKS;
+            return true;
+        }
+        if (now > movingPartnerLeaseExpiresAt) {
+            partnerMoving = true;
+            movingPartnerRuntimeId = runtimeId;
+            movingPartnerLeaseExpiresAt = now + MOVING_PARTNER_LEASE_TICKS;
+            return true;
+        }
+        return false;
+    }
+
+    boolean isAcceptedMovingPartner(BlockPos originPos, UUID endpointId, UUID runtimeId) {
+        return partnerPos != null
+            && partnerPos.equals(originPos)
+            && endpointId.equals(partnerEndpointId)
+            && runtimeId.equals(movingPartnerRuntimeId);
+    }
+
+    void clearMovingPartnerRuntime(@Nullable UUID runtimeId) {
+        if (runtimeId == null || runtimeId.equals(movingPartnerRuntimeId))
+            movingPartnerRuntimeId = null;
+    }
+
+    @Nullable
+    UUID getMovingPartnerRuntimeId() {
+        return movingPartnerRuntimeId;
+    }
+
+    public void markStructureAssembling() {
+        this.assembling = true;
+    }
+
+    public void updatePartnerEndpoint(BlockPos pos, @Nullable UUID subLevel) {
+        FireHoseBlockEntity partner = getPairedHose();
+        if (partner != null)
+            partner.setPartnerPos(pos, subLevel);
+    }
+
+    public FluidStack getMountedFluidStack() {
+        if (tank == null)
+            return FluidStack.EMPTY;
+        return SafeFluidStacks.copy(tank.getPrimaryHandler().getFluidInTank(0));
+    }
+
+    public void setMountedFluidStack(FluidStack stack) {
+        if (tank == null)
+            return;
+        IFluidHandler handler = tank.getPrimaryHandler();
+        handler.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.EXECUTE);
+        stack = SafeFluidStacks.copy(stack);
+        if (!stack.isEmpty())
+            handler.fill(stack, IFluidHandler.FluidAction.EXECUTE);
+        notifyUpdate();
+    }
+
+    IFluidHandler getSharedFluidHandlerForMovement() {
+        return getSharedTank().getPrimaryHandler();
+    }
+
+    public Direction getFacingDirection() {
+        BlockState state = getBlockState();
+        if (!(state.getBlock() instanceof FireHoseBlock))
+            return Direction.NORTH;
+        return state.getValue(FireHoseBlock.FACING);
+    }
+
+    public Vec3 getWorldCenterVec() {
+        Vector3d center = getCenter();
+        return SableStructureCompat.transformPositionToWorld(this, new Vec3(center.x(), center.y(), center.z()));
     }
 
     @Override
@@ -1090,6 +1221,28 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     }
 
     @Override
+    public UUID getFireHoseEndpointId() {
+        if (endpointId == null)
+            endpointId = UUID.randomUUID();
+        return endpointId;
+    }
+
+    public void setFireHoseEndpointId(UUID endpointId) {
+        this.endpointId = endpointId == null ? UUID.randomUUID() : endpointId;
+    }
+
+    @Override
+    @Nullable
+    public UUID getFireHosePartnerEndpointId() {
+        return partnerEndpointId;
+    }
+
+    @Override
+    public boolean isFireHosePartnerMoving() {
+        return partnerMoving;
+    }
+
+    @Override
     public boolean isFireHoseController() {
         return isController;
     }
@@ -1101,12 +1254,27 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
     @Override
     public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
-                                      @Nullable UUID partnerSubLevel, boolean blackHose) {
+            @Nullable UUID partnerSubLevel, boolean blackHose) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, null, blackHose);
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId, boolean blackHose) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId, false, blackHose);
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId,
+            boolean partnerMoving, boolean blackHose) {
         this.isController = controller;
         this.partnerPos = partnerPos;
-        this.partnerSubLevel = partnerSubLevel;
+        this.partnerSubLevel = partnerPos == null ? null : partnerSubLevel;
+        this.partnerEndpointId = partnerPos == null ? null : partnerEndpointId;
+        this.partnerMoving = partnerPos != null && partnerMoving;
         this.blackHose = blackHose;
-        notifyUpdate();
+        onFireHoseConnectionChanged();
     }
 
     public boolean isController() {
@@ -1150,7 +1318,17 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     public FireHoseBlockEntity getPairedHose() {
         if (partnerPos == null || level == null) return null;
         BlockEntity be = level.getBlockEntity(partnerPos);
-        return be instanceof FireHoseBlockEntity hose ? hose : null;
+        if (!(be instanceof FireHoseBlockEntity hose))
+            return null;
+        return isConnectedTo(hose) ? hose : null;
+    }
+
+    private boolean isConnectedTo(FireHoseBlockEntity hose) {
+        return partnerEndpointId != null
+            && partnerEndpointId.equals(hose.getFireHoseEndpointId())
+            && hose.partnerPos != null
+            && hose.partnerPos.equals(worldPosition)
+            && getFireHoseEndpointId().equals(hose.partnerEndpointId);
     }
 
     private SmartFluidTankBehaviour getSharedTank() {
@@ -1428,20 +1606,21 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     @Override
     public AABB getRenderBoundingBox() {
         FireHoseBlockEntity partner = getPairedHose();
-        if (partner == null)
+        Vec3 movingPartnerCenter = getMovingPartnerWorldCenter();
+        if (partner == null && movingPartnerCenter == null)
             return new AABB(getBlockPos());
+        if (movingPartnerCenter != null)
+            return new AABB(getBlockPos()).inflate(Config.hoseMaxLength * Config.hoseSnapMultiplier + 3.0);
 
-        Vec3 center = getBlockPos().getCenter();
-        Vec3 partnerCenter = partnerPos.getCenter();
-
-        SubLevel subLevel = Sable.HELPER.getContaining(this);
-        SubLevel partnerSL = Sable.HELPER.getContaining(level, partnerPos);
-        if (partnerSL != null)
-            partnerCenter = partnerSL.logicalPose().transformPosition(partnerCenter);
-        if (subLevel != null)
-            partnerCenter = subLevel.logicalPose().transformPositionInverse(partnerCenter);
+        Vec3 center = Vec3.atCenterOf(getBlockPos());
+        Vec3 partnerCenter = SableStructureCompat.partnerCenterInOwnerSpace(this, partnerPos);
 
         return new AABB(center, partnerCenter).inflate(3.0);
+    }
+
+    @Nullable
+    private Vec3 getMovingPartnerWorldCenter() {
+        return FireHoseMovingEndpoints.worldCenter(level, partnerPos, this);
     }
 
     @Nullable
@@ -1471,78 +1650,37 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
     private void writeFireHoseConnectionFields(CompoundTag tag) {
         tag.putBoolean(TAG_CONTROLLER, isController);
         tag.putBoolean(TAG_BLACK_HOSE, blackHose);
+        tag.putUUID(TAG_ENDPOINT_ID, getFireHoseEndpointId());
 
         if (partnerPos == null)
             return;
 
-        SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-
-        if (ctx == null || ctx.getType() == SubLevelSchematicSerializationContext.Type.PLACE) {
-            if (partnerSubLevel != null)
-                tag.putUUID(TAG_PARTNER_SUB_LEVEL, partnerSubLevel);
-
-            BlockPos pos = partnerPos;
-            if (ctx != null && partnerSubLevel == null)
-                pos = ctx.getSetupTransform().apply(pos);
-            tag.putLong(TAG_PARTNER_POS, pos.asLong());
-            return;
-        }
-
-        BlockPos pos = partnerPos;
-        UUID id = partnerSubLevel;
-
-        if (id != null) {
-            SubLevelSchematicSerializationContext.SchematicMapping mapping = ctx.getMapping(id);
-            if (mapping != null) {
-                id = mapping.newUUID();
-                pos = mapping.transform().apply(pos);
-            } else {
-                id = null;
-                pos = null;
-            }
-        } else if (ctx.getBoundingBox().contains(pos.getX(), pos.getY(), pos.getZ())) {
-            pos = ctx.getPlaceTransform().apply(pos);
-        } else {
-            pos = null;
-        }
-
-        if (pos != null)
-            tag.putLong(TAG_PARTNER_POS, pos.asLong());
-        if (id != null)
-            tag.putUUID(TAG_PARTNER_SUB_LEVEL, id);
+        SableStructureCompat.writeLinkedBlock(tag, TAG_PARTNER_POS, TAG_PARTNER_SUB_LEVEL,
+                partnerPos, partnerSubLevel);
+        if (partnerEndpointId != null)
+            tag.putUUID(TAG_PARTNER_ENDPOINT_ID, partnerEndpointId);
+        if (partnerMoving)
+            tag.putBoolean(TAG_PARTNER_MOVING, true);
     }
 
     private void readFireHoseConnectionFields(CompoundTag tag) {
         isController = tag.getBoolean(TAG_CONTROLLER);
         blackHose = tag.getBoolean(TAG_BLACK_HOSE);
+        endpointId = tag.hasUUID(TAG_ENDPOINT_ID) ? tag.getUUID(TAG_ENDPOINT_ID) : UUID.randomUUID();
         partnerPos = null;
         partnerSubLevel = null;
+        partnerEndpointId = null;
+        partnerMoving = false;
+        movingPartnerRuntimeId = null;
+        movingPartnerLeaseExpiresAt = 0;
 
-        SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-        boolean placing = ctx != null && ctx.getType() == SubLevelSchematicSerializationContext.Type.PLACE;
-        SubLevelSchematicSerializationContext.SchematicMapping mapping = null;
-
-        if (tag.hasUUID(TAG_PARTNER_SUB_LEVEL)) {
-            UUID id = tag.getUUID(TAG_PARTNER_SUB_LEVEL);
-            if (placing) {
-                mapping = ctx.getMapping(id);
-                if (mapping == null)
-                    return;
-                id = mapping.newUUID();
-            }
-            partnerSubLevel = id;
-        }
-
-        if (tag.contains(TAG_PARTNER_POS)) {
-            BlockPos pos = BlockPos.of(tag.getLong(TAG_PARTNER_POS));
-            if (placing) {
-                if (mapping != null)
-                    pos = mapping.transform().apply(pos);
-                else
-                    pos = ctx.getPlaceTransform().apply(pos);
-            }
-            partnerPos = pos;
-        }
+        SableStructureCompat.LinkedBlockRef ref = SableStructureCompat.readLinkedBlock(
+                tag, TAG_PARTNER_POS, TAG_PARTNER_SUB_LEVEL);
+        partnerPos = ref.pos();
+        partnerSubLevel = ref.subLevelId();
+        if (partnerPos != null && tag.hasUUID(TAG_PARTNER_ENDPOINT_ID))
+            partnerEndpointId = tag.getUUID(TAG_PARTNER_ENDPOINT_ID);
+        partnerMoving = partnerPos != null && tag.getBoolean(TAG_PARTNER_MOVING);
     }
 
     @Override
@@ -1593,7 +1731,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
         @Override
         public @NotNull FluidStack getFluidInTank(int tank) {
-            return shared().getFluidInTank(tank);
+            return SafeFluidStacks.normalize(shared().getFluidInTank(tank));
         }
 
         @Override
@@ -1608,6 +1746,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
         @Override
         public int fill(FluidStack resource, FluidAction action) {
+            resource = SafeFluidStacks.normalize(resource);
             boolean externalBackInput = side == owner.getBack();
             if (!owner.isPulling() && !externalBackInput)
                 return 0;
@@ -1633,6 +1772,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
 
         @Override
         public @NotNull FluidStack drain(FluidStack resource, FluidAction action) {
+            resource = SafeFluidStacks.normalize(resource);
             boolean externalBackOutput = side == owner.getBack();
             if (!externalBackOutput && (owner.pumpSide == PUMP_SIDE_NONE || owner.isPulling()))
                 return FluidStack.EMPTY;
@@ -1641,7 +1781,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
                 owner.recordExternalInput(resource.getAmount(), false);
             FluidStack drained = shared().drain(resource, action);
             logDrain(drained, action);
-            return drained;
+            return SafeFluidStacks.normalize(drained);
         }
 
         @Override
@@ -1654,7 +1794,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements BlockEntity
                 owner.recordExternalInput(maxDrain, false);
             FluidStack drained = shared().drain(maxDrain, action);
             logDrain(drained, action);
-            return drained;
+            return SafeFluidStacks.normalize(drained);
         }
 
         private void logDrain(FluidStack drained, FluidAction action) {

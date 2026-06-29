@@ -16,20 +16,13 @@ package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.FireHoseRenderTransform;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.math.OrientedBoundingBox3d;
-import dev.ryanhcode.sable.api.sublevel.ClientSubLevelContainer;
-import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
-import dev.ryanhcode.sable.companion.math.JOMLConversion;
-import dev.ryanhcode.sable.companion.math.Pose3dc;
-import dev.ryanhcode.sable.sublevel.ClientSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
-import dev.simulated_team.simulated.util.SimMathUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -38,6 +31,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
@@ -55,6 +49,8 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
     private static final float TUBE_WIDTH = 8.0f;
     private static final float TEXTURE_WIDTH = 16.0f;
+    private static final Vector3d ZERO = new Vector3d();
+    private static final Vector3d UP = new Vector3d(0, 1, 0);
 
     private static final RenderType WHITE_HOSE_RENDER_TYPE = createHoseRenderType("fire_hose_tube",
             CreateFireFightingAdd.path("textures/block/fire_hose.png"));
@@ -113,6 +109,24 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         return 0xFFFFFFFF;
     }
 
+    private static Vector3d vector(Vec3i vec) {
+        return new Vector3d(vec.getX(), vec.getY(), vec.getZ());
+    }
+
+    private static Vector3d vector(Vec3 vec) {
+        return new Vector3d(vec.x, vec.y, vec.z);
+    }
+
+    private static Quaterniond rotationBetween(Vector3dc from, Vector3dc to) {
+        Vector3d normalizedFrom = new Vector3d(from);
+        Vector3d normalizedTo = new Vector3d(to);
+        if (normalizedFrom.lengthSquared() < 1e-8 || normalizedTo.lengthSquared() < 1e-8)
+            return new Quaterniond();
+        normalizedFrom.normalize();
+        normalizedTo.normalize();
+        return new Quaterniond().rotationTo(normalizedFrom, normalizedTo);
+    }
+
     @Override
     protected void renderSafe(FireHoseBlockEntity be, float partialTicks, PoseStack ps,
                                MultiBufferSource bufferSource, int light, int overlay) {
@@ -131,13 +145,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
         ps.pushPose();
 
-        ClientSubLevelContainer container = SubLevelContainer.getContainer(minecraft.level);
-        assert container != null;
-
         UUID otherSubLevelID = be.getPartnerSubLevelID();
-        ClientSubLevel otherSubLevel = otherSubLevelID != null
-                ? (ClientSubLevel) container.getSubLevel(otherSubLevelID) : null;
-        ClientSubLevel subLevel = Sable.HELPER.getContainingClient(be);
 
         BlockPos blockPos = be.getBlockPos();
         Vector3dc center = be.getCenter();
@@ -145,39 +153,31 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
         Direction facing = be.getBlockState().getValue(FireHoseBlock.FACING);
         Direction otherFacing = other.getBlockState().getValue(FireHoseBlock.FACING);
-        Vector3dc normalA = JOMLConversion.atLowerCornerOf(facing.getNormal());
-        Vector3d normalB = JOMLConversion.atLowerCornerOf(otherFacing.getNormal());
+        Vector3dc normalA = vector(facing.getNormal());
+        Vector3d normalB = vector(otherFacing.getNormal());
 
         ps.translate(center.x() - blockPos.getX(), center.y() - blockPos.getY(),
                 center.z() - blockPos.getZ());
 
         double PI2 = java.lang.Math.PI / 2.0;
         double PI4 = PI2 / 2.0;
-        Pose3dc renderPose = subLevel != null ? subLevel.renderPose() : null;
-        Pose3dc otherRenderPose = otherSubLevel != null ? otherSubLevel.renderPose() : null;
-
-        if (otherRenderPose != null) {
-            otherRenderPose.transformNormal(normalB);
-            otherRenderPose.transformPosition(otherCenter);
-        }
-        if (renderPose != null) {
-            renderPose.transformNormalInverse(normalB);
-            renderPose.transformPositionInverse(otherCenter);
-        }
+        FireHoseRenderTransform transform = SableStructureClientCompat.transformFireHoseTarget(
+                be, otherSubLevelID, otherCenter, normalB);
+        otherCenter = transform.partnerCenter();
+        normalB = transform.partnerNormal();
 
         int color = getStressColor(be, partialTicks, otherCenter, center);
 
         double splineDistance = center.distance(otherCenter);
         List<SplinePoint> splinePoints = generateSpline(
-                JOMLConversion.ZERO,
+                ZERO,
                 otherCenter.sub(center, new Vector3d()),
                 normalA, normalB,
                 splineDistance / 5.0 + 0.25);
 
         int totalPoints = splinePoints.size();
         Vector3d pointNormal = new Vector3d();
-        Vector3d startUpDir = JOMLConversion.toJOML(getUpDirection(be,
-                otherCenter.sub(center, new Vector3d())));
+        Vector3d startUpDir = vector(getUpDirection(be, otherCenter.sub(center, new Vector3d())));
 
         pointNormal.set(splinePoints.getFirst().normal);
 
@@ -190,15 +190,12 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
             SplinePoint point = splinePoints.get(i);
             SplinePoint nextPoint = splinePoints.get(i + 1);
             totalSpringLength += point.point.distance(nextPoint.point);
-            matrix.rotateLocal(
-                    SimMathUtils.getQuaternionfFromVectorRotation(point.normal, nextPoint.normal));
+            matrix.rotateLocal(rotationBetween(point.normal, nextPoint.normal));
         }
 
         Quaterniond orientation = new Quaterniond();
-        Quaterniondc orientation1 = renderPose != null
-                ? renderPose.orientation() : JOMLConversion.QUAT_IDENTITY;
-        Quaterniondc orientation2 = otherRenderPose != null
-                ? otherRenderPose.orientation() : JOMLConversion.QUAT_IDENTITY;
+        Quaterniondc orientation1 = transform.ownerOrientation();
+        Quaterniondc orientation2 = transform.partnerOrientation();
 
         Quaterniond blockOrientation1 = new Quaterniond(facing.getRotation());
         Quaterniond blockOrientation2 = new Quaterniond(otherFacing.getRotation());
@@ -210,12 +207,12 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         orientation.mul(new Quaterniond(relativeBlockOrientation));
         orientation.mul(matrix.getNormalizedRotation(new Quaterniond()));
 
-        if (java.lang.Math.abs(OrientedBoundingBox3d.UP.dot(
+        if (java.lang.Math.abs(UP.dot(
                 new Vector3d(orientation.x(), orientation.y(), orientation.z()))) < 1e-5) {
             orientation.rotateLocalX(java.lang.Math.PI);
         }
 
-        double d = OrientedBoundingBox3d.UP.dot(
+        double d = UP.dot(
                 new Vector3d(orientation.x(), orientation.y(), orientation.z()));
         double deg = 2.0 * java.lang.Math.atan2(-d, orientation.w());
         double twist = java.lang.Math.floor((deg + PI4) / PI2) * PI2 - deg;
@@ -232,8 +229,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
             Vector3dc upDir = matrix.getColumn(0, new Vector3d());
 
-            matrix.rotateLocal(
-                    SimMathUtils.getQuaternionfFromVectorRotation(point.normal, nextPoint.normal));
+            matrix.rotateLocal(rotationBetween(point.normal, nextPoint.normal));
             matrix.rotateY(-twist / (totalPoints - 1));
 
             Vector3dc nextUpDir = matrix.getColumn(0, new Vector3d());

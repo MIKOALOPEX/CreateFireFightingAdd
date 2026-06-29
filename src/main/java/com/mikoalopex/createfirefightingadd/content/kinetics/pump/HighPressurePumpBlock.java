@@ -1,12 +1,14 @@
 package com.mikoalopex.createfirefightingadd.content.kinetics.pump;
 
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
-
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
 import com.simibubi.create.content.fluids.pump.PumpBlock;
 
-public class HighPressurePumpBlock extends PumpBlock {
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+
+public class HighPressurePumpBlock extends PumpBlock implements FireFightingWrenchableBlock {
 
 	public HighPressurePumpBlock(Properties properties) {
 		super(properties);
@@ -18,7 +20,7 @@ public class HighPressurePumpBlock extends PumpBlock {
 	}
 
 	@Override
-	public boolean isPathfindable(BlockState state, net.minecraft.world.level.pathfinder.PathComputationType type) {
+	public boolean isPathfindable(BlockState state, PathComputationType type) {
 		return false;
 	}
 }

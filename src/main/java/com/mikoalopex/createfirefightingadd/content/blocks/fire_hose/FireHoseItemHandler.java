@@ -14,9 +14,7 @@
 
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
-import com.mikoalopex.createfirefightingadd.Config;
-import dev.ryanhcode.sable.Sable;
-import dev.simulated_team.simulated.util.click_interactions.InteractCallback;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import net.createmod.catnip.outliner.Outliner;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -29,7 +27,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -40,7 +37,7 @@ import org.lwjgl.glfw.GLFW;
 
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 
-public class FireHoseItemHandler implements InteractCallback {
+public class FireHoseItemHandler {
 
     public static final FireHoseItemHandler INSTANCE = new FireHoseItemHandler();
 
@@ -49,6 +46,7 @@ public class FireHoseItemHandler implements InteractCallback {
 
     public BlockPos linkPos;
     public Direction linkDirection;
+    private boolean placedEndpointThisSession;
     private int placementCooldown;
 
     public boolean tryStartPlacement(UseOnContext context) {
@@ -64,32 +62,41 @@ public class FireHoseItemHandler implements InteractCallback {
         if (this.linkPos != null)
             return false;
 
+        if (level.getBlockEntity(pos) instanceof FireHoseBlockEntity) {
+            selectEndpoint(level, pos);
+            return true;
+        }
+
         if (!testPlacementAndSendError(level, relative, pos, dir))
             return false;
 
-        this.linkPos = pos;
+        PacketDistributor.sendToServer(PlaceFireHosePacket.placeEndpoint(pos, dir, context.getHand()));
+        this.linkPos = relative;
         this.linkDirection = dir;
+        this.placedEndpointThisSession = true;
+        this.placementCooldown = 2;
         return true;
     }
 
-    @Override
-    public Result onUse(int modifiers, int action, KeyMapping rightKey) {
+    public boolean onUse(int modifiers, int action, KeyMapping rightKey) {
+        if (placementCooldown > 0)
+            return false;
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) return Result.empty();
+        if (player == null) return false;
         Level level = player.level();
 
         if (action == GLFW.GLFW_PRESS) {
             InteractionHand hand = getHandOrNull(player);
             if (hand == null) {
                 reset(true);
-                return Result.empty();
+                return false;
             }
 
             if (this.linkPos != null) {
                 if (player.isShiftKeyDown()) {
                     player.swing(hand);
                     reset(true);
-                    return new Result(true);
+                    return true;
                 }
             }
 
@@ -99,40 +106,42 @@ public class FireHoseItemHandler implements InteractCallback {
                     && this.linkPos != null) {
                 Direction dir = hit.getDirection();
                 BlockPos pos = hit.getBlockPos();
+                boolean targetIsEndpoint = level.getBlockEntity(pos) instanceof FireHoseBlockEntity;
 
-                BlockPos childCenter = pos.relative(dir);
-                BlockPos parentCenter = this.linkPos.relative(this.linkDirection);
+                BlockPos childCenter = targetIsEndpoint ? pos : pos.relative(dir);
+                BlockPos parentCenter = this.linkPos;
 
                 if (testExceedsRange(level, childCenter, parentCenter)) {
                     sendMessage("out_of_range", NUH_UH_RED);
-                    return Result.empty();
+                    return false;
                 }
 
                 if (parentCenter.equals(childCenter)) {
                     sendMessage("same_block", NUH_UH_RED);
-                    return Result.empty();
+                    return false;
                 }
 
-                if (!testPlacementAndSendError(level, childCenter, pos, dir))
-                    return Result.empty();
+                if (!targetIsEndpoint && !testPlacementAndSendError(level, childCenter, pos, dir))
+                    return false;
 
                 player.swing(hand);
-                PacketDistributor.sendToServer(new PlaceFireHosePacket(
-                        this.linkPos, pos, this.linkDirection, dir, hand));
+                if (targetIsEndpoint) {
+                    PacketDistributor.sendToServer(PlaceFireHosePacket.connectExisting(
+                            this.linkPos, pos, hand));
+                } else {
+                    PacketDistributor.sendToServer(PlaceFireHosePacket.placeAndConnect(
+                            this.linkPos, pos, dir, hand, !placedEndpointThisSession));
+                }
                 reset(false);
-                return new Result(true);
+                return true;
             }
         }
 
-        return Result.empty();
+        return false;
     }
 
     private boolean testExceedsRange(Level level, BlockPos childPos, BlockPos parentPos) {
-        return Sable.HELPER.distanceSquaredWithSubLevels(
-                level,
-                childPos.getX() + 0.5, childPos.getY() + 0.5, childPos.getZ() + 0.5,
-                parentPos.getX() + 0.5, parentPos.getY() + 0.5, parentPos.getZ() + 0.5)
-                > (long) Config.hoseMaxLength * Config.hoseMaxLength;
+        return !FireHoseConnections.isWithinRange(level, childPos, parentPos);
     }
 
     private boolean testPlacementAndSendError(Level level, BlockPos relative, BlockPos pos, Direction dir) {
@@ -141,6 +150,16 @@ public class FireHoseItemHandler implements InteractCallback {
             return false;
         }
         return true;
+    }
+
+    private void selectEndpoint(Level level, BlockPos pos) {
+        this.linkPos = pos;
+        if (level.getBlockState(pos).getBlock() instanceof FireHoseBlock)
+            this.linkDirection = level.getBlockState(pos).getValue(FireHoseBlock.FACING);
+        else
+            this.linkDirection = Direction.UP;
+        this.placedEndpointThisSession = false;
+        this.placementCooldown = 2;
     }
 
     @Nullable
@@ -161,6 +180,7 @@ public class FireHoseItemHandler implements InteractCallback {
 
         this.linkPos = null;
         this.linkDirection = null;
+        this.placedEndpointThisSession = false;
 
         placementCooldown = 2;
     }
@@ -174,7 +194,6 @@ public class FireHoseItemHandler implements InteractCallback {
         }
     }
 
-    @Override
     public void clientTick(Level level, LocalPlayer player) {
         if (placementCooldown > 0) placementCooldown--;
 
@@ -189,7 +208,7 @@ public class FireHoseItemHandler implements InteractCallback {
                     this.linkDirection.getStepX(),
                     this.linkDirection.getStepY(),
                     this.linkDirection.getStepZ());
-            AABB linkAABB = new AABB(this.linkPos).inflate(-0.3).move(linkVec.scale(0.65));
+            AABB linkAABB = new AABB(this.linkPos).inflate(-0.3).move(linkVec.scale(0.25));
             Outliner.getInstance().showAABB(this.linkPos + "FireHose", linkAABB)
                     .colored(SUCCESS_LIME)
                     .lineWidth(1 / 16f);
@@ -200,22 +219,25 @@ public class FireHoseItemHandler implements InteractCallback {
                     && clientHit instanceof BlockHitResult hit) {
                 BlockPos pos = hit.getBlockPos();
                 Direction dir = hit.getDirection();
+                boolean targetIsEndpoint = level.getBlockEntity(pos) instanceof FireHoseBlockEntity;
 
-                BlockPos childCenter = pos.relative(dir);
-                BlockPos parentCenter = this.linkPos.relative(this.linkDirection);
+                BlockPos childCenter = targetIsEndpoint ? pos : pos.relative(dir);
+                BlockPos parentCenter = this.linkPos;
 
                 int color = SUCCESS_LIME;
-                if (!level.getBlockState(pos.relative(dir)).canBeReplaced()
-                        || this.linkPos.relative(this.linkDirection).equals(pos.relative(dir))
+                if ((!targetIsEndpoint && !level.getBlockState(pos.relative(dir)).canBeReplaced())
+                        || this.linkPos.equals(childCenter)
                         || testExceedsRange(level, childCenter, parentCenter)) {
                     color = NUH_UH_RED;
                 }
 
-                AABB hitAABB = new AABB(pos).inflate(-0.3).move(
-                        new Vec3(dir.getStepX(), dir.getStepY(), dir.getStepZ()).scale(0.65));
+                AABB hitAABB = targetIsEndpoint
+                        ? new AABB(pos).inflate(-0.3)
+                        : new AABB(pos).inflate(-0.3).move(
+                                new Vec3(dir.getStepX(), dir.getStepY(), dir.getStepZ()).scale(0.65));
 
-                Vec3 globalFirstPoint = Sable.HELPER.projectOutOfSubLevel(level, linkAABB.getCenter());
-                Vec3 globalTarget = Sable.HELPER.projectOutOfSubLevel(level, hitAABB.getCenter());
+                Vec3 globalFirstPoint = SableStructureCompat.projectToWorld(level, linkAABB.getCenter());
+                Vec3 globalTarget = SableStructureCompat.projectToWorld(level, hitAABB.getCenter());
 
                 DustParticleOptions data = new DustParticleOptions(
                         new net.createmod.catnip.theme.Color(color).asVectorF(), 1);

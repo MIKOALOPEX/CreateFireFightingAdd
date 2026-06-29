@@ -2,6 +2,7 @@ package com.mikoalopex.createfirefightingadd.integration;
 
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -25,7 +26,7 @@ import snownee.jade.api.config.IPluginConfig;
 public class WaterIntakeJadePlugin implements IWailaPlugin {
 
 	public static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(
-		"CreateFireFightingAdd", "water_intake_fluid");
+		CreateFireFightingAdd.MODID, "water_intake_fluid");
 
 	@Override
 	public void register(IWailaCommonRegistration registration) {

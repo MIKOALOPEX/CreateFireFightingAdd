@@ -53,12 +53,17 @@ public class Config {
 	private static final ModConfigSpec.IntValue HOSE_EXTERNAL_INPUT_MEMORY_TICKS;
 	private static final ModConfigSpec.IntValue HOSE_EXTERNAL_INPUT_OUTPUT_RANGE;
 	private static final ModConfigSpec.DoubleValue HIGH_PRESSURE_PUMP_MULTIPLIER;
+	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_MAX_OUTPUT_SPEED;
+	private static final ModConfigSpec.DoubleValue PIPELINE_TURBINE_STRESS_EFFICIENCY;
+	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_SOURCE_SCAN_RANGE;
 	private static final ModConfigSpec.IntValue NOZZLE_SPRAY_BUILDUP_TICKS;
 	private static final ModConfigSpec.BooleanValue NOZZLE_THRUST_ENABLED;
 	private static final ModConfigSpec.DoubleValue NOZZLE_THRUST_MULTIPLIER;
 	private static final ModConfigSpec.DoubleValue MIST_SPREAD_RADIUS;
 	private static final ModConfigSpec.DoubleValue MIST_TRANSITION_START;
 	private static final ModConfigSpec.IntValue SERVER_PROJECTILES_PER_TICK;
+	private static final ModConfigSpec.IntValue SERVER_MAX_ACTIVE_SPRAY_PROJECTILES;
+	private static final ModConfigSpec.IntValue SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES;
 	private static final ModConfigSpec.IntValue NOZZLE_IGNITION_CHANCE;
 	private static final ModConfigSpec.BooleanValue CDG_IGNITION_ENABLED;
 	private static final ModConfigSpec.DoubleValue FLAME_PROPAGATION_RADIUS;
@@ -193,6 +198,18 @@ public class Config {
 			.defineInRange("amplificationMultiplier", 2.0, 1.0, 16.0);
 		BUILDER.pop();
 
+		BUILDER.push("PipelineTurbine");
+		PIPELINE_TURBINE_MAX_OUTPUT_SPEED = BUILDER
+			.comment("Maximum rotation speed produced by the pipeline turbine after pressure conversion. Default 256; raise this if custom pumps provide higher pressure.")
+			.defineInRange("maxOutputSpeed", 256, 64, Integer.MAX_VALUE);
+		PIPELINE_TURBINE_STRESS_EFFICIENCY = BUILDER
+			.comment("Fraction of the detected pressure source stress cost recovered by the pipeline turbine (0.0-1.0). Default 0.75 prevents stress-positive loops.")
+			.defineInRange("stressEfficiency", 0.75, 0.0, 1.0);
+		PIPELINE_TURBINE_SOURCE_SCAN_RANGE = BUILDER
+			.comment("Maximum pipe distance the pipeline turbine scans to identify the pressure source for stress recovery (4-256).")
+			.defineInRange("sourceScanRange(blocks)", 64, 4, 256);
+		BUILDER.pop();
+
 		BUILDER.push("NozzleFireChance");
 		NOZZLE_IGNITION_CHANCE = BUILDER
 			.comment("Probability (0-100%) per air block per tick that lava/ignited spray places fire (wide cone only; projectile core path is 100%)")
@@ -204,6 +221,12 @@ public class Config {
 		SERVER_PROJECTILES_PER_TICK = BUILDER
 			.comment("Number of projectile entities spawned per tick on the server for game logic (1-10). Lower TPS cost. Visual density comes from client particles")
 			.defineInRange("serverProjectilesPerTick", 1, 1, 10);
+		SERVER_MAX_ACTIVE_SPRAY_PROJECTILES = BUILDER
+			.comment("Soft target for active spray projectiles simulated by all spray devices on the server (64-4096). Above this value, nozzles keep working but create new projectiles more slowly.")
+			.defineInRange("serverMaxActiveSprayProjectiles", 768, 64, 4096);
+		SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES = BUILDER
+			.comment("Absolute cap for active spray projectiles simulated by all spray devices on the server (64-8192). This prevents runaway load if many nozzles are stacked.")
+			.defineInRange("serverHardMaxActiveSprayProjectiles", 1536, 64, 8192);
 		MIST_TRANSITION_START = BUILDER
 			.comment("Fraction of projectile lifetime (0.0-1.0) where the stream begins breaking into mist. 0.6 = mist starts at 60% of max range")
 			.defineInRange("mistTransitionStart", 0.6, 0.0, 1.0);
@@ -273,10 +296,15 @@ public class Config {
 	public static int hoseExternalInputMemoryTicks;
 	public static int hoseExternalInputOutputRange;
 	public static float highPressurePumpMultiplier;
+	public static int pipelineTurbineMaxOutputSpeed;
+	public static float pipelineTurbineStressEfficiency;
+	public static int pipelineTurbineSourceScanRange;
 	public static int nozzleSprayBuildupTicks;
 	public static double mistSpreadRadius;
 	public static double mistTransitionStart;
 	public static int serverProjectilesPerTick;
+	public static int serverMaxActiveSprayProjectiles;
+	public static int serverHardMaxActiveSprayProjectiles;
 	public static int nozzleIgnitionChance;
 	public static boolean nozzleThrustEnabled;
 	public static double nozzleThrustMultiplier;
@@ -326,10 +354,16 @@ public class Config {
 		hoseExternalInputMemoryTicks = HOSE_EXTERNAL_INPUT_MEMORY_TICKS.get();
 		hoseExternalInputOutputRange = HOSE_EXTERNAL_INPUT_OUTPUT_RANGE.get();
 		highPressurePumpMultiplier = HIGH_PRESSURE_PUMP_MULTIPLIER.get().floatValue();
+		pipelineTurbineMaxOutputSpeed = PIPELINE_TURBINE_MAX_OUTPUT_SPEED.get();
+		pipelineTurbineStressEfficiency = PIPELINE_TURBINE_STRESS_EFFICIENCY.get().floatValue();
+		pipelineTurbineSourceScanRange = PIPELINE_TURBINE_SOURCE_SCAN_RANGE.get();
 		nozzleSprayBuildupTicks = NOZZLE_SPRAY_BUILDUP_TICKS.get();
 		mistSpreadRadius = MIST_SPREAD_RADIUS.get();
 		mistTransitionStart = MIST_TRANSITION_START.get();
 		serverProjectilesPerTick = SERVER_PROJECTILES_PER_TICK.get();
+		serverMaxActiveSprayProjectiles = SERVER_MAX_ACTIVE_SPRAY_PROJECTILES.get();
+		serverHardMaxActiveSprayProjectiles = Math.max(serverMaxActiveSprayProjectiles,
+			SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES.get());
 		nozzleIgnitionChance = NOZZLE_IGNITION_CHANCE.get();
 		nozzleThrustEnabled = NOZZLE_THRUST_ENABLED.get();
 		nozzleThrustMultiplier = NOZZLE_THRUST_MULTIPLIER.get();

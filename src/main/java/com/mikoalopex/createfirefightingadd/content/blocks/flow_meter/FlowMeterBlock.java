@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.flow_meter;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.foundation.block.IBE;
 
@@ -27,7 +28,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * In-line pipe segment that monitors fluid pressure and flow rate. Data is
  * viewable through Engineer's Goggles (see {@link FlowMeterBlockEntity}).
  */
-public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity> {
+public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, FireFightingWrenchableBlock {
 
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 

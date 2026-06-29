@@ -1,0 +1,25 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "createfirefightingadd:block/fire_pole"
+      }
+    },
+    {
+      "when": {
+        "top_end": "true"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_pole_end_top"
+      }
+    },
+    {
+      "when": {
+        "bottom_end": "true"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_pole_end_bottom"
+      }
+    }
+  ]
+}

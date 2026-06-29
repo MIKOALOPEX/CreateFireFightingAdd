@@ -4,6 +4,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class FanSprayShape implements SprayShape {
@@ -83,6 +85,49 @@ public class FanSprayShape implements SprayShape {
 	@Override
 	public int getRange() {
 		return range;
+	}
+
+	@Override
+	public boolean containsPoint(Vec3 point, Vec3 streamPos, Vec3 streamDir, double axialDist) {
+		Vec3 offset = point.subtract(streamPos);
+		double along = offset.dot(streamDir);
+		if (along < -1.0)
+			return false;
+		Vec3[] axes = fanAxes(streamDir);
+		double hDist = offset.dot(axes[0]);
+		double vDist = offset.dot(axes[1]);
+		double maxH = axialDist * Math.tan(halfAngleHRad);
+		double maxV = axialDist * Math.tan(halfAngleVRad);
+		if (maxH <= 0.0 || maxV <= 0.0)
+			return false;
+		double hNorm = hDist / maxH;
+		double vNorm = vDist / maxV;
+		return hNorm * hNorm + vNorm * vNorm <= 1.0;
+	}
+
+	@Override
+	public List<Vec3> stratifiedDirections(Vec3 baseDirection, int count, long tick, Random random) {
+		List<Vec3> dirs = new ArrayList<>(count);
+		Vec3[] axes = fanAxes(baseDirection);
+		double tanH = Math.tan(halfAngleHRad);
+		double tanV = Math.tan(halfAngleVRad);
+		double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
+
+		if (count <= 1) {
+			dirs.add(baseDirection);
+			return dirs;
+		}
+
+		dirs.add(baseDirection);
+		for (int i = 1; i < count; i++) {
+			double area = (double) i / count;
+			double r = Math.sqrt(area);
+			double theta = tick * goldenAngle + (2.0 * Math.PI * i) / (count - 1);
+			double h = Math.cos(theta) * r * tanH;
+			double v = Math.sin(theta) * r * tanV;
+			dirs.add(baseDirection.add(axes[0].scale(h)).add(axes[1].scale(v)).normalize());
+		}
+		return dirs;
 	}
 
 	static Vec3[] fanAxes(Vec3 facing) {

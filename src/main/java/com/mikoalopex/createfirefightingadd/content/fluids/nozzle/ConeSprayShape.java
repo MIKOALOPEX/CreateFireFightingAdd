@@ -75,6 +75,17 @@ public class ConeSprayShape implements SprayShape {
 		return range;
 	}
 
+	@Override
+	public boolean containsPoint(Vec3 point, Vec3 streamPos, Vec3 streamDir, double axialDist) {
+		Vec3 offset = point.subtract(streamPos);
+		double along = offset.dot(streamDir);
+		if (along < -1.0)
+			return false;
+		double radialSq = Math.max(0.0, offset.lengthSqr() - along * along);
+		double maxRadius = axialDist * Math.tan(halfAngleRad);
+		return radialSq <= maxRadius * maxRadius;
+	}
+
 	static Vec3[] perpendiculars(Vec3 facing) {
 		Vec3 ref = Math.abs(facing.y) < 0.99 ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
 		Vec3 perp1 = facing.cross(ref).normalize();

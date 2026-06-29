@@ -1,14 +1,13 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
-import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mojang.logging.LogUtils;
-import com.simibubi.create.content.fluids.FluidPropagator;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.sublevel.SubLevel;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -18,7 +17,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -27,28 +25,47 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.slf4j.Logger;
 
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
-public record PlaceFireHosePacket(BlockPos parentPos, BlockPos childPos,
-                                   Direction parentFacing, Direction childFacing,
-                                   InteractionHand hand) implements CustomPacketPayload {
+public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Direction targetFacing,
+                                  InteractionHand hand, int action) implements CustomPacketPayload {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    private static final int PLACE_ENDPOINT = 0;
+    private static final int PLACE_AND_CONNECT_FREE = 1;
+    private static final int PLACE_AND_CONNECT_CONSUME = 2;
+    private static final int CONNECT_EXISTING = 3;
 
     public static final Type<PlaceFireHosePacket> TYPE =
             new Type<>(CreateFireFightingAdd.path("place_fire_hose"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, PlaceFireHosePacket> STREAM_CODEC =
             StreamCodec.composite(
-                    BlockPos.STREAM_CODEC, PlaceFireHosePacket::parentPos,
-                    BlockPos.STREAM_CODEC, PlaceFireHosePacket::childPos,
-                    Direction.STREAM_CODEC, PlaceFireHosePacket::parentFacing,
-                    Direction.STREAM_CODEC, PlaceFireHosePacket::childFacing,
+                    BlockPos.STREAM_CODEC, PlaceFireHosePacket::firstPos,
+                    BlockPos.STREAM_CODEC, PlaceFireHosePacket::targetPos,
+                    Direction.STREAM_CODEC, PlaceFireHosePacket::targetFacing,
                     ByteBufCodecs.VAR_INT.map(i -> InteractionHand.values()[i], InteractionHand::ordinal),
                         PlaceFireHosePacket::hand,
+                    ByteBufCodecs.VAR_INT, PlaceFireHosePacket::action,
                     PlaceFireHosePacket::new
             );
+
+    public static PlaceFireHosePacket placeEndpoint(BlockPos clickedPos, Direction facing, InteractionHand hand) {
+        return new PlaceFireHosePacket(BlockPos.ZERO, clickedPos, facing, hand, PLACE_ENDPOINT);
+    }
+
+    public static PlaceFireHosePacket placeAndConnect(BlockPos firstEndpoint, BlockPos clickedPos,
+                                                      Direction facing, InteractionHand hand,
+                                                      boolean consumeItem) {
+        return new PlaceFireHosePacket(firstEndpoint, clickedPos, facing, hand,
+            consumeItem ? PLACE_AND_CONNECT_CONSUME : PLACE_AND_CONNECT_FREE);
+    }
+
+    public static PlaceFireHosePacket connectExisting(BlockPos firstEndpoint, BlockPos secondEndpoint,
+                                                      InteractionHand hand) {
+        return new PlaceFireHosePacket(firstEndpoint, secondEndpoint, Direction.UP, hand, CONNECT_EXISTING);
+    }
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -64,108 +81,106 @@ public record PlaceFireHosePacket(BlockPos parentPos, BlockPos childPos,
     public static void handle(PlaceFireHosePacket packet, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
         Level level = player.level();
-
-        BlockPos parentRelative = packet.parentPos().relative(packet.parentFacing());
-        BlockPos childRelative = packet.childPos().relative(packet.childFacing());
-
-        FireHoseDebugLog.logRaw("place received parentClick={} parentFacing={} parentPlace={} childClick={} childFacing={} childPlace={} hand={}",
-                packet.parentPos(), packet.parentFacing(), parentRelative,
-                packet.childPos(), packet.childFacing(), childRelative,
-                packet.hand());
-
         ItemStack hose = player.getItemInHand(packet.hand());
-        long maxLen = Config.hoseMaxLength;
-        double distanceSquared = Sable.HELPER.distanceSquaredWithSubLevels(
-                level, parentRelative.getCenter(), childRelative.getCenter());
-
-        FireHoseDebugLog.logRaw("place range distanceSquared={} maxLenSquared={} validItem={}",
-                String.format("%.1f", distanceSquared),
-                (maxLen + 1) * (maxLen + 1),
-                hose.getItem() instanceof FireHoseItem);
-
-        if (!(hose.getItem() instanceof FireHoseItem)
-                || distanceSquared > (maxLen + 1) * (maxLen + 1)) {
-            LOGGER.warn("[FireHosePacket] REJECTED: bad item or out of range");
+        if (!(hose.getItem() instanceof FireHoseItem)) {
+            LOGGER.warn("[FireHosePacket] rejected action {}: player is not holding a fire hose", packet.action());
             return;
         }
 
-        BlockEntity existingParent = level.getBlockEntity(parentRelative);
-        BlockEntity existingChild = level.getBlockEntity(childRelative);
-        if (existingParent instanceof FireHoseBlockEntity) {
-            LOGGER.warn("[FireHosePacket] OLD BE at parent {} will be replaced", parentRelative);
-        }
-        if (existingChild instanceof FireHoseBlockEntity) {
-            LOGGER.warn("[FireHosePacket] OLD BE at child {} will be replaced", childRelative);
-        }
-
-        FireHoseBlockEntity controller = addHose(level, parentRelative, childRelative,
-                packet.parentFacing(), true);
-        FireHoseBlockEntity partner = addHose(level, childRelative, parentRelative,
-                packet.childFacing(), false);
-
-        if (controller == null || partner == null) {
-            LOGGER.error("[FireHosePacket] PLACEMENT FAILED: controller={} partner={} rolling back",
-                    controller != null, partner != null);
-            level.setBlockAndUpdate(parentRelative, Blocks.AIR.defaultBlockState());
-            level.setBlockAndUpdate(childRelative, Blocks.AIR.defaultBlockState());
-            return;
-        }
-
-        FireHoseDebugLog.logRaw("place complete controller={}@{} partner={}@{}",
-                Integer.toHexString(System.identityHashCode(controller)), parentRelative,
-                Integer.toHexString(System.identityHashCode(partner)), childRelative);
-
-        FluidPropagator.propagateChangedPipe(level, parentRelative, level.getBlockState(parentRelative));
-        FluidPropagator.propagateChangedPipe(level, childRelative, level.getBlockState(childRelative));
-        FireHoseDebugLog.logRaw("place propagated changed pipes parent={} child={}", parentRelative, childRelative);
-
-        FireHoseDebugLog.logRaw("place done parent={} child={} distance={}",
-                parentRelative, childRelative, String.format("%.1f", Math.sqrt(distanceSquared)));
-
-        player.awardStat(Stats.ITEM_USED.get(hose.getItem()));
-        if (!player.hasInfiniteMaterials()) {
-            hose.shrink(1);
+        switch (packet.action()) {
+            case PLACE_ENDPOINT -> placeEndpoint(level, player, hose, packet.targetPos(), packet.targetFacing(), true);
+            case PLACE_AND_CONNECT_FREE ->
+                placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing(), false);
+            case PLACE_AND_CONNECT_CONSUME ->
+                placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing(), true);
+            case CONNECT_EXISTING -> connectExisting(level, player, packet.firstPos(), packet.targetPos());
+            default -> LOGGER.warn("[FireHosePacket] rejected unknown action {}", packet.action());
         }
     }
 
-    private static FireHoseBlockEntity addHose(Level level, BlockPos placedPos, BlockPos partnerPos,
-                                                Direction facing, boolean isController) {
+    private static void placeAndConnect(Level level, ServerPlayer player, ItemStack hose,
+                                        BlockPos firstEndpoint, BlockPos clickedPos,
+                                        Direction facing, boolean consumeItem) {
+        if (!(level.getBlockEntity(firstEndpoint) instanceof FireHoseBlockEntity)) {
+            sendMessage(player, "missing_endpoint");
+            return;
+        }
+
+        BlockPos placedPos = clickedPos.relative(facing);
+        FireHoseBlockEntity placed = placeEndpoint(level, player, hose, clickedPos, facing, consumeItem);
+        if (placed == null)
+            return;
+
+        FireHoseConnections.Result result = FireHoseConnections.tryConnect(level, firstEndpoint, placedPos);
+        if (result != FireHoseConnections.Result.SUCCESS)
+            sendConnectionError(player, result);
+    }
+
+    private static void connectExisting(Level level, ServerPlayer player, BlockPos firstEndpoint, BlockPos secondEndpoint) {
+        FireHoseConnections.Result result = FireHoseConnections.tryConnect(level, firstEndpoint, secondEndpoint);
+        if (result == FireHoseConnections.Result.SUCCESS)
+            sendMessage(player, "connected");
+        else
+            sendConnectionError(player, result);
+    }
+
+    private static FireHoseBlockEntity placeEndpoint(Level level, ServerPlayer player, ItemStack hose,
+                                                     BlockPos clickedPos, Direction facing, boolean consumeItem) {
+        BlockPos placedPos = clickedPos.relative(facing);
+        if (!level.getBlockState(placedPos).canBeReplaced()) {
+            sendMessage(player, "block_exists");
+            return null;
+        }
+
+        FireHoseBlockEntity endpoint = addHose(level, placedPos, facing);
+        if (endpoint == null) {
+            level.setBlockAndUpdate(placedPos, Blocks.AIR.defaultBlockState());
+            sendMessage(player, "block_exists");
+            return null;
+        }
+
+        player.awardStat(Stats.ITEM_USED.get(hose.getItem()));
+        if (consumeItem && !player.hasInfiniteMaterials())
+            hose.shrink(1);
+        return endpoint;
+    }
+
+    private static FireHoseBlockEntity addHose(Level level, BlockPos placedPos, Direction facing) {
         BlockState newState = FIRE_HOSE.get().defaultBlockState().setValue(FireHoseBlock.FACING, facing);
 
-        BlockState oldState = level.getBlockState(placedPos);
-        FireHoseDebugLog.logRaw("add hose pos={} facing={} controller={} oldState={}",
-                placedPos, facing, isController, oldState.getBlock());
+        FireHoseDebugLog.logRaw("add hose endpoint pos={} facing={} oldState={}",
+                placedPos, facing, level.getBlockState(placedPos).getBlock());
 
         if (level.setBlockAndUpdate(placedPos, newState)) {
-            FireHoseBlockEntity be = (FireHoseBlockEntity) level.getBlockEntity(placedPos);
-            if (be == null) {
-                LOGGER.error("[FireHosePacket] addHose at {} returned null BE after setBlockAndUpdate", placedPos);
-                return null;
+            if (level.getBlockEntity(placedPos) instanceof FireHoseBlockEntity be) {
+                be.setFireHoseConnection(true, null,
+                    SableStructureCompat.containingSubLevelId(level, placedPos), false);
+                FireHoseConnections.disconnect(be);
+                FireHoseDebugLog.logRaw("add hose endpoint ok pos={} beHash={}",
+                        placedPos, Integer.toHexString(System.identityHashCode(be)));
+                return be;
             }
-            be.setController(isController);
-            SubLevel subLevel = Sable.HELPER.getContaining(level, partnerPos);
-            be.setPartnerPos(partnerPos, subLevel != null ? subLevel.getUniqueId() : null);
-            be.notifyUpdate();
-
-            Direction back = facing.getOpposite();
-            FireHoseDebugLog.logRaw("add hose direction pos={} facing={} back={}", placedPos, facing, back);
-            for (Direction d : Direction.values()) {
-                BlockPos neighbor = placedPos.relative(d);
-                boolean isPipe = FluidPropagator.getPipe(level, neighbor) != null;
-                String label = "";
-                if (d == facing) label = " [FACING front]";
-                else if (d == back) label = " [BACK]";
-                FireHoseDebugLog.logRaw("add hose neighbor {} -> {} pipe={}{}",
-                        d, neighbor, isPipe, label);
-            }
-
-            FireHoseDebugLog.logRaw("add hose ok pos={} beHash={} controller={} partnerPos={}",
-                    placedPos,
-                    Integer.toHexString(System.identityHashCode(be)),
-                    isController, partnerPos);
-            return be;
+            LOGGER.error("[FireHosePacket] addHose at {} returned no fire hose BE", placedPos);
+            return null;
         }
+
         LOGGER.error("[FireHosePacket] addHose FAILED at {} setBlockAndUpdate returned false", placedPos);
         return null;
+    }
+
+    private static void sendConnectionError(ServerPlayer player, FireHoseConnections.Result result) {
+        switch (result) {
+            case SAME_ENDPOINT -> sendMessage(player, "same_block");
+            case OUT_OF_RANGE -> sendMessage(player, "out_of_range");
+            case MISSING_ENDPOINT -> sendMessage(player, "missing_endpoint");
+            default -> {
+            }
+        }
+    }
+
+    private static void sendMessage(ServerPlayer player, String message) {
+        player.displayClientMessage(
+            Component.translatable("createfirefightingadd.fire_hose." + message),
+            true);
     }
 }

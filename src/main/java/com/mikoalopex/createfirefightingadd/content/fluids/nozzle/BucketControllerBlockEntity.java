@@ -4,15 +4,14 @@ import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
+import com.mikoalopex.createfirefightingadd.integration.burnt.BurntCompat;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour;
 
 import net.createmod.catnip.math.VecHelper;
-
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.schematic.SubLevelSchematicSerializationContext;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -50,6 +49,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	private static final int TANK_CAPACITY = 64000;
 	private static final String TAG_BOUND_INTAKE_POS = "BoundIntakePos";
+	private static final String TAG_BOUND_INTAKE_SUB_LEVEL = "BoundIntakeSubLevel";
 
 	private final CylinderSprayShape sprayShape;
 	private ScrollValueBehaviour rangeScroll;
@@ -116,20 +116,14 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 	protected Vec3 getWorldSprayOrigin() {
 		Direction sprayFace = getFacing().getOpposite();
 		Vec3 origin = Vec3.atCenterOf(worldPosition).relative(sprayFace, 0.6);
-		var subLevel = dev.ryanhcode.sable.Sable.HELPER.getContaining(this);
-		if (subLevel != null)
-			return subLevel.logicalPose().transformPosition(origin);
-		return origin;
+		return SableStructureCompat.transformPositionToWorld(this, origin);
 	}
 
 	@Override
 	protected Vec3 getWorldSprayDirection() {
 		Direction sprayFace = getFacing().getOpposite();
 		Vec3 direction = Vec3.atLowerCornerOf(sprayFace.getNormal());
-		var subLevel = dev.ryanhcode.sable.Sable.HELPER.getContaining(this);
-		if (subLevel != null)
-			return subLevel.logicalPose().transformNormal(direction).normalize();
-		return direction;
+		return SableStructureCompat.transformNormalToWorld(this, direction);
 	}
 
 	@Override
@@ -201,20 +195,37 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 					BlockState state = level.getBlockState(pos);
 
-					if (state.isCollisionShapeFullBlock(level, pos) && !canBurn(state)) {
+					if (isBlockingSpray(pos, state) && !BurntCompat.mightHandle(state)) {
 						blockedPositions.add(pos);
 						break;
 					}
 
 					extinguishBlock(pos, state);
+					if (isBlockingSpray(pos, state)) {
+						blockedPositions.add(pos);
+						break;
+					}
 				}
 			}
 		}
 	}
 
+	private boolean isBlockingSpray(BlockPos pos, BlockState state) {
+		return state.isCollisionShapeFullBlock(level, pos) && !canBurn(state);
+	}
+
 	private void extinguishBlock(BlockPos pos, BlockState state) {
+		if (SprayEffectUtils.moistenFarmland(level, pos, state))
+			return;
 		if (tryTfcDouse(level, pos))
 			return;
+		if (BurntCompat.extinguishAt(level, pos, state)) {
+			if (ticksSinceLastExtinguishSound >= EXTINGUISH_SOUND_COOLDOWN) {
+				level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
+				ticksSinceLastExtinguishSound = 0;
+			}
+			return;
+		}
 		if (state.getBlock() instanceof BaseFireBlock) {
 			level.removeBlock(pos, false);
 			if (ticksSinceLastExtinguishSound >= EXTINGUISH_SOUND_COOLDOWN) {
@@ -246,8 +257,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 		if (space < 250)
 			return;
 
-		var mySL = Sable.HELPER.getContaining(this);
-		var worldLevel = mySL != null ? mySL.getLevel() : level;
+		var worldLevel = SableStructureCompat.worldLevel(this);
 
 		if (!worldLevel.isLoaded(boundIntakePos)) {
 			return;
@@ -260,10 +270,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 			return;
 		}
 
-		double distSqr = Sable.HELPER.distanceSquaredWithSubLevels(
-			worldLevel,
-			worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5,
-			boundIntakePos.getX() + 0.5, boundIntakePos.getY() + 0.5, boundIntakePos.getZ() + 0.5);
+		double distSqr = SableStructureCompat.distanceSquared(worldLevel, worldPosition, boundIntakePos);
 		if (distSqr > (double) Config.wirelessMaxBindDistance * Config.wirelessMaxBindDistance) {
 			boundIntakePos = null;
 			setChanged();
@@ -357,35 +364,17 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 		if (boundIntakePos == null)
 			return;
 
-		BlockPos pos = transformBoundPosForWrite(boundIntakePos);
-		if (pos != null)
-			tag.putLong(TAG_BOUND_INTAKE_POS, pos.asLong());
+		SableStructureCompat.writeLinkedBlock(tag, TAG_BOUND_INTAKE_POS, TAG_BOUND_INTAKE_SUB_LEVEL,
+			boundIntakePos, null);
 	}
 
 	private void readBoundIntake(CompoundTag tag) {
 		if (!tag.contains(TAG_BOUND_INTAKE_POS))
 			return;
 
-		BlockPos pos = BlockPos.of(tag.getLong(TAG_BOUND_INTAKE_POS));
-		boundIntakePos = transformBoundPosForRead(pos);
-	}
-
-	private static BlockPos transformBoundPosForWrite(BlockPos pos) {
-		SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-		if (ctx == null)
-			return pos;
-		if (ctx.getType() == SubLevelSchematicSerializationContext.Type.PLACE)
-			return ctx.getSetupTransform().apply(pos);
-		if (!ctx.getBoundingBox().contains(pos.getX(), pos.getY(), pos.getZ()))
-			return null;
-		return ctx.getPlaceTransform().apply(pos);
-	}
-
-	private static BlockPos transformBoundPosForRead(BlockPos pos) {
-		SubLevelSchematicSerializationContext ctx = SubLevelSchematicSerializationContext.getCurrentContext();
-		if (ctx == null || ctx.getType() != SubLevelSchematicSerializationContext.Type.PLACE)
-			return pos;
-		return ctx.getPlaceTransform().apply(pos);
+		SableStructureCompat.LinkedBlockRef ref = SableStructureCompat.readLinkedBlock(
+			tag, TAG_BOUND_INTAKE_POS, TAG_BOUND_INTAKE_SUB_LEVEL);
+		boundIntakePos = ref.pos();
 	}
 
 	@Override

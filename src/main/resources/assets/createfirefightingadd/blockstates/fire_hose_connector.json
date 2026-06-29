@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "axis=x,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
+    "axis=x,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x" },
+    "axis=y,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/y", "y": 90 },
+    "axis=y,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
+    "axis=z,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 },
+    "axis=z,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y", "x": 90 }
+  }
+}

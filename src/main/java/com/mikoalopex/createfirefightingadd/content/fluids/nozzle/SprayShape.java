@@ -43,6 +43,10 @@ public interface SprayShape {
 		return dirs;
 	}
 
+	default boolean containsPoint(Vec3 point, Vec3 streamPos, Vec3 streamDir, double axialDist) {
+		return false;
+	}
+
 	@FunctionalInterface
 	interface PositionAction {
 		void accept(BlockPos pos, int dist, int gridU, int gridV);

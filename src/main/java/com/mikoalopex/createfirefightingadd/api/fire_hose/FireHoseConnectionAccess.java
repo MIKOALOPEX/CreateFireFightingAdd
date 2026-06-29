@@ -25,10 +25,32 @@ public interface FireHoseConnectionAccess {
 	@Nullable
 	UUID getFireHosePartnerSubLevel();
 
+	UUID getFireHoseEndpointId();
+
+	@Nullable
+	UUID getFireHosePartnerEndpointId();
+
+	default boolean isFireHosePartnerMoving() {
+		return false;
+	}
+
 	boolean isFireHoseController();
 
 	boolean isFireHoseBlack();
 
 	void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
-							   @Nullable UUID partnerSubLevel, boolean blackHose);
+			@Nullable UUID partnerSubLevel, boolean blackHose);
+
+	default void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+			@Nullable UUID partnerSubLevel,
+			@Nullable UUID partnerEndpointId, boolean blackHose) {
+		setFireHoseConnection(controller, partnerPos, partnerSubLevel, blackHose);
+	}
+
+	default void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+			@Nullable UUID partnerSubLevel,
+			@Nullable UUID partnerEndpointId,
+			boolean partnerMoving, boolean blackHose) {
+		setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId, blackHose);
+	}
 }

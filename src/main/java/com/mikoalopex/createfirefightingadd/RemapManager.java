@@ -18,7 +18,7 @@ import java.util.function.Function;
  * Reads {@code data/createfirefightingadd/block_remap.json} and registers legacy
  * aliases so old worlds with renamed blocks won't crash on load.
  * <p>
- * Each legacy alias gets its own {@link Block} instance 閳?required by NeoForge's
+ * Each legacy alias gets its own {@link Block} instance, which is required by NeoForge's
  * IntrusiveHolder system. The {@code blockFactory} parameter determines which
  * Java class and properties to use for each replacement name.
  */
@@ -49,7 +49,7 @@ public class RemapManager {
 			RemapManager.class.getResourceAsStream(CONFIG_PATH))) {
 			root = new Gson().fromJson(reader, JsonObject.class);
 		} catch (Exception e) {
-			LOGGER.warn("[CreateFireFightingAdd] block_remap.json not found 閳?no block migrations loaded.");
+			LOGGER.warn("[CreateFireFightingAdd] block_remap.json not found; no block migrations loaded.");
 			return;
 		}
 
@@ -94,12 +94,12 @@ public class RemapManager {
 		return list == null ? List.of() : Collections.unmodifiableList(list);
 	}
 
-	/** All legacy block holders 閳?use in render-layer setup. */
+	/** All legacy block holders used in render-layer setup. */
 	public static Collection<DeferredBlock<?>> getAllLegacyBlocks() {
 		return Collections.unmodifiableList(allLegacyBlocks);
 	}
 
-	/** All legacy item holders 閳?use in creative-tab population. */
+	/** All legacy item holders used in creative-tab population. */
 	public static Collection<DeferredItem<? extends BlockItem>> getAllLegacyItems() {
 		return Collections.unmodifiableList(allLegacyItems);
 	}

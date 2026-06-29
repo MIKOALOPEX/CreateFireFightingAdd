@@ -2,7 +2,9 @@ package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import net.minecraft.world.phys.Vec3;
 
-// Pure-data projectile  - no Entity overhead, no network sync.
+/**
+ * Data-only spray projectile used for collision and effects without Entity overhead.
+ */
 public class LightweightProjectile {
 
 	public Vec3 position;
@@ -43,12 +45,12 @@ public class LightweightProjectile {
 		age++;
 	}
 
-	/** True once past peak and horizontal speed is negligible  - stream has broken into mist. */
+	/** True once past peak and horizontal speed is negligible; the stream has broken into mist. */
 	public boolean hasLostForwardMomentum() {
 		if (age <= 30 || velocity.y >= 0)
 			return false;
 		double hSpeedSq = velocity.x * velocity.x + velocity.z * velocity.z;
-		return hSpeedSq < 0.09; // horizontal speed < 0.3 blk/tick
+		return hSpeedSq < 0.09;
 	}
 
 	public boolean isExpired() {

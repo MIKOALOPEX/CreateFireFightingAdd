@@ -3,8 +3,7 @@ package com.mikoalopex.createfirefightingadd.content.items;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControllerBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
-
-import dev.ryanhcode.sable.Sable;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -83,10 +82,7 @@ public class WaterIntakeBindingItem extends BlockItem {
 			if (tag.contains("BoundIntakePos")) {
 				BlockPos intakePos = BlockPos.of(tag.getLong("BoundIntakePos"));
 				BlockPos placePos = ctx.getClickedPos();
-				double distSqr = Sable.HELPER.distanceSquaredWithSubLevels(
-					ctx.getLevel(),
-					intakePos.getX() + 0.5, intakePos.getY() + 0.5, intakePos.getZ() + 0.5,
-					placePos.getX() + 0.5, placePos.getY() + 0.5, placePos.getZ() + 0.5);
+				double distSqr = SableStructureCompat.distanceSquared(ctx.getLevel(), intakePos, placePos);
 				if (distSqr > (double) Config.wirelessMaxBindDistance
 						* Config.wirelessMaxBindDistance) {
 					if (ctx.getPlayer() != null) {

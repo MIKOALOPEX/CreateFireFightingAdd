@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
 import com.simibubi.create.foundation.block.IBE;
 
 import net.minecraft.core.BlockPos;
@@ -19,7 +20,7 @@ import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class BucketControllerBlock extends Block implements IBE<BucketControllerBlockEntity> {
+public class BucketControllerBlock extends Block implements IBE<BucketControllerBlockEntity>, FireFightingWrenchableBlock {
 
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 

@@ -9,6 +9,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -133,5 +134,64 @@ public class SprayEffectUtils {
 				&& state.getValue(net.minecraft.world.level.block.CampfireBlock.LIT)) {
 			level.setBlock(pos, state.setValue(net.minecraft.world.level.block.CampfireBlock.LIT, false), 3);
 		}
+	}
+
+	public static boolean isConcretePowder(BlockState state) {
+		return hydratedConcrete(state) != null;
+	}
+
+	public static boolean hydrateConcretePowder(Level level, BlockPos pos, BlockState state) {
+		BlockState concrete = hydratedConcrete(state);
+		if (concrete == null)
+			return false;
+		level.setBlock(pos, concrete, 3);
+		return true;
+	}
+
+	public static boolean isDryFarmland(BlockState state) {
+		return state.hasProperty(FarmBlock.MOISTURE) && state.getValue(FarmBlock.MOISTURE) < 7;
+	}
+
+	public static boolean moistenFarmland(Level level, BlockPos pos, BlockState state) {
+		if (!isDryFarmland(state))
+			return false;
+		level.setBlock(pos, state.setValue(FarmBlock.MOISTURE, 7), 3);
+		return true;
+	}
+
+	private static BlockState hydratedConcrete(BlockState state) {
+		if (state.is(Blocks.WHITE_CONCRETE_POWDER))
+			return Blocks.WHITE_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.ORANGE_CONCRETE_POWDER))
+			return Blocks.ORANGE_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.MAGENTA_CONCRETE_POWDER))
+			return Blocks.MAGENTA_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.LIGHT_BLUE_CONCRETE_POWDER))
+			return Blocks.LIGHT_BLUE_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.YELLOW_CONCRETE_POWDER))
+			return Blocks.YELLOW_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.LIME_CONCRETE_POWDER))
+			return Blocks.LIME_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.PINK_CONCRETE_POWDER))
+			return Blocks.PINK_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.GRAY_CONCRETE_POWDER))
+			return Blocks.GRAY_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.LIGHT_GRAY_CONCRETE_POWDER))
+			return Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.CYAN_CONCRETE_POWDER))
+			return Blocks.CYAN_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.PURPLE_CONCRETE_POWDER))
+			return Blocks.PURPLE_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.BLUE_CONCRETE_POWDER))
+			return Blocks.BLUE_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.BROWN_CONCRETE_POWDER))
+			return Blocks.BROWN_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.GREEN_CONCRETE_POWDER))
+			return Blocks.GREEN_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.RED_CONCRETE_POWDER))
+			return Blocks.RED_CONCRETE.defaultBlockState();
+		if (state.is(Blocks.BLACK_CONCRETE_POWDER))
+			return Blocks.BLACK_CONCRETE.defaultBlockState();
+		return null;
 	}
 }

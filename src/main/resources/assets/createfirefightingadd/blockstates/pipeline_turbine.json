@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "pipe_axis=x,shaft_axis=y": { "model": "createfirefightingadd:block/pipeline_turbine/x", "x": 270 },
+    "pipe_axis=x,shaft_axis=z": { "model": "createfirefightingadd:block/pipeline_turbine/x" },
+    "pipe_axis=y,shaft_axis=x": { "model": "createfirefightingadd:block/pipeline_turbine/y", "y": 90 },
+    "pipe_axis=y,shaft_axis=z": { "model": "createfirefightingadd:block/pipeline_turbine/y" },
+    "pipe_axis=z,shaft_axis=x": { "model": "createfirefightingadd:block/pipeline_turbine/x", "y": 90 },
+    "pipe_axis=z,shaft_axis=y": { "model": "createfirefightingadd:block/pipeline_turbine/x", "x": 270, "y": 90 }
+  }
+}

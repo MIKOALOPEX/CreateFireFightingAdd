@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.water_intake;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock;
 import com.simibubi.create.foundation.block.IBE;
 
@@ -30,7 +31,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 public class WaterIntakeBlock extends DirectionalKineticBlock
-		implements IBE<WaterIntakeBlockEntity> {
+		implements IBE<WaterIntakeBlockEntity>, FireFightingWrenchableBlock {
 
 	private static final VoxelShape SHAPE = Shapes.block();
 
