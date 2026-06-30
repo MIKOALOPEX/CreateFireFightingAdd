@@ -18,17 +18,15 @@ import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.FireHoseRenderTransform;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -58,20 +56,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
             CreateFireFightingAdd.path("textures/block/fire_hose_black.png"));
 
     private static RenderType createHoseRenderType(String name, ResourceLocation texture) {
-        return RenderType.create(
-            CreateFireFightingAdd.MODID + ":" + name,
-            DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
-            VertexFormat.Mode.QUADS,
-            RenderType.TRANSIENT_BUFFER_SIZE,
-            false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_TEX_LIGHTMAP_SHADER)
-                    .setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
-                    .setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
-                    .setLightmapState(RenderStateShard.LIGHTMAP)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false)
-        );
+        return RenderType.entityCutoutNoCull(texture);
     }
 
     private final Vector3d controlPointA = new Vector3d();
@@ -83,6 +68,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
     private final Vector3d endUp = new Vector3d();
     private final Vector3d startLeft = new Vector3d();
     private final Vector3d endLeft = new Vector3d();
+    private final Vector3d normalizedNormal = new Vector3d();
     private final Vector3d vertex = new Vector3d();
 
     public FireHoseRenderer(BlockEntityRendererProvider.Context context) {
@@ -321,58 +307,65 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
         float uvScale = 16.0f / textureWidth;
         float uvXOffset = second ? width / textureWidth : 0.0f;
+        Vector3d startDown = startUp.negate(new Vector3d());
+        Vector3d endDown = endUp.negate(new Vector3d());
+        Vector3d startRight = startLeft.negate(new Vector3d());
+        Vector3d endRight = endLeft.negate(new Vector3d());
 
         // Bottom face
         vert(ms, a, startPos.add(startLeft, vertex).sub(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, light);
+                color, 0.0f + uvXOffset, uvStart * uvScale, startDown, light);
         vert(ms, a, endPos.add(endLeft, vertex).sub(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, light);
+                color, 0.0f + uvXOffset, uvEnd * uvScale, endDown, light);
         vert(ms, a, endPos.sub(endLeft, vertex).sub(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, light);
+                color, texW + uvXOffset, uvEnd * uvScale, endDown, light);
         vert(ms, a, startPos.sub(startLeft, vertex).sub(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, light);
+                color, texW + uvXOffset, uvStart * uvScale, startDown, light);
 
         // Top face
         vert(ms, a, startPos.sub(startLeft, vertex).add(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, light);
+                color, 0.0f + uvXOffset, uvStart * uvScale, startUp, light);
         vert(ms, a, endPos.sub(endLeft, vertex).add(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, light);
+                color, 0.0f + uvXOffset, uvEnd * uvScale, endUp, light);
         vert(ms, a, endPos.add(endLeft, vertex).add(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, light);
+                color, texW + uvXOffset, uvEnd * uvScale, endUp, light);
         vert(ms, a, startPos.add(startLeft, vertex).add(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, light);
+                color, texW + uvXOffset, uvStart * uvScale, startUp, light);
 
         // Right side face
         vert(ms, a, startPos.sub(startLeft, vertex).sub(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, light);
+                color, 0.0f + uvXOffset, uvStart * uvScale, startRight, light);
         vert(ms, a, endPos.sub(endLeft, vertex).sub(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, light);
+                color, 0.0f + uvXOffset, uvEnd * uvScale, endRight, light);
         vert(ms, a, endPos.sub(endLeft, vertex).add(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, light);
+                color, texW + uvXOffset, uvEnd * uvScale, endRight, light);
         vert(ms, a, startPos.sub(startLeft, vertex).add(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, light);
+                color, texW + uvXOffset, uvStart * uvScale, startRight, light);
 
         // Left side face
         vert(ms, a, startPos.add(startLeft, vertex).add(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, light);
+                color, 0.0f + uvXOffset, uvStart * uvScale, startLeft, light);
         vert(ms, a, endPos.add(endLeft, vertex).add(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, light);
+                color, 0.0f + uvXOffset, uvEnd * uvScale, endLeft, light);
         vert(ms, a, endPos.add(endLeft, vertex).sub(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, light);
+                color, texW + uvXOffset, uvEnd * uvScale, endLeft, light);
         vert(ms, a, startPos.add(startLeft, vertex).sub(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, light);
+                color, texW + uvXOffset, uvStart * uvScale, startLeft, light);
     }
 
     private void vert(PoseStack ms, VertexConsumer a, Vector3dc pos, int color,
-                       float u, float v, int light) {
+                       float u, float v, Vector3dc normal, int light) {
         float wu = u % 1.0f;
         float wv = v % 1.0f;
         if (wu < 0) wu += 1.0f;
         if (wv < 0) wv += 1.0f;
+        normal.normalize(normalizedNormal);
         a.addVertex(ms.last().pose(), (float) pos.x(), (float) pos.y(), (float) pos.z())
                 .setColor(color)
                 .setUv(wu, wv)
-                .setUv2(light & 0xFFFF, light >> 16);
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(light)
+                .setNormal(ms.last(), (float) normalizedNormal.x(), (float) normalizedNormal.y(), (float) normalizedNormal.z());
     }
 
     @Override

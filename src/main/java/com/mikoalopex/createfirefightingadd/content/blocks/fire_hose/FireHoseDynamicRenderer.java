@@ -6,21 +6,22 @@ import java.util.Map;
 
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
@@ -68,7 +69,7 @@ public final class FireHoseDynamicRenderer {
 		poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 		for (DynamicHose hose : DYNAMIC_HOSES.values()) {
 			VertexConsumer buffer = bufferSource.getBuffer(hose.black() ? BLACK_HOSE_RENDER_TYPE : WHITE_HOSE_RENDER_TYPE);
-			renderHose(poseStack, buffer, hose, 0xF000F0);
+			renderHose(poseStack, buffer, hose, sampleLight(minecraft.level, hose));
 		}
 		poseStack.popPose();
 		bufferSource.endBatch(WHITE_HOSE_RENDER_TYPE);
@@ -76,20 +77,12 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	private static RenderType createHoseRenderType(String name, ResourceLocation texture) {
-		return RenderType.create(
-			CreateFireFightingAdd.MODID + ":" + name,
-			DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
-			VertexFormat.Mode.QUADS,
-			RenderType.TRANSIENT_BUFFER_SIZE,
-			false, false,
-			RenderType.CompositeState.builder()
-				.setShaderState(RenderStateShard.POSITION_COLOR_TEX_LIGHTMAP_SHADER)
-				.setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
-				.setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
-				.setLightmapState(RenderStateShard.LIGHTMAP)
-				.setCullState(RenderStateShard.NO_CULL)
-				.createCompositeState(false)
-		);
+		return RenderType.entityCutoutNoCull(texture);
+	}
+
+	private static int sampleLight(Level level, DynamicHose hose) {
+		Vec3 center = hose.start().add(hose.end()).scale(0.5);
+		return LevelRenderer.getLightColor(level, BlockPos.containing(center));
 	}
 
 	private static void renderHose(PoseStack poseStack, VertexConsumer buffer, DynamicHose hose, int light) {
@@ -249,26 +242,30 @@ public final class FireHoseDynamicRenderer {
 		float texW = TUBE_WIDTH / TEXTURE_WIDTH;
 		float uvScale = 16.0f / TEXTURE_WIDTH;
 		float uvXOffset = second ? TUBE_WIDTH / TEXTURE_WIDTH : 0.0f;
+		Vector3d startDown = startUp.negate(new Vector3d());
+		Vector3d endDown = endUp.negate(new Vector3d());
+		Vector3d startRight = startLeft.negate(new Vector3d());
+		Vector3d endRight = endLeft.negate(new Vector3d());
 
-		quad(poseStack, buffer, color, light,
+		quad(poseStack, buffer, color, startDown, endDown, light,
 			startPos.add(startLeft, new Vector3d()).sub(startUp),
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
 			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
-		quad(poseStack, buffer, color, light,
+		quad(poseStack, buffer, color, startUp, endUp, light,
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			startPos.add(startLeft, new Vector3d()).add(startUp),
 			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
-		quad(poseStack, buffer, color, light,
+		quad(poseStack, buffer, color, startRight, endRight, light,
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
 			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
-		quad(poseStack, buffer, color, light,
+		quad(poseStack, buffer, color, startLeft, endLeft, light,
 			startPos.add(startLeft, new Vector3d()).add(startUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
@@ -276,26 +273,30 @@ public final class FireHoseDynamicRenderer {
 			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
 	}
 
-	private static void quad(PoseStack poseStack, VertexConsumer buffer, int color, int light,
+	private static void quad(PoseStack poseStack, VertexConsumer buffer, int color,
+			Vector3dc startNormal, Vector3dc endNormal, int light,
 			Vector3dc a, Vector3dc b, Vector3dc c, Vector3dc d, float u0, float v0, float u1, float v1) {
-		vert(poseStack, buffer, a, color, u0, v0, light);
-		vert(poseStack, buffer, b, color, u0, v1, light);
-		vert(poseStack, buffer, c, color, u1, v1, light);
-		vert(poseStack, buffer, d, color, u1, v0, light);
+		vert(poseStack, buffer, a, color, u0, v0, startNormal, light);
+		vert(poseStack, buffer, b, color, u0, v1, endNormal, light);
+		vert(poseStack, buffer, c, color, u1, v1, endNormal, light);
+		vert(poseStack, buffer, d, color, u1, v0, startNormal, light);
 	}
 
 	private static void vert(PoseStack poseStack, VertexConsumer buffer, Vector3dc pos, int color,
-			float u, float v, int light) {
+			float u, float v, Vector3dc normal, int light) {
 		float wrappedU = u % 1.0f;
 		float wrappedV = v % 1.0f;
 		if (wrappedU < 0)
 			wrappedU += 1.0f;
 		if (wrappedV < 0)
 			wrappedV += 1.0f;
+		Vector3d normalizedNormal = normal.normalize(new Vector3d());
 		buffer.addVertex(poseStack.last().pose(), (float) pos.x(), (float) pos.y(), (float) pos.z())
 			.setColor(color)
 			.setUv(wrappedU, wrappedV)
-			.setUv2(light & 0xFFFF, light >> 16);
+			.setOverlay(OverlayTexture.NO_OVERLAY)
+			.setLight(light)
+			.setNormal(poseStack.last(), (float) normalizedNormal.x(), (float) normalizedNormal.y(), (float) normalizedNormal.z());
 	}
 
 	private record DynamicHose(Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
