@@ -69,9 +69,10 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
-import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -328,6 +329,11 @@ public class CreateFireFightingAdd {
 
 	@EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
 	public static class ClientModEvents {
+		@SubscribeEvent
+		public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
+			PartialModels.registerAdditional(event);
+		}
+
 		@SubscribeEvent
 		public static void onClientSetup(FMLClientSetupEvent event) {
 			BoundBlockHighlightHandler.init();
