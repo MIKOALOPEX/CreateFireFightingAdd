@@ -59,11 +59,25 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 	@Override
 	public BlockState updateShape(BlockState state, Direction direction, BlockState neighbourState,
 			LevelAccessor world, BlockPos pos, BlockPos neighbourPos) {
+		BlockState normalizedState = normalizeState(state);
+		if (normalizedState != state)
+			return normalizedState;
+
 		if (state.getValue(BlockStateProperties.WATERLOGGED))
 			world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
 		if (direction.getAxis() == pipeAxis(state))
 			world.scheduleTick(pos, this, 1, TickPriority.HIGH);
 		return state;
+	}
+
+	@Override
+	public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+		BlockState normalizedState = normalizeState(state);
+		if (!level.isClientSide && normalizedState != state) {
+			level.setBlock(pos, normalizedState, Block.UPDATE_ALL);
+			return;
+		}
+		super.onPlace(state, level, pos, oldState, movedByPiston);
 	}
 
 	@Override
@@ -76,6 +90,12 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 
 	@Override
 	public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+		BlockState normalizedState = normalizeState(state);
+		if (normalizedState != state) {
+			level.setBlock(pos, normalizedState, Block.UPDATE_ALL);
+			return;
+		}
+
 		FluidPropagator.propagateChangedPipe(level, pos, state);
 		if (level.getBlockEntity(pos) instanceof FireHoseConnectorBlockEntity connector)
 			connector.refreshAttachedEndpoint();
@@ -102,7 +122,9 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 	}
 
 	static Axis redstoneAxis(BlockState state) {
-		return state.getValue(REDSTONE_AXIS);
+		Axis pipeAxis = pipeAxis(state);
+		Axis redstoneAxis = state.getValue(REDSTONE_AXIS);
+		return redstoneAxis == pipeAxis ? firstPerpendicularAxis(pipeAxis) : redstoneAxis;
 	}
 
 	static Axis dialAxis(BlockState state) {
@@ -121,6 +143,14 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 			if (candidate != axis)
 				return candidate;
 		return Axis.Y;
+	}
+
+	private static BlockState normalizeState(BlockState state) {
+		Axis pipeAxis = state.getValue(AXIS);
+		Axis redstoneAxis = state.getValue(REDSTONE_AXIS);
+		return pipeAxis == redstoneAxis
+			? state.setValue(REDSTONE_AXIS, firstPerpendicularAxis(pipeAxis))
+			: state;
 	}
 
 	@Override
@@ -145,12 +175,26 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 		return shapeFor(pipeAxis(state), redstoneAxis(state));
 	}
 
+	@Override
+	protected VoxelShape getBlockSupportShape(BlockState state, net.minecraft.world.level.BlockGetter level,
+			BlockPos pos) {
+		return redstoneSupportShape(redstoneAxis(state));
+	}
+
 	private static VoxelShape shapeFor(Axis pipeAxis, Axis redstoneAxis) {
 		Axis dialAxis = dialAxis(pipeAxis, redstoneAxis);
 		VoxelShape pipe = boxForAxes(pipeAxis, 0, 16, redstoneAxis, 3, 13, dialAxis, 3, 13);
 		VoxelShape center = boxForAxes(pipeAxis, 2, 14, redstoneAxis, 2, 14, dialAxis, 2, 14);
 		VoxelShape redstone = boxForAxes(redstoneAxis, 0, 16, pipeAxis, 4, 12, dialAxis, 4, 12);
 		return Shapes.or(pipe, center, redstone);
+	}
+
+	private static VoxelShape redstoneSupportShape(Axis redstoneAxis) {
+		Axis firstCrossAxis = firstPerpendicularAxis(redstoneAxis);
+		Axis secondCrossAxis = dialAxis(redstoneAxis, firstCrossAxis);
+		VoxelShape negativeFace = boxForAxes(redstoneAxis, 0, 1, firstCrossAxis, 0, 16, secondCrossAxis, 0, 16);
+		VoxelShape positiveFace = boxForAxes(redstoneAxis, 15, 16, firstCrossAxis, 0, 16, secondCrossAxis, 0, 16);
+		return Shapes.or(negativeFace, positiveFace);
 	}
 
 	private static VoxelShape boxForAxes(Axis firstAxis, double firstMin, double firstMax,
