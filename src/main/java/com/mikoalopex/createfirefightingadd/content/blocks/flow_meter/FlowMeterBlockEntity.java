@@ -1,6 +1,8 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.flow_meter;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
@@ -12,6 +14,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -24,6 +27,9 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * Engineer's Goggles via {@link IHaveGoggleInformation}.
  */
 public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggleInformation {
+	private static final Map<Long, DisplayState> CLIENT_DISPLAY_STATES = new ConcurrentHashMap<>();
+	private static final float MIN_VISIBLE_TARGET = 0.01f;
+	private static final int ZERO_TARGET_GRACE_TICKS = 30;
 
 	// Cached monitoring data (written by FlowMeterBehaviour each tick)
 	float cachedInboundPressure;
@@ -33,8 +39,16 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	int cachedPumpSpeed;
 	int cachedPumpDistance = -1;
 
+	float previousDisplayPressure;
+	float displayPressure;
+	float previousDisplayFlow;
+	float displayFlow;
+	float lastNonZeroDisplayPressureTarget;
+	int zeroDisplayTargetGraceTicks;
+
 	private FlowMeterBehaviour meterBehaviour;
 	private int syncTimer;
+	private boolean displayInitialized;
 
 	public FlowMeterBlockEntity(BlockPos pos, BlockState state) {
 		this(CreateFireFightingAdd.FLOW_METER_BE.get(), pos, state);
@@ -111,12 +125,18 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 			cachedFluid = tag.contains("Fluid")
 				? FluidStack.parseOptional(registries, tag.getCompound("Fluid"))
 				: FluidStack.EMPTY;
+			restoreClientDisplayState();
 		}
 	}
 
 	@Override
 	public void tick() {
 		super.tick();
+		if (level != null && level.isClientSide) {
+			tickDisplayAnimation();
+			return;
+		}
+
 		if (level != null && !level.isClientSide) {
 			syncTimer--;
 			if (syncTimer <= 0) {
@@ -124,5 +144,76 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 				syncTimer = 20;
 			}
 		}
+	}
+
+	private void tickDisplayAnimation() {
+		if (!displayInitialized) {
+			previousDisplayPressure = displayPressure = 0;
+			previousDisplayFlow = displayFlow = 0;
+			displayInitialized = true;
+		}
+
+		previousDisplayPressure = displayPressure;
+		previousDisplayFlow = displayFlow;
+
+		float targetPressure = Math.max(cachedOutboundPressure, cachedInboundPressure);
+		targetPressure = resolveDisplayPressureTarget(targetPressure);
+		float targetFlow = targetPressure / 2f;
+		displayPressure = approachDisplayValue(displayPressure, targetPressure);
+		displayFlow = approachDisplayValue(displayFlow, targetFlow);
+		storeClientDisplayState();
+	}
+
+	private float resolveDisplayPressureTarget(float targetPressure) {
+		if (targetPressure > MIN_VISIBLE_TARGET) {
+			lastNonZeroDisplayPressureTarget = targetPressure;
+			zeroDisplayTargetGraceTicks = ZERO_TARGET_GRACE_TICKS;
+			return targetPressure;
+		}
+
+		if (zeroDisplayTargetGraceTicks > 0 && lastNonZeroDisplayPressureTarget > MIN_VISIBLE_TARGET) {
+			zeroDisplayTargetGraceTicks--;
+			return lastNonZeroDisplayPressureTarget;
+		}
+
+		lastNonZeroDisplayPressureTarget = 0;
+		return 0;
+	}
+
+	private static float approachDisplayValue(float current, float target) {
+		if (Math.abs(current - target) < 0.01f)
+			return target;
+		return Mth.lerp(0.25f, current, target);
+	}
+
+	private void restoreClientDisplayState() {
+		DisplayState state = CLIENT_DISPLAY_STATES.get(worldPosition.asLong());
+		if (state == null)
+			return;
+		previousDisplayPressure = state.previousPressure;
+		displayPressure = state.pressure;
+		previousDisplayFlow = state.previousFlow;
+		displayFlow = state.flow;
+		lastNonZeroDisplayPressureTarget = state.lastNonZeroPressureTarget;
+		zeroDisplayTargetGraceTicks = state.zeroGraceTicks;
+		displayInitialized = true;
+	}
+
+	private void storeClientDisplayState() {
+		CLIENT_DISPLAY_STATES.put(worldPosition.asLong(), new DisplayState(
+			previousDisplayPressure,
+			displayPressure,
+			previousDisplayFlow,
+			displayFlow,
+			lastNonZeroDisplayPressureTarget,
+			zeroDisplayTargetGraceTicks));
+	}
+
+	static void clearClientDisplayState(BlockPos pos) {
+		CLIENT_DISPLAY_STATES.remove(pos.asLong());
+	}
+
+	private record DisplayState(float previousPressure, float pressure, float previousFlow, float flow,
+			float lastNonZeroPressureTarget, int zeroGraceTicks) {
 	}
 }

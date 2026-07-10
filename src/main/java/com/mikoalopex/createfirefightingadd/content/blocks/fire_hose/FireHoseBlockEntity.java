@@ -94,6 +94,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private static final int SOURCE_REAL_PUMP = 1;
     private static final int SOURCE_VIRTUAL_HOSE = 2;
     private static final int SOURCE_EXTERNAL_FILL = 3;
+    private static final float PRESSURE_DIRECTION_EPSILON = 0.001f;
 
     private HoseFluidTransferBehaviour hoseTransferBehaviour;
     private float pumpSpeed;
@@ -660,6 +661,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         FluidTransportBehaviour startPipe = FluidPropagator.getPipe(level, startPos);
         if (startPipe == null) return PumpScanResult.none();
 
+        PipePressureInfo requesterPressure = getRequesterSidePressure(startPos, back.getOpposite());
+        PumpScanResult bestPump = PumpScanResult.none();
+
         Queue<Pair<Integer, BlockPos>> frontier = new ArrayDeque<>();
         Set<BlockPos> visited = new HashSet<>();
         Map<BlockPos, BlockPos> parents = new HashMap<>();
@@ -686,15 +690,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
                 return virtualHose;
 
             if (currentBE instanceof PumpBlockEntity pumpBe) {
-                float speed = getPipePressure(parent, towardParent.getOpposite());
-                if (speed <= 0)
-                    speed = getPumpPressureFallback(pumpBe);
-                if (speed <= 0)
-                    return PumpScanResult.none();
-                BlockState pumpState = pumpBe.getBlockState();
-                Direction pumpFacing = pumpState.getValue(PumpBlock.FACING);
-                boolean pushesTowardHose = towardParent == pumpFacing;
-                return PumpScanResult.found(dist, pushesTowardHose, speed, getPumpRangeFallback(pumpBe), SOURCE_REAL_PUMP);
+                PumpScanResult candidate = createPumpScanResult(pumpBe, dist, parent, towardParent, requesterPressure);
+                bestPump = choosePumpCandidate(bestPump, candidate, requesterPressure);
+                continue;
             }
 
             if (dist >= maxSearch) continue;
@@ -709,7 +707,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
                     parents.put(next, pos);
             }
         }
-        return PumpScanResult.none();
+        return bestPump;
     }
 
     private PumpScanResult findVirtualHoseInfo(BlockPos pos, BlockPos parent, int dist) {
@@ -759,15 +757,93 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         return speed;
     }
 
-    private float getPipePressure(BlockPos pipePos, Direction pipeSide) {
+    private PumpScanResult createPumpScanResult(PumpBlockEntity pump, int distance, BlockPos parentPipePos,
+                                                Direction towardRequester, PipePressureInfo requesterPressure) {
+        PipePressureInfo sourcePressure = getSourceSidePressure(parentPipePos, towardRequester.getOpposite());
+        boolean pushesTowardRequester = sourcePressure.directionKnown()
+            ? sourcePressure.pushesTowardRequester()
+            : requesterPressure.directionKnown()
+                ? requesterPressure.pushesTowardRequester()
+                : getPumpFacingPushesTowardRequester(pump, towardRequester);
+
+        float speed = 0;
+        if (requesterPressure.directionKnown()
+            && requesterPressure.pushesTowardRequester() == pushesTowardRequester)
+            speed = requesterPressure.speed();
+        if (speed <= 0)
+            speed = sourcePressure.speed();
+        if (speed <= 0)
+            speed = getPumpPressureFallback(pump);
+        if (speed <= 0)
+            return PumpScanResult.none();
+
+        return PumpScanResult.found(distance, pushesTowardRequester, speed, getPumpRangeFallback(pump), SOURCE_REAL_PUMP);
+    }
+
+    private PumpScanResult choosePumpCandidate(PumpScanResult current, PumpScanResult candidate,
+                                               PipePressureInfo requesterPressure) {
+        if (candidate.distance() == Integer.MAX_VALUE)
+            return current;
+        if (current.distance() == Integer.MAX_VALUE)
+            return candidate;
+
+        if (requesterPressure.directionKnown()) {
+            boolean candidateAligned = candidate.pushesTowardRequester() == requesterPressure.pushesTowardRequester();
+            boolean currentAligned = current.pushesTowardRequester() == requesterPressure.pushesTowardRequester();
+            if (candidateAligned != currentAligned)
+                return candidateAligned ? candidate : current;
+        }
+
+        if (candidate.distance() != current.distance())
+            return candidate.distance() < current.distance() ? candidate : current;
+        if (candidate.speed() != current.speed())
+            return candidate.speed() > current.speed() ? candidate : current;
+        return current;
+    }
+
+    private PipePressureInfo getRequesterSidePressure(BlockPos pipePos, Direction pipeSide) {
+        PipePressureInfo raw = getPipePressureInfo(pipePos, pipeSide);
+        if (!raw.hasPressure())
+            return raw;
+        return raw.withDirection(raw.outwardDominant());
+    }
+
+    private PipePressureInfo getSourceSidePressure(BlockPos pipePos, Direction pipeSide) {
+        PipePressureInfo raw = getPipePressureInfo(pipePos, pipeSide);
+        if (!raw.hasPressure())
+            return raw;
+        return raw.withDirection(raw.inboundDominant());
+    }
+
+    private PipePressureInfo getPipePressureInfo(BlockPos pipePos, Direction pipeSide) {
         FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, pipePos);
         if (pipe == null || pipe.interfaces == null)
-            return 0;
+            return PipePressureInfo.none();
         PipeConnection connection = pipe.interfaces.get(pipeSide);
         if (connection == null || connection.getPressure() == null)
-            return 0;
+            return PipePressureInfo.none();
         Couple<Float> pressure = connection.getPressure();
-        return clampPumpSpeed(Math.max(pressure.getFirst(), pressure.getSecond()));
+        return PipePressureInfo.of(pressure.getFirst(), pressure.getSecond());
+    }
+
+    private static boolean getPumpFacingPushesTowardRequester(PumpBlockEntity pump, Direction towardRequester) {
+        Direction effectiveFront = getEffectivePumpFront(pump);
+        return effectiveFront == towardRequester;
+    }
+
+    private static Direction getEffectivePumpFront(PumpBlockEntity pump) {
+        try {
+            java.lang.reflect.Method method = pump.getClass().getMethod("getEffectiveFront");
+            Object value = method.invoke(pump);
+            if (value instanceof Direction direction)
+                return direction;
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+        }
+
+        BlockState pumpState = pump.getBlockState();
+        if (pumpState.hasProperty(PumpBlock.FACING))
+            return pumpState.getValue(PumpBlock.FACING);
+        return Direction.NORTH;
     }
 
     private static float getPumpPressureFallback(PumpBlockEntity pump) {
@@ -786,6 +862,38 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private static int getPumpSearchRange() {
         int configuredRange = Math.round(FluidPropagator.getPumpRange() * Config.highPressurePumpMultiplier);
         return Math.max(Config.hoseMaxLength, configuredRange);
+    }
+
+    private record PipePressureInfo(float inbound, float outward, boolean directionKnown, boolean pushesTowardRequester) {
+        private static PipePressureInfo none() {
+            return new PipePressureInfo(0, 0, false, false);
+        }
+
+        private static PipePressureInfo of(float inbound, float outward) {
+            return new PipePressureInfo(clampPumpSpeed(inbound), clampPumpSpeed(outward), false, false);
+        }
+
+        private boolean hasPressure() {
+            return inbound > 0 || outward > 0;
+        }
+
+        private float speed() {
+            return clampPumpSpeed(Math.max(inbound, outward));
+        }
+
+        private boolean inboundDominant() {
+            return inbound > outward + PRESSURE_DIRECTION_EPSILON;
+        }
+
+        private boolean outwardDominant() {
+            return outward > inbound + PRESSURE_DIRECTION_EPSILON;
+        }
+
+        private PipePressureInfo withDirection(boolean pushesTowardRequester) {
+            if (!inboundDominant() && !outwardDominant())
+                return new PipePressureInfo(inbound, outward, false, false);
+            return new PipePressureInfo(inbound, outward, true, pushesTowardRequester);
+        }
     }
 
     private record PumpScanResult(int distance, boolean pushesTowardRequester, float speed, int pumpRange, int sourceKind) {
@@ -948,10 +1056,19 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         Direction face = blockFace.getFace();
         Direction accessSide = face.getOpposite();
 
-        if (PumpBlock.isPump(connectedState)
-            && connectedState.getValue(PumpBlock.FACING).getAxis() == face.getAxis()
-            && blockEntity instanceof PumpBlockEntity pumpBE) {
-            boolean pumpFront = pumpBE.getBlockState().getValue(PumpBlock.FACING) == blockFace.getOppositeFace();
+        if (blockEntity instanceof PumpBlockEntity pumpBE) {
+            FluidTransportBehaviour pumpBehaviour = FluidPropagator.getPipe(world, connectedPos);
+            if (pumpBehaviour != null
+                && !pumpBehaviour.canHaveFlowToward(connectedState, blockFace.getOppositeFace()))
+                return false;
+
+            PipePressureInfo pressure = getSourceSidePressure(blockFace.getPos(), face);
+            if (pressure.directionKnown()) {
+                boolean pumpPullsFromPipe = !pressure.pushesTowardRequester();
+                return pumpPullsFromPipe != pull;
+            }
+
+            boolean pumpFront = getEffectivePumpFront(pumpBE) == blockFace.getOppositeFace();
             return pumpBE.isPullingOnSide(pumpFront) != pull;
         }
 
@@ -1100,6 +1217,14 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     // Capability
+    //
+    // Fire hose endpoints intentionally expose fluid access only through the two
+    // directions defined by FireHoseBlock.FACING. This mapping has been verified
+    // in the hose's supported runtime environments, including Create pipe
+    // networks and the mod's own hose transfer logic. External integrations
+    // should treat this block-state facing as the authoritative endpoint axis,
+    // even when the rendered model or placement context appears to suggest a
+    // different visual orientation.
 
     public IFluidHandler getFluidHandler(@Nullable Direction side) {
         Direction facing = getBlockState().getValue(FireHoseBlock.FACING);

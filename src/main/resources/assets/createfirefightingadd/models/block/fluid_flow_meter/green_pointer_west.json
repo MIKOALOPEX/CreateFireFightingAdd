@@ -1,0 +1,45 @@
+{
+	"parent": "block/block",
+	"texture_size": [
+		32,
+		32
+	],
+	"textures": {
+		"0": "createfirefightingadd:block/fluid_flow_meter",
+		"particle": "createfirefightingadd:block/fluid_flow_meter"
+	},
+	"elements": [
+		{
+			"from": [
+				3.7,
+				8.5,
+				7.8
+			],
+			"to": [
+				3.7,
+				9.5,
+				8.2
+			],
+			"rotation": {
+				"angle": 0,
+				"axis": "y",
+				"origin": [
+					3.7,
+					7.5,
+					7.7
+				]
+			},
+			"faces": {
+				"west": {
+					"uv": [
+						0.55,
+						7,
+						0.75,
+						7.5
+					],
+					"texture": "#0"
+				}
+			}
+		}
+	]
+}

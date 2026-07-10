@@ -32,9 +32,9 @@ public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, 
 
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 
-	private static final VoxelShape SHAPE_X = box(0, 3, 3, 16, 13, 13);
-	private static final VoxelShape SHAPE_Y = box(3, 0, 3, 13, 16, 13);
-	private static final VoxelShape SHAPE_Z = box(3, 3, 0, 13, 13, 16);
+	private static final VoxelShape SHAPE_X = box(1, 4, 4, 15, 12, 12);
+	private static final VoxelShape SHAPE_Y = box(4, 1, 4, 12, 15, 12);
+	private static final VoxelShape SHAPE_Z = box(4, 4, 1, 12, 12, 15);
 
 	public FlowMeterBlock(Properties properties) {
 		super(properties);
@@ -81,8 +81,11 @@ public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, 
 	@Override
 	public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
 		IBE.onRemove(state, level, pos, newState);
-		if (!state.is(newState.getBlock()))
+		if (!state.is(newState.getBlock())) {
+			if (level.isClientSide)
+				FlowMeterBlockEntity.clearClientDisplayState(pos);
 			FluidPropagator.propagateChangedPipe(level, pos, state);
+		}
 	}
 
 	@Override

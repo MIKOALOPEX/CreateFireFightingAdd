@@ -1,0 +1,10 @@
+{
+	"variants": {
+		"facing=north": { "model": "createfirefightingadd:block/fluid_flow_meter" },
+		"facing=south": { "model": "createfirefightingadd:block/fluid_flow_meter", "y": 180 },
+		"facing=east":  { "model": "createfirefightingadd:block/fluid_flow_meter", "y": 90 },
+		"facing=west":  { "model": "createfirefightingadd:block/fluid_flow_meter", "y": 270 },
+		"facing=up":    { "model": "createfirefightingadd:block/fluid_flow_meter", "x": 90 },
+		"facing=down":  { "model": "createfirefightingadd:block/fluid_flow_meter", "x": 270 }
+	}
+}

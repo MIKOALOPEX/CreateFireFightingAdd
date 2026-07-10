@@ -1,0 +1,8 @@
+{
+  "pneumatic_hammer_charge": {
+    "subtitle": "subtitles.createfirefightingadd.pneumatic_hammer_charge",
+    "sounds": [
+      "createfirefightingadd:pneumatic_hammer_charge"
+    ]
+  }
+}
