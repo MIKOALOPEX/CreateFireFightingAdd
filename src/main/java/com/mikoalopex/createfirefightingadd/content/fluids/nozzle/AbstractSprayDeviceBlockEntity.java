@@ -1444,7 +1444,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return FluidBehavior.UNSUPPORTED;
 	}
 
-	static boolean isFluidSupportedForSpray(Level level, FluidStack stack) {
+	public static boolean isFluidSupportedForSpray(Level level, FluidStack stack) {
 		return classifyFluidForSpray(level, stack) != FluidBehavior.UNSUPPORTED;
 	}
 

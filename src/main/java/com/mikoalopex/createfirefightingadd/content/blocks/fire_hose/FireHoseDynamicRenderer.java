@@ -86,10 +86,42 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	private static void renderHose(PoseStack poseStack, VertexConsumer buffer, DynamicHose hose, int light) {
-		Vector3d start = vector(hose.start());
-		Vector3d end = vector(hose.end());
-		Vector3d normalA = vector(hose.startFacing().getNormal());
-		Vector3d normalB = vector(hose.endFacing().getNormal());
+		renderSplineHose(poseStack, buffer, hose.start(), hose.end(), hose.startFacing(), hose.endFacing(), light, true);
+	}
+
+	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Direction startFacing, Direction endFacing, int light, boolean applyStressColor) {
+		renderSplineHose(poseStack, buffer, startPos, endPos, startFacing, endFacing, light,
+			applyStressColor, TUBE_WIDTH);
+	}
+
+	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Direction startFacing, Direction endFacing, int light, boolean applyStressColor, float tubeWidth) {
+		renderSplineHose(poseStack, buffer, startPos, endPos,
+			Vec3.atLowerCornerOf(startFacing.getNormal()),
+			Vec3.atLowerCornerOf(endFacing.getNormal()),
+			light, applyStressColor, tubeWidth);
+	}
+
+	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Vec3 startNormal, Vec3 endNormal, int light, boolean applyStressColor, float tubeWidth) {
+		renderSplineHose(poseStack, buffer, startPos, endPos, startNormal, endNormal, light,
+			applyStressColor, tubeWidth, tubeWidth);
+	}
+
+	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Vec3 startNormal, Vec3 endNormal, int light, boolean applyStressColor, float tubeWidth, float uvTubeWidth) {
+		renderSplineHose(poseStack, buffer, startPos, endPos, startNormal, endNormal, null, light,
+			applyStressColor, tubeWidth, uvTubeWidth);
+	}
+
+	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Vec3 startNormal, Vec3 endNormal, Vec3 endUp, int light, boolean applyStressColor,
+			float tubeWidth, float uvTubeWidth) {
+		Vector3d start = vector(startPos);
+		Vector3d end = vector(endPos);
+		Vector3d normalA = vector(startNormal).normalize();
+		Vector3d normalB = vector(endNormal).normalize();
 		double distance = start.distance(end);
 		if (distance < 0.01)
 			return;
@@ -98,8 +130,8 @@ public final class FireHoseDynamicRenderer {
 		if (splinePoints.size() < 2)
 			return;
 
-		int color = stressColor(distance);
-		Matrix3d matrix = initialFrame(hose.startFacing(), end.sub(start, new Vector3d()), splinePoints.get(0).normal());
+		int color = applyStressColor ? stressColor(distance) : 0xFFFFFFFF;
+		Matrix3d matrix = initialFrame(normalA, end.sub(start, new Vector3d()), splinePoints.get(0).normal());
 		double totalLength = 0.0;
 		for (int i = 0; i < splinePoints.size() - 1; i++) {
 			SplinePoint point = splinePoints.get(i);
@@ -111,19 +143,13 @@ public final class FireHoseDynamicRenderer {
 		if (totalLength <= 0)
 			return;
 
-		Quaterniond orientation = matrix.getNormalizedRotation(new Quaterniond());
-		if (Math.abs(UP.dot(new Vector3d(orientation.x(), orientation.y(), orientation.z()))) < 1e-5)
-			orientation.rotateLocalX(Math.PI);
-
-		double halfPi = Math.PI / 2.0;
-		double quarterPi = halfPi / 2.0;
-		double d = UP.dot(new Vector3d(orientation.x(), orientation.y(), orientation.z()));
-		double deg = 2.0 * Math.atan2(-d, orientation.w());
-		double twist = Math.floor((deg + quarterPi) / halfPi) * halfPi - deg;
+		double twist = endUp == null
+			? snappedTwist(matrix)
+			: -signedAngleAround(matrix.getColumn(0, new Vector3d()), vector(endUp), normalB);
 		float uvScale = (float) ((distance - 0.75) / totalLength);
 		double runningLength = 0.0;
 
-		matrix = initialFrame(hose.startFacing(), end.sub(start, new Vector3d()), splinePoints.get(0).normal());
+		matrix = initialFrame(normalA, end.sub(start, new Vector3d()), splinePoints.get(0).normal());
 		for (int i = 0; i < splinePoints.size() - 1; i++) {
 			SplinePoint point = splinePoints.get(i);
 			SplinePoint next = splinePoints.get(i + 1);
@@ -136,20 +162,50 @@ public final class FireHoseDynamicRenderer {
 			renderSegment(poseStack, point.normal(), next.normal(), up, nextUp,
 				point.point(), next.point(), false,
 				(float) runningLength * uvScale, (float) (runningLength + length) * uvScale,
-				light, color, buffer);
+				light, color, buffer, tubeWidth, uvTubeWidth);
 			renderSegment(poseStack, point.normal().negate(new Vector3d()), next.normal().negate(new Vector3d()),
 				up.negate(new Vector3d()), nextUp.negate(new Vector3d()),
 				point.point(), next.point(), true,
 				0.0f - (float) runningLength * uvScale,
 				0.0f - (float) (runningLength + length) * uvScale,
-				light, color, buffer);
+				light, color, buffer, tubeWidth, uvTubeWidth);
 
 			runningLength += length;
 		}
 	}
 
-	private static Matrix3d initialFrame(Direction facing, Vector3dc directionToHose, Vector3dc firstNormal) {
-		Vector3d up = vector(getUpDirection(facing, directionToHose));
+	private static double snappedTwist(Matrix3d matrix) {
+		Quaterniond orientation = matrix.getNormalizedRotation(new Quaterniond());
+		if (Math.abs(UP.dot(new Vector3d(orientation.x(), orientation.y(), orientation.z()))) < 1e-5)
+			orientation.rotateLocalX(Math.PI);
+
+		double halfPi = Math.PI / 2.0;
+		double quarterPi = halfPi / 2.0;
+		double d = UP.dot(new Vector3d(orientation.x(), orientation.y(), orientation.z()));
+		double deg = 2.0 * Math.atan2(-d, orientation.w());
+		return Math.floor((deg + quarterPi) / halfPi) * halfPi - deg;
+	}
+
+	private static double signedAngleAround(Vector3dc from, Vector3dc to, Vector3dc axis) {
+		Vector3d normalizedAxis = new Vector3d(axis).normalize();
+		Vector3d projectedFrom = projectOntoPlane(from, normalizedAxis);
+		Vector3d projectedTo = projectOntoPlane(to, normalizedAxis);
+		if (projectedFrom.lengthSquared() < 1e-8 || projectedTo.lengthSquared() < 1e-8)
+			return 0.0;
+
+		projectedFrom.normalize();
+		projectedTo.normalize();
+		double sin = normalizedAxis.dot(projectedFrom.cross(projectedTo, new Vector3d()));
+		double cos = projectedFrom.dot(projectedTo);
+		return Math.atan2(sin, cos);
+	}
+
+	private static Vector3d projectOntoPlane(Vector3dc vector, Vector3dc normal) {
+		return new Vector3d(vector).sub(new Vector3d(normal).mul(vector.dot(normal)));
+	}
+
+	private static Matrix3d initialFrame(Vector3dc facingNormal, Vector3dc directionToHose, Vector3dc firstNormal) {
+		Vector3d up = vector(getUpDirection(facingNormal, directionToHose));
 		return new Matrix3d(up, firstNormal, up.cross(firstNormal, new Vector3d()));
 	}
 
@@ -187,14 +243,17 @@ public final class FireHoseDynamicRenderer {
 		return new Quaterniond().rotationTo(normalizedFrom, normalizedTo);
 	}
 
-	private static Vec3 getUpDirection(Direction facing, Vector3dc directionToHose) {
-		Vec3 normal = Vec3.atLowerCornerOf(facing.getNormal());
-		double dot = directionToHose.dot(normal.x, normal.y, normal.z);
-		Vector3d dir = directionToHose.sub(normal.x * dot, normal.y * dot, normal.z * dot, new Vector3d());
+	private static Vec3 getUpDirection(Vector3dc facingNormal, Vector3dc directionToHose) {
+		Vector3d normal = new Vector3d(facingNormal).normalize();
+		double dot = directionToHose.dot(normal);
+		Vector3d dir = directionToHose.sub(normal.mul(dot, new Vector3d()), new Vector3d());
 
-		if (dir.lengthSquared() < 1e-6)
-			return facing.getAxis().isHorizontal() ? new Vec3(0, 1, 0) : new Vec3(0, 0, -1);
-		return Vec3.atLowerCornerOf(Direction.getNearest(dir.x, dir.y, dir.z).getOpposite().getNormal());
+		if (dir.lengthSquared() < 1e-6) {
+			Vector3d fallback = Math.abs(normal.y()) > 0.9 ? new Vector3d(0, 0, -1) : new Vector3d(0, 1, 0);
+			dir = fallback.sub(normal.mul(fallback.dot(normal), new Vector3d()), new Vector3d());
+		}
+		dir.normalize().negate();
+		return new Vec3(dir.x, dir.y, dir.z);
 	}
 
 	private static List<SplinePoint> generateSpline(Vector3dc pointA, Vector3dc pointB,
@@ -230,18 +289,18 @@ public final class FireHoseDynamicRenderer {
 
 	private static void renderSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
 			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos, boolean second,
-			float uvStart, float uvEnd, int light, int color, VertexConsumer buffer) {
+			float uvStart, float uvEnd, int light, int color, VertexConsumer buffer, float tubeWidth, float uvTubeWidth) {
 		Vector3d startLeft = inputStartUp.cross(startDirection, new Vector3d()).normalize();
 		Vector3d endLeft = inputEndUp.cross(endDirection, new Vector3d()).normalize();
-		double scale = TUBE_WIDTH / 16.0 / 2.0;
+		double scale = tubeWidth / 16.0 / 2.0;
 		Vector3d startUp = inputStartUp.mul(scale, new Vector3d());
 		Vector3d endUp = inputEndUp.mul(scale, new Vector3d());
 		startLeft.mul(scale);
 		endLeft.mul(scale);
 
-		float texW = TUBE_WIDTH / TEXTURE_WIDTH;
+		float texW = uvTubeWidth / TEXTURE_WIDTH;
 		float uvScale = 16.0f / TEXTURE_WIDTH;
-		float uvXOffset = second ? TUBE_WIDTH / TEXTURE_WIDTH : 0.0f;
+		float uvXOffset = second ? uvTubeWidth / TEXTURE_WIDTH : 0.0f;
 		Vector3d startDown = startUp.negate(new Vector3d());
 		Vector3d endDown = endUp.negate(new Vector3d());
 		Vector3d startRight = startLeft.negate(new Vector3d());

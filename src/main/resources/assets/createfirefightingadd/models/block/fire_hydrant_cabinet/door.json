@@ -1,0 +1,76 @@
+﻿{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"texture_size": [64, 64],
+	"textures": {
+		"8": "createfirefightingadd:block/fire_hydrant_cabinet/door",
+		"particle": "createfirefightingadd:block/fire_hydrant_cabinet/door"
+	},
+	"elements": [
+		{
+			"name": "createfirefightingadd:block/fire_hydrant_cabinet/door",
+			"from": [0, 0, 8],
+			"to": [16, 16, 9],
+			"rotation": {"angle": 0, "axis": "y", "origin": [0, 0, 9]},
+			"faces": {
+				"north": {"uv": [0, 0, 4, 4], "texture": "#8"},
+				"east": {"uv": [4, 0, 4.25, 4], "texture": "#8"},
+				"south": {"uv": [0, 4, 4, 8], "texture": "#8"},
+				"west": {"uv": [4, 4, 4.25, 8], "texture": "#8"},
+				"up": {"uv": [4.25, 4, 4, 0], "rotation": 90, "texture": "#8"},
+				"down": {"uv": [4, 4, 4.25, 0], "rotation": 90, "texture": "#8"}
+			}
+		},
+		{
+			"name": "door_flat",
+			"from": [1, 1, 8.5],
+			"to": [15, 15, 8.75],
+			"rotation": {"angle": 0, "axis": "y", "origin": [0, 0, 9]},
+			"faces": {
+				"north": {"uv": [4.5, 0.25, 8, 3.75], "texture": "#8"},
+				"east": {"uv": [7.75, 4.25, 8, 7.75], "texture": "#8"},
+				"south": {"uv": [4.5, 4.25, 8, 7.75], "texture": "#8"},
+				"west": {"uv": [7.75, 4.25, 8, 7.75], "texture": "#8"},
+				"up": {"uv": [8, 7.75, 7.75, 4.25], "rotation": 90, "texture": "#8"},
+				"down": {"uv": [7.75, 7.75, 8, 4.25], "rotation": 90, "texture": "#8"}
+			}
+		},
+		{
+			"name": "door_inside",
+			"from": [1, 15, 8],
+			"to": [15, 1, 9],
+			"rotation": {"angle": 0, "axis": "y", "origin": [0, 0, 9]},
+			"faces": {
+				"north": {"uv": [0.25, 0.25, 3.75, 3.75], "texture": "#8"},
+				"east": {"uv": [3.75, 4.25, 4, 7.75], "texture": "#8"},
+				"south": {"uv": [0.25, 0.25, 3.75, 3.75], "texture": "#8"},
+				"west": {"uv": [3.75, 4.25, 4, 7.75], "texture": "#8"},
+				"up": {"uv": [4, 7.75, 3.75, 4.25], "rotation": 90, "texture": "#8"},
+				"down": {"uv": [3.75, 7.75, 4, 4.25], "rotation": 90, "texture": "#8"}
+			}
+		},
+		{
+			"name": "handle",
+			"from": [15.2, 7, 7.8],
+			"to": [15.8, 9, 8.8],
+			"rotation": {"angle": 0, "axis": "y", "origin": [0, 0, 9]},
+			"faces": {
+				"north": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"},
+				"east": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"},
+				"south": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"},
+				"west": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"},
+				"up": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"},
+				"down": {"uv": [4.25, 0, 4.5, 1], "texture": "#8"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "createfirefightingadd:block/fire_hydrant_cabinet/door",
+			"origin": [0, 0, 9],
+			"scope": 0,
+			"color": 0,
+			"children": [0, 1, 2, 3]
+		}
+	]
+}

@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "createfirefightingadd:block/fire_hydrant_cabinet/base" },
+    "facing=east": { "model": "createfirefightingadd:block/fire_hydrant_cabinet/base", "y": 270 },
+    "facing=south": { "model": "createfirefightingadd:block/fire_hydrant_cabinet/base", "y": 180 },
+    "facing=west": { "model": "createfirefightingadd:block/fire_hydrant_cabinet/base", "y": 90 }
+  }
+}
