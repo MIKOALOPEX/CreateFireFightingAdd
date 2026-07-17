@@ -11,92 +11,98 @@ import net.minecraft.world.phys.Vec3;
 
 public final class SableStructureClientCompat {
 
-    private static final ClientStructureBackend BACKEND = loadBackend();
+	private static final ClientStructureBackend BACKEND = loadBackend();
 
-    private SableStructureClientCompat() {
-    }
+	private SableStructureClientCompat() {
+	}
 
-    public static FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
-                                                                  @Nullable UUID partnerSubLevel,
-                                                                  Vector3d partnerCenter,
-                                                                  Vector3d partnerNormal) {
-        if (BACKEND != null)
-            return BACKEND.transformFireHoseTarget(owner, partnerSubLevel, partnerCenter, partnerNormal);
-        return new FireHoseRenderTransform(
-            new Vector3d(partnerCenter),
-            new Vector3d(partnerNormal),
-            new Quaterniond(),
-            new Quaterniond());
-    }
+	public static FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
+			@Nullable UUID partnerSubLevel, Vector3d partnerCenter, Vector3d partnerNormal) {
+		if (BACKEND != null)
+			return BACKEND.transformFireHoseTarget(owner, partnerSubLevel, partnerCenter, partnerNormal);
+		return new FireHoseRenderTransform(
+			new Vector3d(partnerCenter),
+			new Vector3d(partnerNormal),
+			new Quaterniond(),
+			new Quaterniond());
+	}
 
-    public static Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos) {
-        if (BACKEND != null)
-            return BACKEND.renderPositionToWorld(owner, localPos);
-        return localPos;
-    }
+	public static Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos) {
+		if (BACKEND != null)
+			return BACKEND.renderPositionToWorld(owner, localPos);
+		return localPos;
+	}
 
-    private static ClientStructureBackend loadBackend() {
-        try {
-            ClassLoader loader = SableStructureClientCompat.class.getClassLoader();
-            if (!hasSableClientBackendApi(loader))
-                return null;
-            Class<?> backendClass = Class.forName(
-                "com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientBackend",
-                true,
-                loader);
-            return (ClientStructureBackend) backendClass.getDeclaredConstructor().newInstance();
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
+	public static Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal) {
+		if (BACKEND != null)
+			return BACKEND.renderNormalToWorld(owner, localNormal);
+		return localNormal;
+	}
 
-    private static boolean hasSableClientBackendApi(ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> sable = Class.forName("dev.ryanhcode.sable.Sable", false, loader);
-        Class<?> helper = sable.getField("HELPER").getType();
-        helper.getMethod("getContainingClient", BlockEntity.class);
+	private static ClientStructureBackend loadBackend() {
+		try {
+			ClassLoader loader = SableStructureClientCompat.class.getClassLoader();
+			if (!hasSableClientBackendApi(loader))
+				return null;
+			Class<?> backendClass = Class.forName(
+				"com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientBackend",
+				true,
+				loader);
+			return (ClientStructureBackend) backendClass.getDeclaredConstructor().newInstance();
+		} catch (Throwable ignored) {
+			return null;
+		}
+	}
 
-        Class<?> subLevelContainer = Class.forName(
-            "dev.ryanhcode.sable.api.sublevel.SubLevelContainer",
-            false,
-            loader);
-        subLevelContainer.getMethod("getContainer", net.minecraft.world.level.Level.class);
+	private static boolean hasSableClientBackendApi(ClassLoader loader) throws ReflectiveOperationException {
+		Class<?> sable = Class.forName("dev.ryanhcode.sable.Sable", false, loader);
+		Class<?> helper = sable.getField("HELPER").getType();
+		helper.getMethod("getContainingClient", BlockEntity.class);
 
-        Class<?> clientContainer = Class.forName(
-            "dev.ryanhcode.sable.api.sublevel.ClientSubLevelContainer",
-            false,
-            loader);
-        clientContainer.getMethod("getSubLevel", UUID.class);
+		Class<?> subLevelContainer = Class.forName(
+			"dev.ryanhcode.sable.api.sublevel.SubLevelContainer",
+			false,
+			loader);
+		subLevelContainer.getMethod("getContainer", net.minecraft.world.level.Level.class);
 
-        Class<?> clientSubLevel = Class.forName("dev.ryanhcode.sable.sublevel.ClientSubLevel", false, loader);
-        clientSubLevel.getMethod("renderPose");
+		Class<?> clientContainer = Class.forName(
+			"dev.ryanhcode.sable.api.sublevel.ClientSubLevelContainer",
+			false,
+			loader);
+		clientContainer.getMethod("getSubLevel", UUID.class);
 
-        Class<?> pose = Class.forName("dev.ryanhcode.sable.companion.math.Pose3dc", false, loader);
-        pose.getMethod("transformPosition", Vector3d.class);
-        pose.getMethod("transformPositionInverse", Vector3d.class);
-        pose.getMethod("transformNormal", Vector3d.class);
-        pose.getMethod("transformNormalInverse", Vector3d.class);
-        pose.getMethod("orientation");
+		Class<?> clientSubLevel = Class.forName("dev.ryanhcode.sable.sublevel.ClientSubLevel", false, loader);
+		clientSubLevel.getMethod("renderPose");
 
-        Class<?> clientAccess = Class.forName(
-            "dev.ryanhcode.sable.companion.ClientSubLevelAccess",
-            false,
-            loader);
-        clientAccess.getMethod("renderPose");
-        return true;
-    }
+		Class<?> pose = Class.forName("dev.ryanhcode.sable.companion.math.Pose3dc", false, loader);
+		pose.getMethod("transformPosition", Vector3d.class);
+		pose.getMethod("transformPositionInverse", Vector3d.class);
+		pose.getMethod("transformNormal", Vector3d.class);
+		pose.getMethod("transformNormalInverse", Vector3d.class);
+		pose.getMethod("orientation");
 
-    public record FireHoseRenderTransform(Vector3d partnerCenter,
-                                          Vector3d partnerNormal,
-                                          Quaterniond ownerOrientation,
-                                          Quaterniond partnerOrientation) {
-    }
+		Class<?> clientAccess = Class.forName(
+			"dev.ryanhcode.sable.companion.ClientSubLevelAccess",
+			false,
+			loader);
+		clientAccess.getMethod("renderPose");
+		return true;
+	}
 
-    interface ClientStructureBackend {
-        FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
-                                                        @Nullable UUID partnerSubLevel,
-                                                        Vector3d partnerCenter,
-                                                        Vector3d partnerNormal);
+	public record FireHoseRenderTransform(Vector3d partnerCenter,
+			Vector3d partnerNormal,
+			Quaterniond ownerOrientation,
+			Quaterniond partnerOrientation) {
+	}
 
-        Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos);
-    }
+	interface ClientStructureBackend {
+		FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
+				@Nullable UUID partnerSubLevel,
+				Vector3d partnerCenter,
+				Vector3d partnerNormal);
+
+		Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos);
+
+		Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal);
+	}
 }

@@ -139,8 +139,8 @@ public final class HandheldNozzleClientHandler {
 		}
 		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT
 			&& action == org.lwjgl.glfw.GLFW.GLFW_PRESS
-			&& isBindingUseTarget())
-			useSwingSuppressTicks = USE_SWING_SUPPRESS_TICKS;
+			&& shouldSuppressControllerUseAnimation())
+			suppressUseSwing();
 	}
 
 	public static boolean shouldCancelAttackInput() {
@@ -158,6 +158,22 @@ public final class HandheldNozzleClientHandler {
 			&& !activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem()).isEmpty();
 	}
 
+	public static boolean shouldSuppressControllerUseAnimation() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.screen != null)
+			return false;
+		if (!mc.player.isShiftKeyDown())
+			return false;
+		ItemStack stack = activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem());
+		if (stack.isEmpty())
+			return false;
+		return HandheldNozzleControllerItem.isBound(stack) || isBindingUseTarget();
+	}
+
+	public static void suppressUseSwing() {
+		useSwingSuppressTicks = Math.max(useSwingSuppressTicks, USE_SWING_SUPPRESS_TICKS);
+	}
+
 	public static float getSprayProgress(float partialTick) {
 		return Mth.lerp(partialTick, previousSprayProgress, sprayProgress);
 	}
@@ -165,10 +181,6 @@ public final class HandheldNozzleClientHandler {
 	private static boolean isBindingUseTarget() {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || mc.level == null || mc.hitResult == null)
-			return false;
-		if (!mc.player.isShiftKeyDown())
-			return false;
-		if (activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem()).isEmpty())
 			return false;
 		if (mc.hitResult.getType() != HitResult.Type.BLOCK)
 			return false;

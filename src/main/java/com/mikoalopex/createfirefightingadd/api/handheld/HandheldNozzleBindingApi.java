@@ -13,6 +13,9 @@ import net.minecraft.world.level.Level;
  * clear a handheld nozzle controller binding.
  */
 public final class HandheldNozzleBindingApi {
+	public static final double MAX_BINDING_DISTANCE = 32.0;
+	public static final double MAX_BINDING_DISTANCE_SQR = MAX_BINDING_DISTANCE * MAX_BINDING_DISTANCE;
+
 	private HandheldNozzleBindingApi() {
 	}
 

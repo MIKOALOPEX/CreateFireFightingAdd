@@ -26,6 +26,7 @@
   "item.createfirefightingadd.multipurpose_backtank": "Multipurpose Backtank",
   "item.createfirefightingadd.fire_hydrant_cabinet": "Fire Hydrant Cabinet",
   "item.createfirefightingadd.handheld_nozzle_controller": "Handheld Nozzle Controller",
+  "entity.createfirefightingadd.handheld_nozzle_controller": "Handheld Nozzle Controller",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.summary": "A heavy tool powered by _backtank air_. It works as a basic tool normally, then performs _3x3_ breaking or area attacks when charged.",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.condition1": "When holding right click",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.behaviour1": "Consumes _100_ units of backtank air and becomes charged.",

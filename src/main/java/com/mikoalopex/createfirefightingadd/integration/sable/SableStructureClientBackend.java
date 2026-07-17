@@ -17,46 +17,50 @@ import net.minecraft.world.phys.Vec3;
 
 final class SableStructureClientBackend implements SableStructureClientCompat.ClientStructureBackend {
 
-    @Override
-    public SableStructureClientCompat.FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
-                                                                                       @Nullable UUID partnerSubLevel,
-                                                                                       Vector3d partnerCenter,
-                                                                                       Vector3d partnerNormal) {
-        Vector3d transformedCenter = new Vector3d(partnerCenter);
-        Vector3d transformedNormal = new Vector3d(partnerNormal);
-        Pose3dc ownerPose = null;
-        Pose3dc partnerPose = null;
+	@Override
+	public SableStructureClientCompat.FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
+			@Nullable UUID partnerSubLevel, Vector3d partnerCenter, Vector3d partnerNormal) {
+		Vector3d transformedCenter = new Vector3d(partnerCenter);
+		Vector3d transformedNormal = new Vector3d(partnerNormal);
+		Pose3dc ownerPose = null;
+		Pose3dc partnerPose = null;
 
-        if (Minecraft.getInstance().level != null) {
-            ClientSubLevelContainer container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
-            ClientSubLevel otherSubLevel = partnerSubLevel != null && container != null
-                ? (ClientSubLevel) container.getSubLevel(partnerSubLevel)
-                : null;
-            ClientSubLevel ownerSubLevel = Sable.HELPER.getContainingClient(owner);
+		if (Minecraft.getInstance().level != null) {
+			ClientSubLevelContainer container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
+			ClientSubLevel otherSubLevel = partnerSubLevel != null && container != null
+				? (ClientSubLevel) container.getSubLevel(partnerSubLevel)
+				: null;
+			ClientSubLevel ownerSubLevel = Sable.HELPER.getContainingClient(owner);
 
-            ownerPose = ownerSubLevel != null ? ownerSubLevel.renderPose() : null;
-            partnerPose = otherSubLevel != null ? otherSubLevel.renderPose() : null;
-        }
+			ownerPose = ownerSubLevel != null ? ownerSubLevel.renderPose() : null;
+			partnerPose = otherSubLevel != null ? otherSubLevel.renderPose() : null;
+		}
 
-        if (partnerPose != null) {
-            partnerPose.transformNormal(transformedNormal);
-            partnerPose.transformPosition(transformedCenter);
-        }
-        if (ownerPose != null) {
-            ownerPose.transformNormalInverse(transformedNormal);
-            ownerPose.transformPositionInverse(transformedCenter);
-        }
+		if (partnerPose != null) {
+			partnerPose.transformNormal(transformedNormal);
+			partnerPose.transformPosition(transformedCenter);
+		}
+		if (ownerPose != null) {
+			ownerPose.transformNormalInverse(transformedNormal);
+			ownerPose.transformPositionInverse(transformedCenter);
+		}
 
-        return new SableStructureClientCompat.FireHoseRenderTransform(
-            transformedCenter,
-            transformedNormal,
-            ownerPose != null ? new Quaterniond(ownerPose.orientation()) : new Quaterniond(),
-            partnerPose != null ? new Quaterniond(partnerPose.orientation()) : new Quaterniond());
-    }
+		return new SableStructureClientCompat.FireHoseRenderTransform(
+			transformedCenter,
+			transformedNormal,
+			ownerPose != null ? new Quaterniond(ownerPose.orientation()) : new Quaterniond(),
+			partnerPose != null ? new Quaterniond(partnerPose.orientation()) : new Quaterniond());
+	}
 
-    @Override
-    public Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos) {
-        dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
-        return clientAccess != null ? clientAccess.renderPose().transformPosition(localPos) : localPos;
-    }
+	@Override
+	public Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos) {
+		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
+		return clientAccess != null ? clientAccess.renderPose().transformPosition(localPos) : localPos;
+	}
+
+	@Override
+	public Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal) {
+		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
+		return clientAccess != null ? clientAccess.renderPose().transformNormal(localNormal) : localNormal;
+	}
 }

@@ -181,6 +181,10 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		return boundPlayer != null && boundPlayer.equals(playerId);
 	}
 
+	public boolean hasActiveBinding() {
+		return boundPlayer != null;
+	}
+
 	public LerpedFloat getDoorAnimation() {
 		return doorAnimation;
 	}

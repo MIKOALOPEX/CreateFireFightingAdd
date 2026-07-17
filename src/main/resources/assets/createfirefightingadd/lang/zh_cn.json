@@ -26,6 +26,7 @@
   "item.createfirefightingadd.multipurpose_backtank": "\u591a\u529f\u80fd\u80cc\u7f50",
   "item.createfirefightingadd.fire_hydrant_cabinet": "\u6d88\u9632\u67dc",
   "item.createfirefightingadd.handheld_nozzle_controller": "\u624b\u6301\u55b7\u5934\u63a7\u5236\u5668",
+  "entity.createfirefightingadd.handheld_nozzle_controller": "\u624b\u6301\u55b7\u5934\u63a7\u5236\u5668",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.summary": "一把由_背罐空气_驱动的重型工具。普通状态可作为基础工具使用，蓄力后可以进行_3x3_破坏或范围攻击。",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.condition1": "按住右键时",
   "item.createfirefightingadd.pneumatic_hammer.tooltip.behaviour1": "消耗_100_单位背罐空气并进入蓄力状态。",

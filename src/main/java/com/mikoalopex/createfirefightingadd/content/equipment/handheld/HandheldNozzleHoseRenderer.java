@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.PartialModels;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -179,10 +180,38 @@ public final class HandheldNozzleHoseRenderer {
 			Direction facing = state.hasProperty(FireHydrantCabinetBlock.FACING)
 				? state.getValue(FireHydrantCabinetBlock.FACING)
 				: Direction.NORTH;
-			Vec3 start = cabinetConnectionPoint(binding.pos(), facing);
+			CabinetAnchor start = cabinetAnchor(cabinet, facing);
 			ControllerAnchor anchor = controllerAnchorForRender(mc, event.getCamera(), player, controller,
 				partialTicks, firstPersonStowed);
-			renderCurveTube(event, mc, start, facing, anchor);
+			renderCurveTube(event, mc, start, anchor);
+		}
+		renderDroppedControllerHoses(event, mc, partialTicks);
+	}
+
+	private static void renderDroppedControllerHoses(RenderLevelStageEvent event, Minecraft mc, float partialTicks) {
+		if (mc.player == null)
+			return;
+		for (HandheldNozzleControllerEntity entity : mc.level.getEntitiesOfClass(
+				HandheldNozzleControllerEntity.class, mc.player.getBoundingBox().inflate(128.0))) {
+			HandheldNozzleControllerItem.Binding binding = HandheldNozzleControllerItem.readBinding(entity.getControllerStack())
+				.orElse(null);
+			if (binding == null)
+				continue;
+			if (!mc.level.dimension().equals(binding.dimension()))
+				continue;
+			if (!(mc.level.getBlockEntity(binding.pos()) instanceof FireHydrantCabinetBlockEntity cabinet)
+				|| !cabinet.getHydrantId().equals(binding.hydrantId()))
+				continue;
+
+			BlockState state = cabinet.getBlockState();
+			Direction facing = state.hasProperty(FireHydrantCabinetBlock.FACING)
+				? state.getValue(FireHydrantCabinetBlock.FACING)
+				: Direction.NORTH;
+			CabinetAnchor start = cabinetAnchor(cabinet, facing);
+			ControllerAnchor anchor = new ControllerAnchor(entity.getHoseAnchor(partialTicks),
+				entity.getHoseNormal(), entity.getHoseUp(), THIRD_PERSON_STRAIGHT_LENGTH,
+				mc.level.getGameTime(), false, binding);
+			renderCurveTube(event, mc, start, anchor);
 		}
 	}
 
@@ -342,6 +371,14 @@ public final class HandheldNozzleHoseRenderer {
 		return Vec3.atLowerCornerOf(pos).add(rotateCabinetLocal(CABINET_HOSE_LOCAL_POINT, facing));
 	}
 
+	private static CabinetAnchor cabinetAnchor(FireHydrantCabinetBlockEntity cabinet, Direction facing) {
+		Vec3 localPoint = cabinetConnectionPoint(cabinet.getBlockPos(), facing);
+		Vec3 localNormal = cabinetConnectionNormal(facing);
+		Vec3 point = SableStructureClientCompat.renderPositionToWorld(cabinet, localPoint);
+		Vec3 normal = SableStructureClientCompat.renderNormalToWorld(cabinet, localNormal);
+		return new CabinetAnchor(point, safeNormalize(normal, localNormal));
+	}
+
 	private static Vec3 rotateCabinetLocal(Vec3 local, Direction facing) {
 		return switch (facing) {
 			case SOUTH -> new Vec3(1.0 - local.x, local.y, 1.0 - local.z);
@@ -497,24 +534,23 @@ public final class HandheldNozzleHoseRenderer {
 		return vector.lengthSqr() < 1.0E-6 ? fallback : vector.normalize();
 	}
 
-	private static void renderCurveTube(RenderLevelStageEvent event, Minecraft mc, Vec3 start,
-			Direction startFacing, ControllerAnchor anchor) {
+	private static void renderCurveTube(RenderLevelStageEvent event, Minecraft mc, CabinetAnchor start,
+			ControllerAnchor anchor) {
 		MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
 		VertexConsumer consumer = buffers.getBuffer(HOSE_RENDER_TYPE);
 		PoseStack poseStack = event.getPoseStack();
 		Camera camera = event.getCamera();
 		Vec3 cameraPos = camera.getPosition();
 		Vec3 end = anchor.point();
-		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(start.add(end).scale(0.5)));
+		int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(start.point().add(end).scale(0.5)));
 
 		poseStack.pushPose();
 		poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
-		Vec3 startNormal = cabinetConnectionNormal(startFacing);
 		Vec3 rearNormal = anchor.normal().normalize();
 		Vec3 rearUp = safeNormalize(anchor.up(), WORLD_UP);
 		float hoseWidth = anchor.firstPerson() ? FIRST_PERSON_HOSE_WIDTH : THIRD_PERSON_HOSE_WIDTH;
-		FireHoseDynamicRenderer.renderSplineHose(poseStack, consumer, start, end,
-			startNormal, rearNormal, rearUp, light, false, hoseWidth, HANDHELD_HOSE_UV_WIDTH);
+		FireHoseDynamicRenderer.renderSplineHose(poseStack, consumer, start.point(), end,
+			start.normal(), rearNormal, rearUp, light, false, hoseWidth, HANDHELD_HOSE_UV_WIDTH);
 		poseStack.popPose();
 		buffers.endBatch(HOSE_RENDER_TYPE);
 	}
@@ -533,6 +569,9 @@ public final class HandheldNozzleHoseRenderer {
 
 	private record ControllerAnchor(Vec3 point, Vec3 normal, Vec3 up, double straightLength, long gameTime,
 			boolean firstPerson, HandheldNozzleControllerItem.Binding binding) {
+	}
+
+	private record CabinetAnchor(Vec3 point, Vec3 normal) {
 	}
 
 	private record RenderedAnchorKey(UUID playerId, BlockPos pos, ResourceKey<Level> dimension, UUID hydrantId,

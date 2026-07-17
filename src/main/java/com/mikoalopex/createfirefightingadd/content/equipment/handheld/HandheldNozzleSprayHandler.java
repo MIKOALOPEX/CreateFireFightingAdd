@@ -22,7 +22,6 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class HandheldNozzleSprayHandler {
-	private static final double MAX_BINDING_DISTANCE_SQR = 32.0 * 32.0;
 	private static final Set<UUID> SPRAYING = new HashSet<>();
 	private static final Map<UUID, Set<BindingKey>> CARRIED_BINDINGS = new HashMap<>();
 	private static final Map<UUID, ControllerSyncState> LAST_CONTROLLER_STATES = new HashMap<>();
@@ -81,6 +80,7 @@ public final class HandheldNozzleSprayHandler {
 
 	public static void forceClearCabinetBinding(ServerLevel level, BlockPos pos, UUID hydrantId) {
 		BindingKey key = new BindingKey(pos.immutable(), level.dimension(), hydrantId);
+		HandheldNozzleControllerEntity.forceClearBinding(level, pos, hydrantId);
 		for (ServerPlayer player : level.getServer().getPlayerList().getPlayers()) {
 			boolean changed = false;
 			for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -174,7 +174,7 @@ public final class HandheldNozzleSprayHandler {
 				return player.distanceToSqr(
 					binding.pos().getX() + 0.5,
 					binding.pos().getY() + 0.5,
-					binding.pos().getZ() + 0.5) > MAX_BINDING_DISTANCE_SQR;
+					binding.pos().getZ() + 0.5) > HandheldNozzleBindingApi.MAX_BINDING_DISTANCE_SQR;
 			})
 			.orElse(false);
 	}
@@ -192,6 +192,8 @@ public final class HandheldNozzleSprayHandler {
 				if (current.contains(key))
 					continue;
 				if (HandheldNozzleBindingApi.shouldClearBinding(player, BindingLocation.OUTSIDE_PLAYER_INVENTORY)) {
+					if (HandheldNozzleControllerEntity.hasActiveBinding(key.dimension(), key.pos(), key.hydrantId()))
+						continue;
 					clearCabinetBinding(player, key);
 				}
 			}
@@ -222,7 +224,7 @@ public final class HandheldNozzleSprayHandler {
 		if (player.distanceToSqr(
 			binding.pos().getX() + 0.5,
 			binding.pos().getY() + 0.5,
-			binding.pos().getZ() + 0.5) > MAX_BINDING_DISTANCE_SQR)
+			binding.pos().getZ() + 0.5) > HandheldNozzleBindingApi.MAX_BINDING_DISTANCE_SQR)
 			return true;
 		ServerLevel boundLevel = player.getServer().getLevel(binding.dimension());
 		if (boundLevel == null)

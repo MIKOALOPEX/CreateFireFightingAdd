@@ -24,10 +24,13 @@ import com.mikoalopex.createfirefightingadd.content.equipment.backtank.Multipurp
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetBlock;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetMenu;
+import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetRenderer;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetScreen;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleClientExtensions;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleClientHandler;
+import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerEntity;
+import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerEntityRenderer;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerItem;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleHoseRenderer;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleSprayHandler;
@@ -90,6 +93,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -118,6 +123,9 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -147,6 +155,7 @@ public class CreateFireFightingAdd {
 	public static final DeferredRegister<MenuType<?>> MENU_TYPES = DeferredRegister.create(Registries.MENU, MODID);
 	public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(Registries.SOUND_EVENT, MODID);
 	public static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MODID);
+	public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
 	public static final DeferredRegister<MountedFluidStorageType<?>> MOUNTED_FLUID_STORAGE_TYPES =
 		DeferredRegister.create(CreateRegistries.MOUNTED_FLUID_STORAGE_TYPE, MODID);
 
@@ -253,6 +262,14 @@ public class CreateFireFightingAdd {
 
 	public static final DeferredItem<HandheldNozzleControllerItem> HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("handheld_nozzle_controller", () -> new HandheldNozzleControllerItem(new Item.Properties().stacksTo(1)));
+
+	public static final DeferredHolder<EntityType<?>, EntityType<HandheldNozzleControllerEntity>> HANDHELD_NOZZLE_CONTROLLER_ENTITY =
+		ENTITY_TYPES.register("handheld_nozzle_controller",
+			() -> EntityType.Builder.<HandheldNozzleControllerEntity>of(HandheldNozzleControllerEntity::new, MobCategory.MISC)
+				.sized(0.65f, 0.35f)
+				.clientTrackingRange(8)
+				.updateInterval(3)
+				.build("handheld_nozzle_controller"));
 
 	// Experimental flow monitor. Kept separate from the stable firefighting blocks.
 	public static final DeferredBlock<FlowMeterBlock> FLOW_METER = BLOCKS.register("flow_meter",
@@ -376,6 +393,7 @@ public class CreateFireFightingAdd {
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
 		modEventBus.addListener(this::commonSetup);
 		modEventBus.addListener(this::registerCapabilities);
+		modEventBus.addListener(this::registerEntityAttributes);
 
 		RemapManager.registerAll(blockName -> switch (blockName) {
 			case "cone_nozzle" -> new ConeNozzleBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion());
@@ -390,6 +408,7 @@ public class CreateFireFightingAdd {
 		MENU_TYPES.register(modEventBus);
 		SOUND_EVENTS.register(modEventBus);
 		ARMOR_MATERIALS.register(modEventBus);
+		ENTITY_TYPES.register(modEventBus);
 		MOUNTED_FLUID_STORAGE_TYPES.register(modEventBus);
 
 		NeoForge.EVENT_BUS.register(this);
@@ -413,6 +432,7 @@ public class CreateFireFightingAdd {
 		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(FIRE_HYDRANT_CABINET.get(), FireHydrantCabinetMovementBehaviour.INSTANCE);
 
 		MountedFluidStorageType.REGISTRY.register(CONE_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
 		MountedFluidStorageType.REGISTRY.register(FLAT_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
@@ -480,6 +500,10 @@ public class CreateFireFightingAdd {
 		);
 	}
 
+	private void registerEntityAttributes(EntityAttributeCreationEvent event) {
+		event.put(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntity.createAttributes().build());
+	}
+
 	@SubscribeEvent
 	public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
 		if (event.getLevel().isClientSide()) return;
@@ -526,6 +550,16 @@ public class CreateFireFightingAdd {
 	@SubscribeEvent
 	public void onLivingDamagePost(LivingDamageEvent.Post event) {
 		PneumaticHammerItem.applyChargedAttackArea(event);
+	}
+
+	@SubscribeEvent
+	public void onEntityJoinLevel(EntityJoinLevelEvent event) {
+		HandheldNozzleControllerEntity.tryConvertDroppedItem(event);
+	}
+
+	@SubscribeEvent
+	public void onItemToss(ItemTossEvent event) {
+		HandheldNozzleControllerEntity.tryConvertTossedItem(event);
 	}
 
 	@EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
@@ -579,6 +613,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+			event.registerEntityRenderer(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntityRenderer::new);
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());
 			event.registerBlockEntityRenderer(WATER_INTAKE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
@@ -620,6 +655,10 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
+			if (event.isUseItem() && HandheldNozzleClientHandler.shouldSuppressControllerUseAnimation()) {
+				event.setSwingHand(false);
+				HandheldNozzleClientHandler.suppressUseSwing();
+			}
 			if (!event.isAttack() || !HandheldNozzleClientHandler.shouldCancelAttackInput())
 				return;
 			event.setSwingHand(false);
