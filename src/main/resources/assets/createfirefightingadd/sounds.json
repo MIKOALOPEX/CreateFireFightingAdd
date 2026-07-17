@@ -4,5 +4,23 @@
     "sounds": [
       "createfirefightingadd:pneumatic_hammer_charge"
     ]
+  },
+  "nozzle_spray": {
+    "subtitle": "subtitles.createfirefightingadd.nozzle_spray",
+    "sounds": [
+      "createfirefightingadd:nozzle_spray"
+    ]
+  },
+  "fire_hydrant_cabinet_open": {
+    "subtitle": "subtitles.createfirefightingadd.fire_hydrant_cabinet",
+    "sounds": [
+      "createfirefightingadd:fire_hydrant_cabinet_open"
+    ]
+  },
+  "fire_hydrant_cabinet_close": {
+    "subtitle": "subtitles.createfirefightingadd.fire_hydrant_cabinet",
+    "sounds": [
+      "createfirefightingadd:fire_hydrant_cabinet_close"
+    ]
   }
 }

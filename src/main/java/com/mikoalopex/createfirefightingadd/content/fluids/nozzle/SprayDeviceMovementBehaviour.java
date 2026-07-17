@@ -108,6 +108,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		SprayProfile profile = profile(context);
 		if (profile == null) {
 			clearClientProjectiles(context);
+			stopSpraySound(context, context.position);
 			return;
 		}
 
@@ -158,15 +159,20 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		}
 
 		IFluidHandler storage = sprayFluidStorage(context);
-		if (storage == null || storage.getTanks() == 0)
+		if (storage == null || storage.getTanks() == 0) {
+			stopSpraySound(context, origin);
 			return;
+		}
 
 		FluidStack fluid = selectSprayFluid(context.world, storage, profile);
 		AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
 			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(context.world, fluid);
-		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED)
+		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
+			stopSpraySound(context, origin);
 			return;
+		}
 		if (fluid.getAmount() < profile.consumption()) {
+			stopSpraySound(context, origin);
 			return;
 		}
 
@@ -177,10 +183,13 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 
 		FluidStack request = fluid.copyWithAmount(profile.consumption());
 		FluidStack drained = storage.drain(request, IFluidHandler.FluidAction.SIMULATE);
-		if (drained.getAmount() < profile.consumption())
+		if (drained.getAmount() < profile.consumption()) {
+			stopSpraySound(context, origin);
 			return;
+		}
 		storage.drain(request, IFluidHandler.FluidAction.EXECUTE);
 		syncNozzleState(context, behavior, drained, ignited);
+		tickSpraySound(context, origin);
 
 		if (tick % profile.scanInterval() != 0)
 			return;
@@ -942,6 +951,25 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			return null;
 		}
 		return state;
+	}
+
+	private static void tickSpraySound(MovementContext context, Vec3 origin) {
+		String key = spraySoundKey(context);
+		if (key != null)
+			NozzleSpraySounds.tick(context.world, key, origin, SoundSource.BLOCKS);
+	}
+
+	private static void stopSpraySound(MovementContext context, Vec3 origin) {
+		String key = spraySoundKey(context);
+		if (key != null)
+			NozzleSpraySounds.stop(context.world, key, origin, SoundSource.BLOCKS);
+	}
+
+	@Nullable
+	private static String spraySoundKey(MovementContext context) {
+		if (context == null || context.localPos == null || context.contraption == null || context.contraption.entity == null)
+			return null;
+		return NozzleSpraySounds.contraptionKey(context.contraption.entity.getId(), context.localPos);
 	}
 
 	private static void syncNozzleState(MovementContext context,

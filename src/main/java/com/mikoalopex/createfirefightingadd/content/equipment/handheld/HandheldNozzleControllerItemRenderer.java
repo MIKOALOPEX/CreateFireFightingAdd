@@ -14,6 +14,10 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 public class HandheldNozzleControllerItemRenderer extends CustomRenderedItemModelRenderer {
+	private static final float THIRD_PERSON_MODEL_SCALE = 1.2f;
+	private static final float BOUND_GUI_MODEL_SCALE = 0.72f;
+	private static final float BOUND_GUI_X_OFFSET = 0.42f;
+	private static final float BOUND_GUI_Y_OFFSET = -0.22f;
 	private static final float COG_SPEED_IDLE = 2.0f;
 	private static final float COG_SPEED_SPRAYING = 18.0f;
 	private static final float COG_PIVOT_X = 8.0f / 16.0f - 0.5f;
@@ -26,6 +30,18 @@ public class HandheldNozzleControllerItemRenderer extends CustomRenderedItemMode
 	@Override
 	protected void render(ItemStack stack, CustomRenderedItemModel model, PartialItemModelRenderer renderer,
 			ItemDisplayContext transformType, PoseStack poseStack, MultiBufferSource buffer, int light, int overlay) {
+		HandheldNozzleType type = HandheldNozzleControllerItem.readBinding(stack)
+			.map(HandheldNozzleControllerItem.Binding::nozzleType)
+			.orElse(HandheldNozzleType.NONE);
+
+		poseStack.pushPose();
+		if (isThirdPersonHand(transformType))
+			poseStack.scale(THIRD_PERSON_MODEL_SCALE, THIRD_PERSON_MODEL_SCALE, THIRD_PERSON_MODEL_SCALE);
+		else if (transformType == ItemDisplayContext.GUI && type.hasNozzle()) {
+			poseStack.translate(BOUND_GUI_X_OFFSET, BOUND_GUI_Y_OFFSET, 0.0f);
+			poseStack.scale(BOUND_GUI_MODEL_SCALE, BOUND_GUI_MODEL_SCALE, BOUND_GUI_MODEL_SCALE);
+		}
+
 		renderer.renderSolid(PartialModels.HANDHELD_NOZZLE_BASE.get(), light);
 		HandheldNozzleHoseRenderer.captureRenderedAnchor(stack, transformType, poseStack);
 
@@ -33,15 +49,18 @@ public class HandheldNozzleControllerItemRenderer extends CustomRenderedItemMode
 		renderHandle(renderer, poseStack, light, spray);
 		renderCog(renderer, poseStack, light, spray);
 
-		HandheldNozzleType type = HandheldNozzleControllerItem.readBinding(stack)
-			.map(HandheldNozzleControllerItem.Binding::nozzleType)
-			.orElse(HandheldNozzleType.NONE);
 		if (type == HandheldNozzleType.CONE)
 			renderer.renderSolid(PartialModels.HANDHELD_NOZZLE_CONE.get(), light);
 		else if (type == HandheldNozzleType.FLAT)
 			renderer.renderSolid(PartialModels.HANDHELD_NOZZLE_FLAT.get(), light);
 
 		HandheldNozzleHoseRenderer.renderFirstPersonLocalHose(stack, transformType, poseStack, buffer, light);
+		poseStack.popPose();
+	}
+
+	private static boolean isThirdPersonHand(ItemDisplayContext transformType) {
+		return transformType == ItemDisplayContext.THIRD_PERSON_LEFT_HAND
+			|| transformType == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
 	}
 
 	private static void renderHandle(PartialItemModelRenderer renderer, PoseStack poseStack, int light, float spray) {

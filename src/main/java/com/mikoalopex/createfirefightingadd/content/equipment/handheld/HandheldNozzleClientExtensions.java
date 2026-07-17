@@ -31,7 +31,7 @@ public class HandheldNozzleClientExtensions implements IClientItemExtensions {
 	@Override
 	public boolean applyForgeHandTransform(PoseStack poseStack, LocalPlayer player, HumanoidArm arm,
 			ItemStack itemInHand, float partialTick, float equipProcess, float swingProcess) {
-		if (!isSprayingArm(player, arm))
+		if (!isControlledArm(player, arm))
 			return false;
 
 		int sign = arm == HumanoidArm.RIGHT ? 1 : -1;
@@ -44,9 +44,18 @@ public class HandheldNozzleClientExtensions implements IClientItemExtensions {
 		return true;
 	}
 
+	private static boolean isControlledArm(LocalPlayer player, HumanoidArm arm) {
+		return isSprayingArm(player, arm) || (HandheldNozzleClientHandler.shouldSuppressUseSwing()
+			&& isControllerArm(player, arm));
+	}
+
 	private static boolean isSprayingArm(LocalPlayer player, HumanoidArm arm) {
 		if (!HandheldNozzleClientHandler.isSpraying())
 			return false;
+		return isControllerArm(player, arm);
+	}
+
+	private static boolean isControllerArm(LocalPlayer player, HumanoidArm arm) {
 		InteractionHand activeHand = activeControllerHand(player);
 		if (activeHand == null)
 			return false;

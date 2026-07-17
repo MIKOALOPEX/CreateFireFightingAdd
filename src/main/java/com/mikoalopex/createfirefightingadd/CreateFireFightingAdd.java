@@ -1,5 +1,8 @@
 package com.mikoalopex.createfirefightingadd;
 
+import java.util.EnumMap;
+import java.util.List;
+
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlock;
@@ -37,6 +40,7 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleRend
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayClientSounds;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDebugRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMountedFluidStorageType;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMovementBehaviour;
@@ -61,8 +65,11 @@ import com.simibubi.create.api.stress.BlockStressValues;
 import com.simibubi.create.content.kinetics.base.ShaftRenderer;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
 import com.simibubi.create.content.equipment.armor.BacktankItem;
+import com.simibubi.create.foundation.item.ItemDescription;
+import com.simibubi.create.foundation.item.TooltipModifier;
 import com.simibubi.create.foundation.item.render.CustomRenderedItemModel;
 import com.mojang.logging.LogUtils;
+import net.createmod.catnip.lang.FontHelper.Palette;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.resources.model.BakedModel;
@@ -71,12 +78,17 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.AxeItem;
-import net.minecraft.world.item.ArmorMaterials;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
@@ -134,8 +146,25 @@ public class CreateFireFightingAdd {
 	public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
 	public static final DeferredRegister<MenuType<?>> MENU_TYPES = DeferredRegister.create(Registries.MENU, MODID);
 	public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(Registries.SOUND_EVENT, MODID);
+	public static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MODID);
 	public static final DeferredRegister<MountedFluidStorageType<?>> MOUNTED_FLUID_STORAGE_TYPES =
 		DeferredRegister.create(CreateRegistries.MOUNTED_FLUID_STORAGE_TYPE, MODID);
+
+	public static final DeferredHolder<ArmorMaterial, ArmorMaterial> MULTIPURPOSE_BACKTANK_ARMOR_MATERIAL =
+		ARMOR_MATERIALS.register("multipurpose_backtank", CreateFireFightingAdd::createMultipurposeBacktankArmorMaterial);
+
+	private static ArmorMaterial createMultipurposeBacktankArmorMaterial() {
+		EnumMap<ArmorItem.Type, Integer> defense = new EnumMap<>(ArmorItem.Type.class);
+		for (ArmorItem.Type type : ArmorItem.Type.values())
+			defense.put(type, 0);
+		defense.put(ArmorItem.Type.CHESTPLATE, 3);
+
+		return new ArmorMaterial(defense, 15, SoundEvents.ARMOR_EQUIP_NETHERITE,
+			() -> Ingredient.of(Items.NETHERITE_INGOT),
+			List.of(new ArmorMaterial.Layer(path("multipurpose_backtank"))),
+			3.0F, 0.1F);
+	}
+
 	public static final DeferredBlock<HighPressurePumpBlock> HIGH_PRESSURE_PUMP = BLOCKS.register("high_pressure_pump",
 		() -> new HighPressurePumpBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0f).noOcclusion()));
 
@@ -210,7 +239,7 @@ public class CreateFireFightingAdd {
 
 	public static final DeferredItem<MultipurposeBacktankItem> MULTIPURPOSE_BACKTANK_ITEM =
 		ITEMS.register("multipurpose_backtank",
-			() -> new MultipurposeBacktankItem(ArmorMaterials.IRON, new Item.Properties(),
+			() -> new MultipurposeBacktankItem(MULTIPURPOSE_BACKTANK_ARMOR_MATERIAL, new Item.Properties(),
 				ResourceLocation.fromNamespaceAndPath("create", "copper_diving"),
 				() -> MULTIPURPOSE_BACKTANK_PLACEABLE_ITEM.get()));
 
@@ -303,10 +332,25 @@ public class CreateFireFightingAdd {
 		SOUND_EVENTS.register("pneumatic_hammer_charge",
 			() -> SoundEvent.createVariableRangeEvent(path("pneumatic_hammer_charge")));
 
+	public static final DeferredHolder<SoundEvent, SoundEvent> NOZZLE_SPRAY_SOUND =
+		SOUND_EVENTS.register("nozzle_spray",
+			() -> SoundEvent.createVariableRangeEvent(path("nozzle_spray")));
+
+	public static final DeferredHolder<SoundEvent, SoundEvent> FIRE_HYDRANT_CABINET_OPEN_SOUND =
+		SOUND_EVENTS.register("fire_hydrant_cabinet_open",
+			() -> SoundEvent.createVariableRangeEvent(path("fire_hydrant_cabinet_open")));
+
+	public static final DeferredHolder<SoundEvent, SoundEvent> FIRE_HYDRANT_CABINET_CLOSE_SOUND =
+		SOUND_EVENTS.register("fire_hydrant_cabinet_close",
+			() -> SoundEvent.createVariableRangeEvent(path("fire_hydrant_cabinet_close")));
+
 	private static Item getMultipurposeBacktankActualItem() {
 		return MULTIPURPOSE_BACKTANK_ITEM.get();
 	}
 
+	private static ItemStack createFullMultipurposeBacktankStack() {
+		return MultipurposeBacktankItem.withFullAir(new ItemStack(MULTIPURPOSE_BACKTANK_ITEM.get()));
+	}
 
 	public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_MODE_TABS.register("tab",
 		() -> CreativeModeTab.builder()
@@ -323,9 +367,9 @@ public class CreateFireFightingAdd {
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
-				output.accept(PNEUMATIC_HAMMER_ITEM.get());
-				output.accept(MULTIPURPOSE_BACKTANK_ITEM.get());
 				output.accept(FIRE_HYDRANT_CABINET_ITEM.get());
+				output.accept(PNEUMATIC_HAMMER_ITEM.get());
+				output.accept(createFullMultipurposeBacktankStack());
 				output.accept(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 			}).build());
 
@@ -345,6 +389,7 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register(modEventBus);
 		MENU_TYPES.register(modEventBus);
 		SOUND_EVENTS.register(modEventBus);
+		ARMOR_MATERIALS.register(modEventBus);
 		MOUNTED_FLUID_STORAGE_TYPES.register(modEventBus);
 
 		NeoForge.EVENT_BUS.register(this);
@@ -386,7 +431,6 @@ public class CreateFireFightingAdd {
 			CreateFireFightingAdd.LOGGER.warn("Sable Blueprint compatibility could not be registered.", e);
 		}
 	}
-
 
 	private void registerCapabilities(RegisterCapabilitiesEvent event) {
 		event.registerBlockEntity(
@@ -496,6 +540,7 @@ public class CreateFireFightingAdd {
 			BoundBlockHighlightHandler.init();
 			PartialModels.init();
 			PonderIndex.addPlugin(new CreateFireFightingPonderPlugin());
+			registerCreateTooltips();
 
 			SimpleBlockEntityVisualizer.builder(WATER_INTAKE_BE.get())
 				.factory(SingleAxisRotatingVisual::shaft)
@@ -515,6 +560,16 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(FLUID_FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
+		}
+
+		private static void registerCreateTooltips() {
+			registerCreateTooltip(PNEUMATIC_HAMMER_ITEM.get());
+			registerCreateTooltip(MULTIPURPOSE_BACKTANK_ITEM.get());
+			registerCreateTooltip(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
+		}
+
+		private static void registerCreateTooltip(Item item) {
+			TooltipModifier.REGISTRY.register(item, new ItemDescription.Modifier(item, Palette.STANDARD_CREATE));
 		}
 
 		@SubscribeEvent
@@ -556,6 +611,7 @@ public class CreateFireFightingAdd {
 		@SubscribeEvent
 		public static void onClientTick(ClientTickEvent.Post event) {
 			var mc = net.minecraft.client.Minecraft.getInstance();
+			NozzleSprayClientSounds.clientTick();
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 				HandheldNozzleClientHandler.clientTick();

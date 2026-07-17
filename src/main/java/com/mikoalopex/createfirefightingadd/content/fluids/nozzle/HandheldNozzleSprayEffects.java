@@ -83,6 +83,7 @@ public final class HandheldNozzleSprayEffects {
 
 		Vec3 direction = player.getLookAngle().normalize();
 		Vec3 origin = player.getEyePosition().add(direction.scale(0.75)).add(0.0, -0.18, 0.0);
+		NozzleSpraySounds.tick(level, NozzleSpraySounds.handheldKey(player.getUUID()), origin, SoundSource.PLAYERS);
 		SprayShape shape = shapeFor(nozzleType);
 		int range = rangeFor(nozzleType);
 		long tick = level.getGameTime();
@@ -93,6 +94,12 @@ public final class HandheldNozzleSprayEffects {
 		applyEntityEffects(level, origin, direction, shape, range, behavior, fluid, ignited);
 		applyRecoil(player, direction);
 		return true;
+	}
+
+	public static void stopSound(ServerPlayer player) {
+		if (player != null)
+			NozzleSpraySounds.stop(player.level(), NozzleSpraySounds.handheldKey(player.getUUID()),
+				player.position(), SoundSource.PLAYERS);
 	}
 
 	private static SprayShape shapeFor(HandheldNozzleType type) {

@@ -53,6 +53,8 @@ public class FireHydrantCabinetBlock extends Block
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
 		Direction facing = context.getHorizontalDirection();
+		if (facing.getAxis() == Direction.Axis.Z)
+			facing = facing.getOpposite();
 		return defaultBlockState().setValue(FACING, facing);
 	}
 
@@ -83,7 +85,6 @@ public class FireHydrantCabinetBlock extends Block
 			return;
 		BlockEntity blockEntity = level.getBlockEntity(pos);
 		if (blockEntity instanceof FireHydrantCabinetBlockEntity cabinet) {
-			cabinet.startOpen();
 			serverPlayer.openMenu(cabinet, pos);
 		}
 	}

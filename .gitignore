@@ -10,6 +10,7 @@ out/
 
 # Minecraft run directory and generated logs
 run/
+run-*/
 runClient-codex*.log
 runClient-codex*.err.log
 *.log

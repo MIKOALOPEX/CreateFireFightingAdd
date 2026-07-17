@@ -1,7 +1,9 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -10,9 +12,9 @@ import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydra
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerItem;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleType;
 
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.level.Level;
@@ -20,104 +22,102 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 public final class HandheldNozzleClientSprayVisuals {
-	private static final List<LightweightProjectile> PROJECTILES = new ArrayList<>();
+	private static final int DEBUG_KEY_PREFIX = 0x48000000;
 	private static final RandomSource RANDOM = RandomSource.create();
-	private static String activeKey = "";
-	private static AbstractSprayDeviceBlockEntity.FluidBehavior lastBehavior =
-		AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
-	private static String lastFuelPath = "";
-	private static Vector3f lastPotionColor = new Vector3f(1, 1, 1);
-	private static int lastTrailParticles = 3;
+	private static final Map<Integer, VisualState> STATES = new HashMap<>();
 
 	private HandheldNozzleClientSprayVisuals() {
 	}
 
-	public static void tick(LocalPlayer player, ItemStack stack, boolean spraying) {
+	public static void tick(Player player, ItemStack stack, boolean spraying) {
 		if (player == null || stack.isEmpty()) {
-			clear();
+			if (player != null)
+				clear(player.getId());
 			return;
 		}
 
-		HandheldNozzleControllerItem.readBinding(stack).ifPresentOrElse(binding -> {
-			String key = binding.dimension().location() + "|" + binding.pos().asLong() + "|" + binding.hydrantId();
-			if (!key.equals(activeKey)) {
-				clearProjectiles();
-				activeKey = key;
-			}
-			if (!player.level().dimension().equals(binding.dimension())) {
-				tickExisting(player.level());
-				return;
-			}
-			if (!(player.level().getBlockEntity(binding.pos()) instanceof FireHydrantCabinetBlockEntity cabinet)
-				|| !cabinet.getHydrantId().equals(binding.hydrantId())) {
-				tickExisting(player.level());
-				return;
-			}
-
-			FluidStack fluid = cabinet.getFluid();
-			if (fluid.isEmpty()) {
-				tickExisting(player.level());
-				return;
-			}
-			AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
-				AbstractSprayDeviceBlockEntity.classifyFluidForSpray(player.level(), fluid);
-			if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
-				tickExisting(player.level());
-				return;
-			}
-
-			HandheldNozzleType nozzleType = binding.nozzleType();
-			lastBehavior = behavior;
-			lastFuelPath = SprayProjectileVisuals.fuelPath(fluid);
-			lastPotionColor = potionColor(fluid);
-			lastTrailParticles = trailParticlesPerTick(nozzleType);
-
-			if (spraying) {
-				Vec3 direction = player.getLookAngle().normalize();
-				Vec3 origin = player.getEyePosition().add(direction.scale(0.75)).add(0.0, -0.18, 0.0);
-				SprayShape shape = projectileShape(nozzleType);
-				boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
-					|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA;
-				for (int i = 0; i < Config.serverProjectilesPerTick; i++) {
-					Vec3 dir = shape.randomSprayDirection(direction, RANDOM);
-					LightweightProjectile projectile = new LightweightProjectile(origin,
-						dir.scale(projectileSpeed(nozzleType)), projectileLifetime(nozzleType), behavior,
-						(float) AbstractSprayDeviceBlockEntity.PUSH_STREAM_SPEED,
-						new Vec3(0.0, -projectileGravity(nozzleType), 0.0), projectileFriction(nozzleType));
-					if (ignited && behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE) {
-						projectile.ignited = true;
-						projectile.ignitedAtAge = 0;
-					}
-					PROJECTILES.add(projectile);
-				}
-			}
-
-			tickExisting(player.level());
-		}, HandheldNozzleClientSprayVisuals::clear);
+		HandheldNozzleControllerItem.readBinding(stack).ifPresentOrElse(
+			binding -> tick(player, binding, spraying),
+			() -> clear(player.getId()));
 	}
 
-	private static void tickExisting(Level level) {
-		if (PROJECTILES.isEmpty())
-			return;
-		if (lastBehavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
-			PROJECTILES.clear();
+	public static void tick(Player player, HandheldNozzleControllerItem.Binding binding, boolean spraying) {
+		if (player == null || binding == null) {
+			if (player != null)
+				clear(player.getId());
 			return;
 		}
-		SprayProjectileVisuals.tickClientProjectiles(level, PROJECTILES, lastBehavior,
-			lastFuelPath, lastPotionColor, lastTrailParticles, pos -> pos);
+
+		VisualState state = STATES.computeIfAbsent(player.getId(), ignored -> new VisualState());
+		String key = binding.dimension().location() + "|" + binding.pos().asLong() + "|" + binding.hydrantId();
+		if (!key.equals(state.activeKey)) {
+			state.clearProjectiles();
+			state.activeKey = key;
+		}
+		if (!player.level().dimension().equals(binding.dimension())) {
+			tickExisting(player.level(), state);
+			return;
+		}
+		if (!(player.level().getBlockEntity(binding.pos()) instanceof FireHydrantCabinetBlockEntity cabinet)
+			|| !cabinet.getHydrantId().equals(binding.hydrantId())) {
+			tickExisting(player.level(), state);
+			return;
+		}
+
+		FluidStack fluid = cabinet.getFluid();
+		if (fluid.isEmpty()) {
+			tickExisting(player.level(), state);
+			return;
+		}
+		AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
+			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(player.level(), fluid);
+		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
+			tickExisting(player.level(), state);
+			return;
+		}
+
+		HandheldNozzleType nozzleType = binding.nozzleType();
+		state.behavior = behavior;
+		state.fuelPath = SprayProjectileVisuals.fuelPath(fluid);
+		state.potionColor = potionColor(fluid);
+		state.trailParticles = trailParticlesPerTick(nozzleType);
+
+		if (spraying) {
+			Vec3 direction = player.getLookAngle().normalize();
+			Vec3 origin = player.getEyePosition().add(direction.scale(0.75)).add(0.0, -0.18, 0.0);
+			SprayShape shape = projectileShape(nozzleType);
+			boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
+				|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA;
+			SprayProjectileVisuals.spawnProjectiles(state.projectiles, origin, direction, shape,
+				Config.serverProjectilesPerTick, projectileLifetime(nozzleType), projectileSpeed(nozzleType),
+				behavior, ignited, new Vec3(0.0, -projectileGravity(nozzleType), 0.0),
+				projectileFriction(nozzleType), RANDOM);
+			SprayDebugRenderer.submitDynamicSpray(DEBUG_KEY_PREFIX ^ player.getId(), origin, direction,
+				nozzleType != HandheldNozzleType.FLAT, maxRange(nozzleType), projectileSpeed(nozzleType),
+				projectileGravity(nozzleType), projectileFriction(nozzleType), projectileLifetime(nozzleType),
+				player.level().getGameTime() + 2);
+		}
+
+		tickExisting(player.level(), state);
 	}
 
-	private static void clear() {
-		clearProjectiles();
-		activeKey = "";
+	private static void tickExisting(Level level, VisualState state) {
+		if (state.projectiles.isEmpty())
+			return;
+		if (state.behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
+			state.projectiles.clear();
+			return;
+		}
+		SprayProjectileVisuals.tickClientProjectiles(level, state.projectiles, state.behavior,
+			state.fuelPath, state.potionColor, state.trailParticles, pos -> pos);
 	}
 
-	private static void clearProjectiles() {
-		PROJECTILES.clear();
-		lastBehavior = AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
-		lastFuelPath = "";
-		lastPotionColor = new Vector3f(1, 1, 1);
-		lastTrailParticles = 3;
+	public static void clear(int entityId) {
+		STATES.remove(entityId);
+	}
+
+	public static void clearAll() {
+		STATES.clear();
 	}
 
 	private static SprayShape projectileShape(HandheldNozzleType type) {
@@ -177,5 +177,23 @@ public final class HandheldNozzleClientSprayVisuals {
 		PotionContents contents = fluid.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
 		int rgb = contents.getColor();
 		return new Vector3f(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
+	}
+
+	private static final class VisualState {
+		private final List<LightweightProjectile> projectiles = new ArrayList<>();
+		private String activeKey = "";
+		private AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
+			AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
+		private String fuelPath = "";
+		private Vector3f potionColor = new Vector3f(1, 1, 1);
+		private int trailParticles = 3;
+
+		private void clearProjectiles() {
+			projectiles.clear();
+			behavior = AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
+			fuelPath = "";
+			potionColor = new Vector3f(1, 1, 1);
+			trailParticles = 3;
+		}
 	}
 }

@@ -20,6 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 public class HandheldNozzleControllerItem extends Item {
 	private static final String POS_TAG = "HydrantPos";
@@ -48,6 +49,7 @@ public class HandheldNozzleControllerItem extends Item {
 			return ItemInteractionResult.SUCCESS;
 		}
 
+		cabinet.forceClearBinding();
 		bind(stack, (ServerLevel) level, pos, cabinet.getHydrantId(), nozzleType);
 		cabinet.bindTo(player);
 		player.displayClientMessage(Component.translatable("createfirefightingadd.handheld_nozzle.bound"), true);
@@ -117,7 +119,7 @@ public class HandheldNozzleControllerItem extends Item {
 		stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
 	}
 
-	public static void clearBinding(Level level, ItemStack stack, Player player) {
+	public static void clearBinding(Level level, ItemStack stack, @Nullable Player player) {
 		Optional<Binding> binding = readBinding(stack);
 		if (binding.isPresent() && level instanceof ServerLevel serverLevel) {
 			Binding data = binding.get();
@@ -125,7 +127,7 @@ public class HandheldNozzleControllerItem extends Item {
 			if (boundLevel != null
 				&& boundLevel.getBlockEntity(data.pos()) instanceof FireHydrantCabinetBlockEntity cabinet
 				&& cabinet.getHydrantId().equals(data.hydrantId())) {
-				cabinet.clearBinding(player.getUUID());
+				cabinet.clearBinding(player == null ? null : player.getUUID());
 			}
 		}
 

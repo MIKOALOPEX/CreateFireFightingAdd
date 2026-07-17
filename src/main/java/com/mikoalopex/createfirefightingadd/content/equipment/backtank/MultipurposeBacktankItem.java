@@ -25,6 +25,16 @@ public class MultipurposeBacktankItem extends BacktankItem {
 		super(material, properties, armorTexture, placeable);
 	}
 
+	public static ItemStack withFullAir(ItemStack stack) {
+		stack.set(AllDataComponents.BACKTANK_AIR, BacktankUtil.maxAirWithoutEnchants());
+		return stack;
+	}
+
+	@Override
+	public ItemStack getDefaultInstance() {
+		return withFullAir(super.getDefaultInstance());
+	}
+
 	@Override
 	public boolean isBarVisible(ItemStack stack) {
 		return true;

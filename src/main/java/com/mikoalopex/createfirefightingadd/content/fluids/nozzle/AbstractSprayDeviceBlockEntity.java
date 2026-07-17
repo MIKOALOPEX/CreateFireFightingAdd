@@ -421,6 +421,10 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return Math.max(1.0, currentSprayRange);
 	}
 
+	private String spraySoundKey() {
+		return NozzleSpraySounds.blockKey(worldPosition);
+	}
+
 	/** Iterate entities within the spray cone/fan. Calls action with (entity, axialDistance). */
 	protected void forEachEntityInSpray(BiConsumer<Entity, Double> action) {
 	}
@@ -579,6 +583,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				serverProjectiles.clear();
 				SprayProjectileBudget.clearServerProjectiles(this);
 				pendingPathSweepSamples.clear();
+				NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 				sendData();
 			}
 
@@ -616,12 +621,17 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			return;
 		}
 
-		if (fluid.isEmpty())
+		if (fluid.isEmpty()) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			return;
-		if (currentFluid == FluidBehavior.UNSUPPORTED)
+		}
+		if (currentFluid == FluidBehavior.UNSUPPORTED) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			return;
+		}
 
 		if (fluid.getAmount() < getFluidConsumptionPerTick()) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			Fluid fluidType = fluid.getFluid();
 			if (stuckFluidType == fluidType && stuckFluidAmount == fluid.getAmount()) {
 				stuckTicks++;
@@ -648,6 +658,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			currentPotionContents = fluidForProjectile.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
 		}
 		handler.drain(getFluidConsumptionPerTick(), IFluidHandler.FluidAction.EXECUTE);
+		NozzleSpraySounds.tick(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 
 		tickCounter++;
 		boolean igniteNow = currentFluid == FluidBehavior.FLAMMABLE && !sprayIgnited && scanForIgnitionSource();
@@ -691,6 +702,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			} else if (sprayStartedAt >= 0 && !sprayingNow) {
 				sprayStartedAt = -1;
 				sprayIgnited = false;
+				NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 				sendData();
 			}
 
@@ -726,15 +738,22 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			return;
 		}
 
-		if (!sprayingNow)
+		if (!sprayingNow) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			return;
+		}
 
-		if (fluid.isEmpty() || fluid.getAmount() < getFluidConsumptionPerTick())
+		if (fluid.isEmpty() || fluid.getAmount() < getFluidConsumptionPerTick()) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			return;
-		if (currentFluid == FluidBehavior.UNSUPPORTED)
+		}
+		if (currentFluid == FluidBehavior.UNSUPPORTED) {
+			NozzleSpraySounds.stop(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 			return;
+		}
 
 		handler.drain(getFluidConsumptionPerTick(), IFluidHandler.FluidAction.EXECUTE);
+		NozzleSpraySounds.tick(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 
 		tickCounter++;
 		switch (currentFluid) {

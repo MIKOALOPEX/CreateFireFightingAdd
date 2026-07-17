@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.server.level.ServerLevel;
 import net.createmod.catnip.animation.LerpedFloat;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -63,7 +65,45 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 
 		@Override
 		protected void onContentsChanged(int slot) {
+			disconnectIfConnectionSlotChanged(slot);
 			markUpdated();
+		}
+	};
+
+	private final IItemHandler automationInventory = new IItemHandler() {
+		@Override
+		public int getSlots() {
+			return inventory.getSlots();
+		}
+
+		@Override
+		public ItemStack getStackInSlot(int slot) {
+			return isSlotInRange(slot) ? inventory.getStackInSlot(slot) : ItemStack.EMPTY;
+		}
+
+		@Override
+		public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+			int targetSlot = slotForInput(stack);
+			if (targetSlot < 0)
+				return stack;
+			return inventory.insertItem(targetSlot, stack, simulate);
+		}
+
+		@Override
+		public ItemStack extractItem(int slot, int amount, boolean simulate) {
+			if (!isSlotInRange(slot))
+				return ItemStack.EMPTY;
+			return inventory.extractItem(slot, amount, simulate);
+		}
+
+		@Override
+		public int getSlotLimit(int slot) {
+			return isSlotInRange(slot) ? inventory.getSlotLimit(slot) : 0;
+		}
+
+		@Override
+		public boolean isItemValid(int slot, ItemStack stack) {
+			return isSlotInRange(slot) && slotForInput(stack) >= 0;
 		}
 	};
 
@@ -78,7 +118,9 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	private UUID hydrantId = UUID.randomUUID();
 	private @Nullable UUID boundPlayer;
 	private int openCount;
+	private boolean syncedDoorOpen;
 	private boolean fluidSyncQueued;
+	private boolean suppressConnectionSlotDisconnect;
 	private long lastFluidSyncGameTime = -FLUID_SYNC_INTERVAL;
 	private final LerpedFloat doorAnimation = LerpedFloat.linear();
 
@@ -96,7 +138,7 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	}
 
 	public IItemHandler getItemHandler(@Nullable Direction side) {
-		return inventory;
+		return automationInventory;
 	}
 
 	public ItemStackHandler getItemStackHandler() {
@@ -130,7 +172,13 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	}
 
 	public boolean isDoorOpen() {
+		if (level != null && level.isClientSide)
+			return syncedDoorOpen;
 		return openCount > 0 || boundPlayer != null;
+	}
+
+	public boolean isBoundTo(UUID playerId) {
+		return boundPlayer != null && boundPlayer.equals(playerId);
 	}
 
 	public LerpedFloat getDoorAnimation() {
@@ -138,27 +186,37 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	}
 
 	public void bindTo(Player player) {
+		boolean wasOpen = isDoorOpen();
 		boundPlayer = player.getUUID();
-		markUpdated();
+		updateDoorState(wasOpen);
 	}
 
 	public void clearBinding(@Nullable UUID playerId) {
 		if (playerId != null && boundPlayer != null && !boundPlayer.equals(playerId))
 			return;
 		if (boundPlayer != null) {
+			boolean wasOpen = isDoorOpen();
 			boundPlayer = null;
-			markUpdated();
+			updateDoorState(wasOpen);
 		}
 	}
 
+	public void forceClearBinding() {
+		if (level instanceof ServerLevel serverLevel)
+			HandheldNozzleSprayHandler.forceClearCabinetBinding(serverLevel, worldPosition, hydrantId);
+		clearBinding(null);
+	}
+
 	public void startOpen() {
+		boolean wasOpen = isDoorOpen();
 		openCount++;
-		markUpdated();
+		updateDoorState(wasOpen);
 	}
 
 	public void stopOpen() {
+		boolean wasOpen = isDoorOpen();
 		openCount = Math.max(0, openCount - 1);
-		markUpdated();
+		updateDoorState(wasOpen);
 	}
 
 	public FluidStack drainForHandheldSpray(int amount, FluidAction action) {
@@ -168,14 +226,43 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	}
 
 	public void dropContents(Level level, BlockPos pos) {
-		for (int i = 0; i < inventory.getSlots(); i++) {
-			ItemStack stack = inventory.getStackInSlot(i);
-			if (!stack.isEmpty()) {
-				Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
-				inventory.setStackInSlot(i, ItemStack.EMPTY);
+		forceClearBinding();
+		suppressConnectionSlotDisconnect = true;
+		try {
+			for (int i = 0; i < inventory.getSlots(); i++) {
+				ItemStack stack = inventory.getStackInSlot(i);
+				if (!stack.isEmpty()) {
+					Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+					inventory.setStackInSlot(i, ItemStack.EMPTY);
+				}
 			}
+		} finally {
+			suppressConnectionSlotDisconnect = false;
 		}
-		clearBinding(null);
+	}
+
+	private void disconnectIfConnectionSlotChanged(int slot) {
+		if (suppressConnectionSlotDisconnect || level == null || level.isClientSide)
+			return;
+		if (slot == SLOT_HOSE || slot == SLOT_NOZZLE)
+			forceClearBinding();
+	}
+
+	private static boolean isSlotInRange(int slot) {
+		return slot >= 0 && slot < 3;
+	}
+
+	private static int slotForInput(ItemStack stack) {
+		if (stack.isEmpty())
+			return -1;
+		if (stack.is(CreateFireFightingAdd.FIRE_HOSE_ITEM.get()))
+			return SLOT_HOSE;
+		if (stack.is(CreateFireFightingAdd.CONE_NOZZLE_ITEM.get())
+			|| stack.is(CreateFireFightingAdd.FLAT_NOZZLE_ITEM.get()))
+			return SLOT_NOZZLE;
+		if (stack.is(Items.BUCKET))
+			return SLOT_BUCKET;
+		return -1;
 	}
 
 	private Direction getFront() {
@@ -230,6 +317,23 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
 	}
 
+	private void updateDoorState(boolean wasOpen) {
+		boolean isOpen = isDoorOpen();
+		syncedDoorOpen = isOpen;
+		if (level != null && !level.isClientSide && wasOpen != isOpen)
+			playDoorSound(isOpen);
+		markUpdated();
+	}
+
+	private void playDoorSound(boolean open) {
+		if (level == null)
+			return;
+		level.playSound(null, worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5,
+			open ? CreateFireFightingAdd.FIRE_HYDRANT_CABINET_OPEN_SOUND.get()
+				: CreateFireFightingAdd.FIRE_HYDRANT_CABINET_CLOSE_SOUND.get(),
+			SoundSource.BLOCKS, 0.8f, 1.0f);
+	}
+
 	@Override
 	public Component getDisplayName() {
 		return Component.translatable("block.createfirefightingadd.fire_hydrant_cabinet");
@@ -237,6 +341,8 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 
 	@Override
 	public @Nullable AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+		if (level == null || !level.isClientSide)
+			startOpen();
 		return new FireHydrantCabinetMenu(containerId, playerInventory, this);
 	}
 
@@ -261,6 +367,7 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 			tank.readFromNBT(registries, tag.getCompound(FLUID_TAG));
 		hydrantId = tag.hasUUID(ID_TAG) ? tag.getUUID(ID_TAG) : UUID.randomUUID();
 		boundPlayer = tag.hasUUID(BOUND_PLAYER_TAG) ? tag.getUUID(BOUND_PLAYER_TAG) : null;
+		syncedDoorOpen = tag.contains(DOOR_OPEN_TAG) ? tag.getBoolean(DOOR_OPEN_TAG) : boundPlayer != null;
 		openCount = 0;
 	}
 
@@ -275,8 +382,6 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	@Override
 	public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
 		loadAdditional(tag, registries);
-		if (tag.contains(DOOR_OPEN_TAG))
-			openCount = tag.getBoolean(DOOR_OPEN_TAG) ? 1 : 0;
 	}
 
 	@Override

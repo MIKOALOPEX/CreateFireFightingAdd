@@ -4,20 +4,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.HandheldNozzleClientSprayVisuals;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class HandheldNozzleClientHandler {
 	private static final int REMOTE_SPRAYING_TTL = 40;
+	private static final int USE_SWING_SUPPRESS_TICKS = 8;
 	private static final Map<Integer, Long> REMOTE_SPRAYING = new HashMap<>();
+	private static final Map<Integer, SyncedControllerState> REMOTE_CONTROLLERS = new HashMap<>();
 	private static boolean lastSentSpraying;
 	private static boolean leftMouseHeld;
 	private static boolean waitForFreshAttack;
+	private static int useSwingSuppressTicks;
 	private static float previousSprayProgress;
 	private static float sprayProgress;
 	private static long lastMissingMessageAt;
@@ -30,11 +37,21 @@ public final class HandheldNozzleClientHandler {
 		Minecraft mc = Minecraft.getInstance();
 		cleanupRemoteSpraying(mc);
 		previousSprayProgress = sprayProgress;
-		if (mc.player == null || mc.screen != null) {
+		if (mc.level == null || mc.player == null) {
 			leftMouseHeld = false;
 			setSpraying(false);
 			updateProgress(false);
-			com.mikoalopex.createfirefightingadd.content.fluids.nozzle.HandheldNozzleClientSprayVisuals.tick(null, ItemStack.EMPTY, false);
+			HandheldNozzleClientSprayVisuals.clearAll();
+			return;
+		}
+		if (useSwingSuppressTicks > 0)
+			useSwingSuppressTicks--;
+		if (mc.screen != null) {
+			leftMouseHeld = false;
+			setSpraying(false);
+			updateProgress(false);
+			HandheldNozzleClientSprayVisuals.tick(mc.player, ItemStack.EMPTY, false);
+			tickRemoteSprayVisuals(mc);
 			return;
 		}
 
@@ -44,6 +61,8 @@ public final class HandheldNozzleClientHandler {
 		if (!bindingKey.equals(lastBindingKey)) {
 			lastBindingKey = bindingKey;
 			waitForFreshAttack = !bindingKey.isEmpty();
+			if (!bindingKey.isEmpty())
+				useSwingSuppressTicks = Math.max(useSwingSuppressTicks, USE_SWING_SUPPRESS_TICKS);
 			setSpraying(false);
 		}
 
@@ -66,8 +85,8 @@ public final class HandheldNozzleClientHandler {
 
 		setSpraying(shouldSpray);
 		updateProgress(shouldSpray);
-		com.mikoalopex.createfirefightingadd.content.fluids.nozzle.HandheldNozzleClientSprayVisuals.tick(
-			mc.player, stack, shouldSpray);
+		HandheldNozzleClientSprayVisuals.tick(mc.player, stack, shouldSpray);
+		tickRemoteSprayVisuals(mc);
 	}
 
 	public static boolean isSpraying() {
@@ -91,10 +110,37 @@ public final class HandheldNozzleClientHandler {
 		REMOTE_SPRAYING.put(entityId, now + REMOTE_SPRAYING_TTL);
 	}
 
-	public static void onMouseButton(int button, int action) {
-		if (button != org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT)
+	public static void updateSyncedControllerState(int entityId, SyncedControllerState state) {
+		if (!state.present()) {
+			REMOTE_CONTROLLERS.remove(entityId);
 			return;
-		leftMouseHeld = action != org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+		}
+		REMOTE_CONTROLLERS.put(entityId, state);
+	}
+
+	public static SyncedControllerState getSyncedControllerState(LivingEntity entity) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null)
+			return null;
+		SyncedControllerState state = REMOTE_CONTROLLERS.get(entity.getId());
+		if (state == null)
+			return null;
+		if (mc.level.getGameTime() > state.expiresAt()) {
+			REMOTE_CONTROLLERS.remove(entity.getId());
+			return null;
+		}
+		return state;
+	}
+
+	public static void onMouseButton(int button, int action) {
+		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+			leftMouseHeld = action != org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+			return;
+		}
+		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT
+			&& action == org.lwjgl.glfw.GLFW.GLFW_PRESS
+			&& isBindingUseTarget())
+			useSwingSuppressTicks = USE_SWING_SUPPRESS_TICKS;
 	}
 
 	public static boolean shouldCancelAttackInput() {
@@ -104,8 +150,30 @@ public final class HandheldNozzleClientHandler {
 		return !activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem()).isEmpty();
 	}
 
+	public static boolean shouldSuppressUseSwing() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.screen != null)
+			return false;
+		return useSwingSuppressTicks > 0
+			&& !activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem()).isEmpty();
+	}
+
 	public static float getSprayProgress(float partialTick) {
 		return Mth.lerp(partialTick, previousSprayProgress, sprayProgress);
+	}
+
+	private static boolean isBindingUseTarget() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null || mc.hitResult == null)
+			return false;
+		if (!mc.player.isShiftKeyDown())
+			return false;
+		if (activeController(mc.player.getMainHandItem(), mc.player.getOffhandItem()).isEmpty())
+			return false;
+		if (mc.hitResult.getType() != HitResult.Type.BLOCK)
+			return false;
+		BlockHitResult hit = (BlockHitResult) mc.hitResult;
+		return mc.level.getBlockEntity(hit.getBlockPos()) instanceof FireHydrantCabinetBlockEntity;
 	}
 
 	private static void setSpraying(boolean spraying) {
@@ -138,12 +206,33 @@ public final class HandheldNozzleClientHandler {
 			.orElse("");
 	}
 
+	private static void tickRemoteSprayVisuals(Minecraft mc) {
+		if (mc.level == null || mc.player == null)
+			return;
+		for (Player player : mc.level.players()) {
+			if (player == mc.player)
+				continue;
+			SyncedControllerState state = getSyncedControllerState(player);
+			if (state == null || !state.present() || state.binding() == null) {
+				HandheldNozzleClientSprayVisuals.clear(player.getId());
+				continue;
+			}
+			HandheldNozzleClientSprayVisuals.tick(player, state.binding(), isSyncedSpraying(player));
+		}
+	}
+
 	private static void cleanupRemoteSpraying(Minecraft mc) {
 		if (mc.level == null) {
 			REMOTE_SPRAYING.clear();
+			REMOTE_CONTROLLERS.clear();
 			return;
 		}
 		long now = mc.level.getGameTime();
 		REMOTE_SPRAYING.entrySet().removeIf(entry -> now > entry.getValue());
+		REMOTE_CONTROLLERS.entrySet().removeIf(entry -> now > entry.getValue().expiresAt());
+	}
+
+	public record SyncedControllerState(boolean present, boolean stowed, boolean leftHand,
+			HandheldNozzleControllerItem.Binding binding, long expiresAt) {
 	}
 }

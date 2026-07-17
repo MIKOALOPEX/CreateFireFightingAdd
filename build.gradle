@@ -88,6 +88,15 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        vedClient {
+            client()
+            ideName.set("VED Player")
+            gameDirectory.set(layout.projectDirectory.dir("run"))
+            programArgument '--username'
+            programArgument 'VED'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
         server {
             server()
             programArgument '--nogui'
