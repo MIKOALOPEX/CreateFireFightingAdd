@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ABC",
+    "DE ",
+    " H "
+  ],
+  "key": {
+    "A": { "item": "create:andesite_alloy" },
+    "B": { "item": "minecraft:heavy_core" },
+    "C": { "item": "create:copper_backtank" },
+    "D": { "item": "create:andesite_alloy" },
+    "E": { "item": "create:cogwheel" },
+    "H": { "item": "minecraft:stick" }
+  },
+  "result": {
+    "id": "createfirefightingadd:pneumatic_hammer",
+    "count": 1
+  }
+}

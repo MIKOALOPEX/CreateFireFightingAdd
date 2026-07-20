@@ -1,9 +1,13 @@
 package com.mikoalopex.createfirefightingadd.content.ponder.index;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.ponder.scenes.FireHoseConnectorScenes;
 import com.mikoalopex.createfirefightingadd.content.ponder.scenes.FireHoseScenes;
+import com.mikoalopex.createfirefightingadd.content.ponder.scenes.FireHydrantCabinetScenes;
+import com.mikoalopex.createfirefightingadd.content.ponder.scenes.FlowMeterScenes;
 import com.mikoalopex.createfirefightingadd.content.ponder.scenes.HighPressurePumpScenes;
 import com.mikoalopex.createfirefightingadd.content.ponder.scenes.NozzleScenes;
+import com.mikoalopex.createfirefightingadd.content.ponder.scenes.PipelineTurbineScenes;
 import com.mikoalopex.createfirefightingadd.content.ponder.scenes.WaterIntakeAndBucketScenes;
 import com.simibubi.create.infrastructure.ponder.AllCreatePonderTags;
 
@@ -34,5 +38,21 @@ public class CreateFireFightingPonderScenes {
 		helper.forComponents(CreateFireFightingAdd.FIRE_HOSE_ITEM)
 			.addStoryBoard("fire_hose/connection_and_relay",
 				FireHoseScenes::connectionAndRelay, AllCreatePonderTags.FLUIDS);
+
+		helper.forComponents(CreateFireFightingAdd.FIRE_HOSE_CONNECTOR)
+			.addStoryBoard("fire_hose_connector/modes_and_reconnection",
+				FireHoseConnectorScenes::modesAndReconnection, AllCreatePonderTags.FLUIDS);
+
+		helper.forComponents(CreateFireFightingAdd.PIPELINE_TURBINE)
+			.addStoryBoard("pipeline_turbine/flow_to_rotation",
+				PipelineTurbineScenes::flowToRotation, AllCreatePonderTags.FLUIDS);
+
+		helper.forComponents(CreateFireFightingAdd.FLUID_FLOW_METER)
+			.addStoryBoard("fluid_flow_meter/flow_and_pressure",
+				FlowMeterScenes::flowAndPressure, AllCreatePonderTags.FLUIDS);
+
+		helper.forComponents(CreateFireFightingAdd.FIRE_HYDRANT_CABINET)
+			.addStoryBoard("fire_hydrant_cabinet/handheld_nozzle_operation",
+				FireHydrantCabinetScenes::handheldNozzleOperation, AllCreatePonderTags.FLUIDS);
 	}
 }

@@ -146,8 +146,7 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 	}
 
 	public @Nullable IFluidHandler getFluidHandler(@Nullable Direction side) {
-		if (side != null && side == getFront())
-			return null;
+		// The cabinet model has custom facing remaps; expose all sides so pipe IO stays predictable.
 		return tank;
 	}
 
@@ -267,13 +266,6 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		if (stack.is(Items.BUCKET))
 			return SLOT_BUCKET;
 		return -1;
-	}
-
-	private Direction getFront() {
-		BlockState state = getBlockState();
-		return state.hasProperty(FireHydrantCabinetBlock.FACING)
-			? state.getValue(FireHydrantCabinetBlock.FACING)
-			: Direction.NORTH;
 	}
 
 	private void fillBucketFromTank() {

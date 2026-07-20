@@ -222,17 +222,9 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
             double length = point.point.distance(nextPoint.point);
 
             renderSegment(ps, point.normal, nextPoint.normal, upDir, nextUpDir,
-                    point.point, nextPoint.point, false,
+                    point.point, nextPoint.point,
                     (float) runningSpringLength * uvScale,
                     (float) (runningSpringLength + length) * uvScale,
-                    light, color, buffer, TUBE_WIDTH, TEXTURE_WIDTH);
-
-            renderSegment(ps, point.normal.negate(new Vector3d()),
-                    nextPoint.normal.negate(new Vector3d()),
-                    upDir.negate(new Vector3d()), nextUpDir.negate(new Vector3d()),
-                    point.point, nextPoint.point, true,
-                    0.0f - (float) runningSpringLength * uvScale,
-                    0.0f - (float) (runningSpringLength + length) * uvScale,
                     light, color, buffer, TUBE_WIDTH, TEXTURE_WIDTH);
 
             runningSpringLength += length;
@@ -291,7 +283,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
     private void renderSegment(PoseStack ms, Vector3dc startDirection, Vector3dc endDirection,
                                 Vector3dc inputStartUp, Vector3dc inputEndUp,
-                                Vector3dc startPos, Vector3dc endPos, boolean second,
+                                Vector3dc startPos, Vector3dc endPos,
                                 float uvStart, float uvEnd, int light, int color,
                                 VertexConsumer a, float width, float textureWidth) {
         inputStartUp.cross(startDirection, startLeft).normalize();
@@ -306,7 +298,6 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         inputEndUp.mul(scale, endUp);
 
         float uvScale = 16.0f / textureWidth;
-        float uvXOffset = second ? width / textureWidth : 0.0f;
         Vector3d startDown = startUp.negate(new Vector3d());
         Vector3d endDown = endUp.negate(new Vector3d());
         Vector3d startRight = startLeft.negate(new Vector3d());
@@ -314,43 +305,43 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
 
         // Bottom face
         vert(ms, a, startPos.add(startLeft, vertex).sub(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, startDown, light);
+                color, 0.0f, uvStart * uvScale, startDown, light);
         vert(ms, a, endPos.add(endLeft, vertex).sub(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, endDown, light);
+                color, 0.0f, uvEnd * uvScale, endDown, light);
         vert(ms, a, endPos.sub(endLeft, vertex).sub(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, endDown, light);
+                color, texW, uvEnd * uvScale, endDown, light);
         vert(ms, a, startPos.sub(startLeft, vertex).sub(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, startDown, light);
+                color, texW, uvStart * uvScale, startDown, light);
 
         // Top face
         vert(ms, a, startPos.sub(startLeft, vertex).add(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, startUp, light);
+                color, 0.0f, uvStart * uvScale, startUp, light);
         vert(ms, a, endPos.sub(endLeft, vertex).add(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, endUp, light);
+                color, 0.0f, uvEnd * uvScale, endUp, light);
         vert(ms, a, endPos.add(endLeft, vertex).add(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, endUp, light);
+                color, texW, uvEnd * uvScale, endUp, light);
         vert(ms, a, startPos.add(startLeft, vertex).add(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, startUp, light);
+                color, texW, uvStart * uvScale, startUp, light);
 
         // Right side face
         vert(ms, a, startPos.sub(startLeft, vertex).sub(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, startRight, light);
+                color, 0.0f, uvStart * uvScale, startRight, light);
         vert(ms, a, endPos.sub(endLeft, vertex).sub(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, endRight, light);
+                color, 0.0f, uvEnd * uvScale, endRight, light);
         vert(ms, a, endPos.sub(endLeft, vertex).add(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, endRight, light);
+                color, texW, uvEnd * uvScale, endRight, light);
         vert(ms, a, startPos.sub(startLeft, vertex).add(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, startRight, light);
+                color, texW, uvStart * uvScale, startRight, light);
 
         // Left side face
         vert(ms, a, startPos.add(startLeft, vertex).add(startUp),
-                color, 0.0f + uvXOffset, uvStart * uvScale, startLeft, light);
+                color, 0.0f, uvStart * uvScale, startLeft, light);
         vert(ms, a, endPos.add(endLeft, vertex).add(endUp),
-                color, 0.0f + uvXOffset, uvEnd * uvScale, endLeft, light);
+                color, 0.0f, uvEnd * uvScale, endLeft, light);
         vert(ms, a, endPos.add(endLeft, vertex).sub(endUp),
-                color, texW + uvXOffset, uvEnd * uvScale, endLeft, light);
+                color, texW, uvEnd * uvScale, endLeft, light);
         vert(ms, a, startPos.add(startLeft, vertex).sub(startUp),
-                color, texW + uvXOffset, uvStart * uvScale, startLeft, light);
+                color, texW, uvStart * uvScale, startLeft, light);
     }
 
     private void vert(PoseStack ms, VertexConsumer a, Vector3dc pos, int color,

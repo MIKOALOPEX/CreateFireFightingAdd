@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "createfirefightingadd:fire_hose_connector",
+    "createfirefightingadd:pipeline_turbine",
+    "createfirefightingadd:fluid_flow_meter",
+    "createfirefightingadd:flow_meter"
+  ]
+}

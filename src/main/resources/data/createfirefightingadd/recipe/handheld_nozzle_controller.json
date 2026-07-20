@@ -1,0 +1,57 @@
+{
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "create:mechanical_pump"
+  },
+  "loops": 1,
+  "results": [
+    {
+      "id": "createfirefightingadd:handheld_nozzle_controller",
+      "count": 1
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        { "item": "createfirefightingadd:incomplete_handheld_nozzle_controller" },
+        { "item": "create:analog_lever" }
+      ],
+      "results": [
+        { "id": "createfirefightingadd:incomplete_handheld_nozzle_controller" }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        { "item": "createfirefightingadd:incomplete_handheld_nozzle_controller" },
+        { "item": "create:precision_mechanism" }
+      ],
+      "results": [
+        { "id": "createfirefightingadd:incomplete_handheld_nozzle_controller" }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        { "item": "createfirefightingadd:incomplete_handheld_nozzle_controller" },
+        { "item": "create:andesite_alloy" }
+      ],
+      "results": [
+        { "id": "createfirefightingadd:incomplete_handheld_nozzle_controller" }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        { "item": "createfirefightingadd:incomplete_handheld_nozzle_controller" }
+      ],
+      "results": [
+        { "id": "createfirefightingadd:incomplete_handheld_nozzle_controller" }
+      ]
+    }
+  ],
+  "transitional_item": {
+    "id": "createfirefightingadd:incomplete_handheld_nozzle_controller"
+  }
+}

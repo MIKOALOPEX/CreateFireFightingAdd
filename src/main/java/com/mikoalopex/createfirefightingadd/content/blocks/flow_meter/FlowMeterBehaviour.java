@@ -23,8 +23,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
- * Experimental flow monitor. It may be changed or removed in a future version.
- * <p>
  * Extends {@link FluidTransportBehaviour} to passively monitor pressure and flow
  * on the pipe connections along the FACING axis. Data is read <b>before</b>
  * {@code super.tick()} because the parent tick consumes/clears transient flow
@@ -70,7 +68,7 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 		super.tick();
 
-		// Forward fluid between axial sides after flow processing.
+		// Forward fluid between axial sides after the monitor has sampled flow.
 		if (blockEntity instanceof FlowMeterBlockEntity meter
 			&& meter.getLevel() != null
 			&& !meter.getLevel().isClientSide
@@ -87,8 +85,8 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 		Direction facing = meter.getBlockState().getValue(FlowMeterBlock.FACING);
 
-		// Gather pressures from both axial connections, grouped by flow direction
-		// ab = FACING -> OPPOSITE (A -> B), ba = OPPOSITE -> FACING (B -> A)
+		// Gather pressures from both axial connections, grouped by flow direction.
+		// ab = FACING -> OPPOSITE (A -> B), ba = OPPOSITE -> FACING (B -> A).
 		float abIn = 0, abOut = 0, baIn = 0, baOut = 0;
 		FluidStack abFluid = FluidStack.EMPTY, baFluid = FluidStack.EMPTY;
 
@@ -104,14 +102,14 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 			float out = pressure != null ? pressure.getSecond() : 0;
 
 			if (dir == facing) {
-				// FACING side: in = A -> B, out = B -> A
+				// FACING side: in = A -> B, out = B -> A.
 				abIn = Math.max(abIn, in);
 				baOut = Math.max(baOut, out);
 				if (conn.hasFlow() && conn.getProvidedFluid() != null) {
 					abFluid = conn.getProvidedFluid();
 				}
 			} else {
-				// OPPOSITE side: in = B -> A, out = A -> B
+				// OPPOSITE side: in = B -> A, out = A -> B.
 				baIn = Math.max(baIn, in);
 				abOut = Math.max(abOut, out);
 				if (conn.hasFlow() && conn.getProvidedFluid() != null) {
@@ -120,7 +118,7 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 			}
 		}
 
-		// Determine dominant flow direction and only expose that one
+		// Expose only the dominant flow direction to the meter display.
 		float abScore = abIn + abOut;
 		float baScore = baIn + baOut;
 		if (abScore >= baScore && abScore > 0) {

@@ -23,6 +23,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -32,11 +34,20 @@ import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HO
 public class FireHoseBlock extends WrenchableDirectionalBlock
         implements IBE<FireHoseBlockEntity>, IWrenchable, ContraptionMovementSetting.MovementSettingProvider {
 
+    public static final BooleanProperty BLACK = BooleanProperty.create("black");
+
     private static final VoxelShaper SHAPE = VoxelShaper.forDirectional(
             Block.box(3, 0, 3, 13, 4, 13), Direction.UP);
 
     public FireHoseBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(BLACK, false));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(BLACK);
     }
 
     @Override

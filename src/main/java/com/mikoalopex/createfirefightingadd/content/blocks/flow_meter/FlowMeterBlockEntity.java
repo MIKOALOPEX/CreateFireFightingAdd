@@ -20,8 +20,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
- * Experimental flow monitor. It may be changed or removed in a future version.
- * <p>
  * Monitors fluid flow and pressure through an in-line pipe segment. Data is
  * collected by {@link FlowMeterBehaviour} each tick and displayed through
  * Engineer's Goggles via {@link IHaveGoggleInformation}.
@@ -31,7 +29,7 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	private static final float MIN_VISIBLE_TARGET = 0.01f;
 	private static final int ZERO_TARGET_GRACE_TICKS = 30;
 
-	// Cached monitoring data (written by FlowMeterBehaviour each tick)
+	// Cached monitoring data written by FlowMeterBehaviour.
 	float cachedInboundPressure;
 	float cachedOutboundPressure;
 	FluidStack cachedFluid = FluidStack.EMPTY;
@@ -83,13 +81,13 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 			"createfirefightingadd.flow_meter.pressure",
 			String.format("%.1f", pressure)));
 
-		// Flow rate: derived from pressure (Create pump: transfer = pressure / 2 mb/t)
+		// Flow rate is derived from pressure. Create pumps transfer pressure / 2 mb/t.
 		float flowRate = pressure / 2f;
 		tooltip.add(Component.translatable(
 			"createfirefightingadd.flow_meter.flow_rate",
 			String.format("%.1f", flowRate)));
 
-		// Current fluid
+		// Current fluid.
 		if (!cachedFluid.isEmpty()) {
 			tooltip.add(Component.translatable(
 				"createfirefightingadd.flow_meter.fluid",

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "minecraft:compass" },
+    "E": { "item": "create:fluid_pipe" },
+    "H": { "item": "create:electron_tube" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fluid_flow_meter",
+    "count": 1
+  }
+}

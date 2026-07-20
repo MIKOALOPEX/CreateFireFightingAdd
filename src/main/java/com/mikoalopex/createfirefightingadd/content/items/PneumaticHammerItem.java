@@ -24,6 +24,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
@@ -46,6 +47,16 @@ public class PneumaticHammerItem extends Item {
 
 	public PneumaticHammerItem(Properties properties) {
 		super(properties.stacksTo(1));
+	}
+
+	@Override
+	public boolean isEnchantable(ItemStack stack) {
+		return stack.getMaxStackSize() == 1;
+	}
+
+	@Override
+	public int getEnchantmentValue() {
+		return Tiers.DIAMOND.getEnchantmentValue();
 	}
 
 	public static int getChargeTimeTicks() {

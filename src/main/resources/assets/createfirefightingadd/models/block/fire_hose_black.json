@@ -1,0 +1,21 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "0": "createfirefightingadd:block/fire_hose_end_black",
+    "particle": "createfirefightingadd:block/fire_hose_black"
+  },
+  "elements": [
+    {
+      "from": [3, 0, 3],
+      "to": [13, 4, 13],
+      "faces": {
+        "north": {"uv": [0, 0, 5, 2], "texture": "#0"},
+        "east": {"uv": [0, 0, 5, 2], "texture": "#0"},
+        "south": {"uv": [0, 0, 5, 2], "texture": "#0"},
+        "west": {"uv": [0, 0, 5, 2], "texture": "#0"},
+        "up": {"uv": [5, 5, 10, 10], "texture": "#0"},
+        "down": {"uv": [5, 0, 10, 5], "texture": "#0"}
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "create:copper_nugget" },
+    "E": { "item": "create:andesite_alloy" },
+    "H": { "item": "create:copper_nugget" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_pole",
+    "count": 1
+  }
+}

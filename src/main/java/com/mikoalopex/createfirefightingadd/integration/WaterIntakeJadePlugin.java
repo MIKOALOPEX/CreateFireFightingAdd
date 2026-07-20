@@ -22,11 +22,10 @@ import snownee.jade.api.IWailaPlugin;
 import snownee.jade.api.WailaPlugin;
 import snownee.jade.api.config.IPluginConfig;
 
-@WailaPlugin
+@WailaPlugin(CreateFireFightingAdd.MODID)
 public class WaterIntakeJadePlugin implements IWailaPlugin {
 
-	public static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(
-		CreateFireFightingAdd.MODID, "water_intake_fluid");
+	public static final ResourceLocation UID = CreateFireFightingAdd.path("water_intake_fluid");
 
 	@Override
 	public void register(IWailaCommonRegistration registration) {

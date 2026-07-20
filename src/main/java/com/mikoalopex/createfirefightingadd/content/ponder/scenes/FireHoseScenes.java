@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.ponder.scenes;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnections;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
 import net.createmod.catnip.math.Pointing;
@@ -39,6 +40,7 @@ public class FireHoseScenes {
 			.add(util.select().fromTo(util.grid().at(3, 3, 3), util.grid().at(3, 4, 3)));
 
 		scene.world().showSection(sceneBlocks, Direction.DOWN);
+		connectHoses(scene, inputHose, outputHose);
 		scene.idle(20);
 
 		scene.overlay().showText(80)
@@ -49,7 +51,6 @@ public class FireHoseScenes {
 			.text("Fire Hoses carry fluid when driven by an external pump, even across moving physical structures.");
 		scene.overlay().showOutline(PonderPalette.BLUE, "hose_pair", hosePair, 80);
 		scene.overlay().showOutline(PonderPalette.WHITE, "physical_supports", physicalSupports, 80);
-		showHoseLink(scene, inputHose, outputHose, 80);
 		scene.idle(90);
 
 		scene.overlay().showText(95)
@@ -94,16 +95,11 @@ public class FireHoseScenes {
 		scene.idle(75);
 	}
 
-	private static void showHoseLink(CreateSceneBuilder scene, BlockPos first, BlockPos second, int duration) {
-		Vec3 from = Vec3.atCenterOf(first);
-		Vec3 to = Vec3.atCenterOf(second);
-		for (int i = 0; i <= 14; i++) {
-			double t = i / 14.0;
-			Vec3 pos = from.lerp(to, t).add(0, Math.sin(t * Math.PI) * 0.25, 0);
-			scene.effects().emitParticles(pos,
-				scene.effects().simpleParticleEmitter(new DustParticleOptions(new Vector3f(0.8f, 0.05f, 0.05f), 1.1f), Vec3.ZERO),
-				1.0f, duration);
-		}
+	private static void connectHoses(CreateSceneBuilder scene, BlockPos first, BlockPos second) {
+		scene.world().modifyBlockEntity(first, FireHoseBlockEntity.class, hose -> {
+			if (hose.getLevel() != null && hose.getLevel().getBlockEntity(second) instanceof FireHoseBlockEntity other)
+				FireHoseConnections.tryConnect(hose, other);
+		});
 	}
 
 	private static void showPipeFlow(CreateSceneBuilder scene, BlockPos[] path, int duration) {

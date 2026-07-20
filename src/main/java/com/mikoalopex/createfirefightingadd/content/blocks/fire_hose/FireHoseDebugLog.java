@@ -11,7 +11,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Opt-in diagnostics for fire hose pressure and transfer behaviour.
+ * Disabled-by-default diagnostics for fire hose pressure and transfer behaviour.
+ * Keep this class available so field reports can be investigated without adding
+ * ad-hoc logging back into the transfer path.
  */
 final class FireHoseDebugLog {
 
@@ -29,7 +31,8 @@ final class FireHoseDebugLog {
     }
 
     public static void init() {
-        if (!ENABLED) return;
+        if (!ENABLED)
+            return;
         NeoForge.EVENT_BUS.register(new Object() {
             @SubscribeEvent
             void onServerTickPre(ServerTickEvent.Pre event) {
@@ -58,7 +61,8 @@ final class FireHoseDebugLog {
     static void logHoseState(String label, FireHoseBlockEntity hose,
                              int backDist, boolean backPushesToward,
                              int partnerDist, boolean partnerPushesToward) {
-        if (!ENABLED) return;
+        if (!ENABLED)
+            return;
 
         BlockPos pos = hose.getBlockPos();
         boolean pulling = hose.isPulling();
@@ -79,18 +83,22 @@ final class FireHoseDebugLog {
 
     private static String sideLabel(FireHoseBlockEntity hose) {
         int s = hose.pumpSide;
-        if (s == FireHoseBlockEntity.PUMP_SIDE_BACK) return "BACK";
-        if (s == FireHoseBlockEntity.PUMP_SIDE_PARTNER) return "PARTNER";
+        if (s == FireHoseBlockEntity.PUMP_SIDE_BACK)
+            return "BACK";
+        if (s == FireHoseBlockEntity.PUMP_SIDE_PARTNER)
+            return "PARTNER";
         return "NONE";
     }
 
     public static void logRaw(String msg, Object... args) {
-        if (!ENABLED) return;
+        if (!ENABLED)
+            return;
         LOGGER.info(TAG + " " + msg, args);
     }
 
     public static void logRawEvery(String key, int intervalTicks, String msg, Object... args) {
-        if (!ENABLED) return;
+        if (!ENABLED)
+            return;
         long lastTick = LAST_LOG_TICK.getOrDefault(key, Long.MIN_VALUE);
         if (serverTick - lastTick < intervalTicks)
             return;

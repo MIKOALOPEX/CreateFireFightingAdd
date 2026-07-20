@@ -14,6 +14,7 @@ import net.minecraft.core.Direction.Axis;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.BlockGetter;
@@ -82,6 +83,11 @@ public class PipelineTurbineBlock extends KineticBlock
 	@Override
 	public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
 		FluidPropagator.propagateChangedPipe(level, pos, state);
+	}
+
+	@Override
+	public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+		return CreateFireFightingAdd.PIPELINE_TURBINE_ITEM.get().getDefaultInstance();
 	}
 
 	@Override

@@ -143,8 +143,10 @@ public final class FireHoseConnections {
 			FireHoseMovingEndpoints.disconnect(level, partnerPos, hose.getBlockPos());
 			return;
 		}
+		boolean modernBackReference = hose.getFireHoseEndpointId().equals(partner.getFireHosePartnerEndpointId());
+		boolean legacyBackReference = partner.getFireHosePartnerEndpointId() == null;
 		if (hose.getBlockPos().equals(partner.getFireHosePartnerPos())
-			&& hose.getFireHoseEndpointId().equals(partner.getFireHosePartnerEndpointId())) {
+			&& (modernBackReference || legacyBackReference)) {
 			partner.clearFireHoseConnection();
 			markConnectionChanged(partner);
 		}

@@ -1180,6 +1180,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         ticksWithoutPartner = 0;
         snappingTime = 0;
         markPressureDirty();
+        syncBlackBlockState();
         if (partnerPos != null && partnerEndpointId != null)
             FireHoseConnectorBlockEntity.refreshAdjacentTo(this);
         notifyUpdate();
@@ -1414,11 +1415,13 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         boolean changed = blackHose != black;
         if (changed) {
             blackHose = black;
+            syncBlackBlockState();
             notifyUpdate();
         }
         FireHoseBlockEntity partner = getPairedHose();
         if (partner != null && partner.blackHose != black) {
             partner.blackHose = black;
+            partner.syncBlackBlockState();
             partner.notifyUpdate();
             changed = true;
         }
@@ -1436,7 +1439,19 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     @Override
     public void lazyTick() {
         super.lazyTick();
+        syncBlackBlockState();
         invalidateRenderBoundingBox();
+    }
+
+    private void syncBlackBlockState() {
+        if (level == null || level.isClientSide)
+            return;
+
+        BlockState state = getBlockState();
+        if (!state.hasProperty(FireHoseBlock.BLACK) || state.getValue(FireHoseBlock.BLACK) == blackHose)
+            return;
+
+        level.setBlock(worldPosition, state.setValue(FireHoseBlock.BLACK, blackHose), Block.UPDATE_CLIENTS);
     }
 
     @Nullable
@@ -1449,10 +1464,14 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     private boolean isConnectedTo(FireHoseBlockEntity hose) {
+        if (hose.partnerPos == null || !hose.partnerPos.equals(worldPosition))
+            return false;
+
+        if (partnerEndpointId == null && hose.partnerEndpointId == null)
+            return true;
+
         return partnerEndpointId != null
             && partnerEndpointId.equals(hose.getFireHoseEndpointId())
-            && hose.partnerPos != null
-            && hose.partnerPos.equals(worldPosition)
             && getFireHoseEndpointId().equals(hose.partnerEndpointId);
     }
 

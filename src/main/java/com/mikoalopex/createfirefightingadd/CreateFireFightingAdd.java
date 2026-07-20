@@ -65,9 +65,11 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
 import com.simibubi.create.api.contraption.storage.fluid.MountedFluidStorageType;
 import com.simibubi.create.api.registry.CreateRegistries;
 import com.simibubi.create.api.stress.BlockStressValues;
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.kinetics.base.ShaftRenderer;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
 import com.simibubi.create.content.equipment.armor.BacktankItem;
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem;
 import com.simibubi.create.foundation.item.ItemDescription;
 import com.simibubi.create.foundation.item.TooltipModifier;
 import com.simibubi.create.foundation.item.render.CustomRenderedItemModel;
@@ -174,6 +176,10 @@ public class CreateFireFightingAdd {
 			3.0F, 0.1F);
 	}
 
+	private static BlockBehaviour.Properties fluidPipeProperties() {
+		return BlockBehaviour.Properties.ofFullCopy(AllBlocks.FLUID_PIPE.get()).noOcclusion();
+	}
+
 	public static final DeferredBlock<HighPressurePumpBlock> HIGH_PRESSURE_PUMP = BLOCKS.register("high_pressure_pump",
 		() -> new HighPressurePumpBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0f).noOcclusion()));
 
@@ -208,13 +214,13 @@ public class CreateFireFightingAdd {
 		() -> new FireHoseItem(new Item.Properties()));
 
 	public static final DeferredBlock<FireHoseConnectorBlock> FIRE_HOSE_CONNECTOR = BLOCKS.register("fire_hose_connector",
-		() -> new FireHoseConnectorBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> new FireHoseConnectorBlock(fluidPipeProperties()));
 
 	public static final DeferredItem<BlockItem> FIRE_HOSE_CONNECTOR_ITEM =
 		ITEMS.registerSimpleBlockItem("fire_hose_connector", FIRE_HOSE_CONNECTOR);
 
 	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
-		() -> new PipelineTurbineBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> new PipelineTurbineBlock(fluidPipeProperties()));
 
 	public static final DeferredItem<BlockItem> PIPELINE_TURBINE_ITEM =
 		ITEMS.registerSimpleBlockItem("pipeline_turbine", PIPELINE_TURBINE);
@@ -226,7 +232,7 @@ public class CreateFireFightingAdd {
 		ITEMS.registerSimpleBlockItem("fire_pole", FIRE_POLE);
 
 	public static final DeferredBlock<FlowMeterBlock> FLUID_FLOW_METER = BLOCKS.register("fluid_flow_meter",
-		() -> new FlowMeterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> new FlowMeterBlock(fluidPipeProperties()));
 
 	public static final DeferredItem<BlockItem> FLUID_FLOW_METER_ITEM =
 		ITEMS.registerSimpleBlockItem("fluid_flow_meter", FLUID_FLOW_METER);
@@ -263,6 +269,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<HandheldNozzleControllerItem> HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("handheld_nozzle_controller", () -> new HandheldNozzleControllerItem(new Item.Properties().stacksTo(1)));
 
+	public static final DeferredItem<SequencedAssemblyItem> INCOMPLETE_HANDHELD_NOZZLE_CONTROLLER_ITEM =
+		ITEMS.register("incomplete_handheld_nozzle_controller", () -> new SequencedAssemblyItem(new Item.Properties()));
+
 	public static final DeferredHolder<EntityType<?>, EntityType<HandheldNozzleControllerEntity>> HANDHELD_NOZZLE_CONTROLLER_ENTITY =
 		ENTITY_TYPES.register("handheld_nozzle_controller",
 			() -> EntityType.Builder.<HandheldNozzleControllerEntity>of(HandheldNozzleControllerEntity::new, MobCategory.MISC)
@@ -271,9 +280,10 @@ public class CreateFireFightingAdd {
 				.updateInterval(3)
 				.build("handheld_nozzle_controller"));
 
-	// Experimental flow monitor. Kept separate from the stable firefighting blocks.
+	// Internal flow monitor kept for registry compatibility. The player-facing
+	// meter is registered as fluid_flow_meter and shares this block entity type.
 	public static final DeferredBlock<FlowMeterBlock> FLOW_METER = BLOCKS.register("flow_meter",
-		() -> new FlowMeterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> new FlowMeterBlock(fluidPipeProperties()));
 
 	public static final DeferredItem<BlockItem> FLOW_METER_ITEM = ITEMS.registerSimpleBlockItem("flow_meter", FLOW_METER);
 
@@ -372,7 +382,7 @@ public class CreateFireFightingAdd {
 	public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_MODE_TABS.register("tab",
 		() -> CreativeModeTab.builder()
 			.title(Component.translatable("itemGroup.createfirefightingadd"))
-			.icon(() -> HIGH_PRESSURE_PUMP_ITEM.get().getDefaultInstance())
+			.icon(() -> FIRE_HOSE_ITEM.get().getDefaultInstance())
 			.displayItems((parameters, output) -> {
 				output.accept(HIGH_PRESSURE_PUMP_ITEM.get());
 				output.accept(CONE_NOZZLE_ITEM.get());
@@ -600,6 +610,7 @@ public class CreateFireFightingAdd {
 			registerCreateTooltip(PNEUMATIC_HAMMER_ITEM.get());
 			registerCreateTooltip(MULTIPURPOSE_BACKTANK_ITEM.get());
 			registerCreateTooltip(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
+			registerCreateTooltip(FIRE_POLE_ITEM.get());
 		}
 
 		private static void registerCreateTooltip(Item item) {

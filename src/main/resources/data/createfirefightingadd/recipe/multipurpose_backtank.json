@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "create:netherite_backtank" },
+    "E": { "item": "create:fluid_tank" },
+    "H": { "item": "create:mechanical_pump" }
+  },
+  "result": {
+    "id": "createfirefightingadd:multipurpose_backtank",
+    "count": 1
+  }
+}

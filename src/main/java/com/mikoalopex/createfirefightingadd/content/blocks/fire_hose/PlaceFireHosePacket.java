@@ -46,7 +46,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
                     BlockPos.STREAM_CODEC, PlaceFireHosePacket::targetPos,
                     Direction.STREAM_CODEC, PlaceFireHosePacket::targetFacing,
                     ByteBufCodecs.VAR_INT.map(i -> InteractionHand.values()[i], InteractionHand::ordinal),
-                        PlaceFireHosePacket::hand,
+                    PlaceFireHosePacket::hand,
                     ByteBufCodecs.VAR_INT, PlaceFireHosePacket::action,
                     PlaceFireHosePacket::new
             );

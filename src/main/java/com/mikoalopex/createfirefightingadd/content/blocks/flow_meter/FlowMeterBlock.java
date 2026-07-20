@@ -7,10 +7,12 @@ import com.simibubi.create.foundation.block.IBE;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -23,10 +25,8 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Experimental flow monitor. It may be changed or removed in a future version.
- * <p>
  * In-line pipe segment that monitors fluid pressure and flow rate. Data is
- * viewable through Engineer's Goggles (see {@link FlowMeterBlockEntity}).
+ * shown on the model and can also be inspected with Engineer's Goggles.
  */
 public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, FireFightingWrenchableBlock {
 
@@ -60,6 +60,11 @@ public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, 
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
 		Direction direction = context.getNearestLookingDirection().getOpposite();
 		return defaultBlockState().setValue(FACING, direction);
+	}
+
+	@Override
+	public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+		return CreateFireFightingAdd.FLUID_FLOW_METER_ITEM.get().getDefaultInstance();
 	}
 
 	@Override

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "minecraft:target" },
+    "E": { "item": "create:fluid_pipe" },
+    "H": { "item": "create:electron_tube" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_hose_connector",
+    "count": 1
+  }
+}

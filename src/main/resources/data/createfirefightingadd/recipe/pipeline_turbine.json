@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "DEF",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "create:shaft" },
+    "D": { "item": "create:fluid_pipe" },
+    "E": { "item": "create:propeller" },
+    "F": { "item": "create:fluid_pipe" },
+    "H": { "item": "create:shaft" }
+  },
+  "result": {
+    "id": "createfirefightingadd:pipeline_turbine",
+    "count": 1
+  }
+}

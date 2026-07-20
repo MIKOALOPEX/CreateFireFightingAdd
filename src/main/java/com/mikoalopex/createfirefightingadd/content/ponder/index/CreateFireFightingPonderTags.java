@@ -19,6 +19,10 @@ public class CreateFireFightingPonderTags {
 			.add(CreateFireFightingAdd.FLAT_NOZZLE.get())
 			.add(CreateFireFightingAdd.WATER_INTAKE.get())
 			.add(CreateFireFightingAdd.BUCKET_CONTROLLER.get())
-			.add(CreateFireFightingAdd.FIRE_HOSE_ITEM.get());
+			.add(CreateFireFightingAdd.FIRE_HOSE_ITEM.get())
+			.add(CreateFireFightingAdd.FIRE_HOSE_CONNECTOR.get())
+			.add(CreateFireFightingAdd.PIPELINE_TURBINE.get())
+			.add(CreateFireFightingAdd.FLUID_FLOW_METER.get())
+			.add(CreateFireFightingAdd.FIRE_HYDRANT_CABINET.get());
 	}
 }

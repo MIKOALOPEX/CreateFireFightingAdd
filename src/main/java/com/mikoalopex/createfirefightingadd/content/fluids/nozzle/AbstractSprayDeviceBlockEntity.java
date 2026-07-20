@@ -1538,7 +1538,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return samples;
 	}
 
-	/** Relative-to-BE variant of computeStreamCenterline for debug rendering. */
+	/** Computes the local spray centerline used by the F3+B overlay. */
 	public List<CenterlineSample> computeLocalCenterline() {
 		List<CenterlineSample> samples = new ArrayList<>();
 		Vec3 position = Vec3.atCenterOf(worldPosition).relative(getFacing(), 0.6);

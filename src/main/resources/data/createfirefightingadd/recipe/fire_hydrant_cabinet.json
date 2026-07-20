@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "DEF",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "minecraft:iron_trapdoor" },
+    "D": { "item": "create:iron_sheet" },
+    "E": { "item": "minecraft:barrel" },
+    "F": { "item": "create:iron_sheet" },
+    "H": { "item": "create:fluid_tank" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_hydrant_cabinet",
+    "count": 1
+  }
+}

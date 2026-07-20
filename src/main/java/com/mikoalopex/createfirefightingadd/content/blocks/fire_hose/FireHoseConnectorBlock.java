@@ -14,9 +14,13 @@ import net.minecraft.core.Direction.Axis;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
@@ -30,6 +34,7 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.ticks.TickPriority;
 
 public class FireHoseConnectorBlock extends AxisPipeBlock
@@ -102,7 +107,13 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 	}
 
 	@Override
-	public InteractionResult onWrenched(BlockState state, net.minecraft.world.item.context.UseOnContext context) {
+	public ItemStack getCloneItemStack(BlockState state, HitResult target, LevelReader level, BlockPos pos,
+			Player player) {
+		return CreateFireFightingAdd.FIRE_HOSE_CONNECTOR_ITEM.get().getDefaultInstance();
+	}
+
+	@Override
+	public InteractionResult onWrenched(BlockState state, UseOnContext context) {
 		Direction clickedFace = context.getClickedFace();
 		if (clickedFace.getAxis() == pipeAxis(state))
 			return InteractionResult.PASS;

@@ -160,14 +160,8 @@ public final class FireHoseDynamicRenderer {
 			double length = point.point().distance(next.point());
 
 			renderSegment(poseStack, point.normal(), next.normal(), up, nextUp,
-				point.point(), next.point(), false,
+				point.point(), next.point(),
 				(float) runningLength * uvScale, (float) (runningLength + length) * uvScale,
-				light, color, buffer, tubeWidth, uvTubeWidth);
-			renderSegment(poseStack, point.normal().negate(new Vector3d()), next.normal().negate(new Vector3d()),
-				up.negate(new Vector3d()), nextUp.negate(new Vector3d()),
-				point.point(), next.point(), true,
-				0.0f - (float) runningLength * uvScale,
-				0.0f - (float) (runningLength + length) * uvScale,
 				light, color, buffer, tubeWidth, uvTubeWidth);
 
 			runningLength += length;
@@ -288,7 +282,7 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	private static void renderSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
-			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos, boolean second,
+			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos,
 			float uvStart, float uvEnd, int light, int color, VertexConsumer buffer, float tubeWidth, float uvTubeWidth) {
 		Vector3d startLeft = inputStartUp.cross(startDirection, new Vector3d()).normalize();
 		Vector3d endLeft = inputEndUp.cross(endDirection, new Vector3d()).normalize();
@@ -300,7 +294,6 @@ public final class FireHoseDynamicRenderer {
 
 		float texW = uvTubeWidth / TEXTURE_WIDTH;
 		float uvScale = 16.0f / TEXTURE_WIDTH;
-		float uvXOffset = second ? uvTubeWidth / TEXTURE_WIDTH : 0.0f;
 		Vector3d startDown = startUp.negate(new Vector3d());
 		Vector3d endDown = endUp.negate(new Vector3d());
 		Vector3d startRight = startLeft.negate(new Vector3d());
@@ -311,25 +304,25 @@ public final class FireHoseDynamicRenderer {
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
-			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
+			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
 		quad(poseStack, buffer, color, startUp, endUp, light,
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			startPos.add(startLeft, new Vector3d()).add(startUp),
-			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
+			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
 		quad(poseStack, buffer, color, startRight, endRight, light,
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
-			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
+			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
 		quad(poseStack, buffer, color, startLeft, endLeft, light,
 			startPos.add(startLeft, new Vector3d()).add(startUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
 			startPos.add(startLeft, new Vector3d()).sub(startUp),
-			uvXOffset, uvStart * uvScale, texW + uvXOffset, uvEnd * uvScale);
+			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
 	}
 
 	private static void quad(PoseStack poseStack, VertexConsumer buffer, int color,

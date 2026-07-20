@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import org.joml.Matrix4f;
 
-/** Debug wireframe rendering for nozzle spray tubes. Call from BER render(). */
+/** F3+B wireframe overlay for nozzle spray volumes. */
 public class SprayDebugRenderer {
 
 	private static final int RING_SEGMENTS = 16;
@@ -73,7 +73,7 @@ public class SprayDebugRenderer {
 		bufferSource.endBatch(linesType);
 	}
 
-	/** Render the debug wireframe tube for a spraying nozzle. No-op when F3+B is off. */
+	/** Renders the wireframe tube for a spraying nozzle. No-op when F3+B is off. */
 	public static void renderDebug(AbstractSprayDeviceBlockEntity nozzle, PoseStack poseStack) {
 		if (!Minecraft.getInstance().getEntityRenderDispatcher().shouldRenderHitBoxes())
 			return;
@@ -98,14 +98,14 @@ public class SprayDebugRenderer {
 		VertexConsumer vc = bufferSource.getBuffer(linesType);
 		Matrix4f matrix = poseStack.last().pose();
 
-		// Centerline: yellow
+		// Yellow: centerline.
 		for (int i = 0; i < centerline.size() - 1; i++) {
 			Vec3 a = centerline.get(i).position().subtract(basePos);
 			Vec3 b = centerline.get(i + 1).position().subtract(basePos);
 			renderLine(matrix, vc, a, b, 1f, 1f, 0f);
 		}
 
-		// Cross-section rings
+		// Cyan: cross-section rings.
 		List<List<Vec3>> allRings;
 		if (isCone) {
 			allRings = buildConeRings(centerline, basePos);
@@ -118,7 +118,6 @@ public class SprayDebugRenderer {
 			return;
 		}
 
-		// Rings: cyan
 		for (List<Vec3> ring : allRings) {
 			for (int i = 0; i < ring.size(); i++) {
 				Vec3 a = ring.get(i);
@@ -127,7 +126,7 @@ public class SprayDebugRenderer {
 			}
 		}
 
-		// Longitudinal lines: light blue
+		// Light blue: longitudinal lines.
 		if (allRings.size() > 1) {
 			for (int seg = 0; seg < RING_SEGMENTS; seg++) {
 				for (int ri = 0; ri < allRings.size() - 1; ri++) {
@@ -145,7 +144,7 @@ public class SprayDebugRenderer {
 		bufferSource.endBatch(linesType);
 	}
 
-	/** Cone nozzle: single-centerline scaled rings for the debug spray outline. */
+	/** Cone nozzle overlay: single-centerline scaled rings. */
 	private static List<List<Vec3>> buildConeRings(
 			List<AbstractSprayDeviceBlockEntity.CenterlineSample> centerline, Vec3 basePos) {
 		List<List<Vec3>> allRings = new ArrayList<>();
@@ -168,9 +167,11 @@ public class SprayDebugRenderer {
 		return allRings;
 	}
 
-	/** Flat nozzle: trace multiple independent trajectories to capture the true envelope.
-	 *  Wide-angle projectiles have less forward velocity, so the fan contracts at the edges
-	 *  rather than widening linearly. */
+	/**
+	 * Flat nozzle overlay: trace independent trajectories to capture the true
+	 * envelope. Wide-angle projectiles have less forward velocity, so the fan
+	 * contracts at the edges instead of widening linearly.
+	 */
 	private static List<List<Vec3>> buildFanRings(
 			AbstractSprayDeviceBlockEntity nozzle, Vec3 basePos) {
 		Direction facing = nozzle.getFacing();
@@ -186,7 +187,7 @@ public class SprayDebugRenderer {
 		double tanH = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_H_DEG));
 		double tanV = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_V_DEG));
 
-		// Trace one trajectory per ring segment
+		// Trace one trajectory per ring segment.
 		List<List<Vec3>> trajectories = new ArrayList<>(RING_SEGMENTS);
 		int maxTicks = 0;
 
