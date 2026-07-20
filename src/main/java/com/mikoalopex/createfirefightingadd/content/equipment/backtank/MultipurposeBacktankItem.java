@@ -20,13 +20,15 @@ import net.minecraft.world.item.TooltipFlag;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 public class MultipurposeBacktankItem extends BacktankItem {
+	private static final int FALLBACK_MAX_AIR = 900;
+
 	public MultipurposeBacktankItem(Holder<ArmorMaterial> material, Properties properties,
 			ResourceLocation armorTexture, Supplier<BacktankBlockItem> placeable) {
 		super(material, properties, armorTexture, placeable);
 	}
 
 	public static ItemStack withFullAir(ItemStack stack) {
-		stack.set(AllDataComponents.BACKTANK_AIR, BacktankUtil.maxAirWithoutEnchants());
+		stack.set(AllDataComponents.BACKTANK_AIR, safeMaxAirWithoutEnchants());
 		return stack;
 	}
 
@@ -42,7 +44,7 @@ public class MultipurposeBacktankItem extends BacktankItem {
 
 	@Override
 	public int getBarWidth(ItemStack stack) {
-		int maxAir = BacktankUtil.maxAir(stack);
+		int maxAir = Math.max(1, safeMaxAir(stack));
 		int air = stack.getOrDefault(AllDataComponents.BACKTANK_AIR, 0);
 		return Math.round(13.0F * Mth.clamp(air / (float) maxAir, 0, 1));
 	}
@@ -61,6 +63,22 @@ public class MultipurposeBacktankItem extends BacktankItem {
 			tooltip.add(Component.translatable("createfirefightingadd.multipurpose_backtank.fluid",
 				fluid.getHoverName(), fluid.getAmount())
 				.withStyle(ChatFormatting.GRAY));
+		}
+	}
+
+	private static int safeMaxAirWithoutEnchants() {
+		try {
+			return BacktankUtil.maxAirWithoutEnchants();
+		} catch (IllegalStateException ignored) {
+			return FALLBACK_MAX_AIR;
+		}
+	}
+
+	private static int safeMaxAir(ItemStack stack) {
+		try {
+			return BacktankUtil.maxAir(stack);
+		} catch (IllegalStateException ignored) {
+			return Math.max(FALLBACK_MAX_AIR, stack.getOrDefault(AllDataComponents.BACKTANK_AIR, 0));
 		}
 	}
 }
