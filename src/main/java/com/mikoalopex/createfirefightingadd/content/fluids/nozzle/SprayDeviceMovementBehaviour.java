@@ -194,8 +194,17 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		if (tick % profile.scanInterval() != 0)
 			return;
 
+		long perfStart = SprayPerformanceDebug.start();
 		applyBlockEffects(context.world, origin, direction, profile, behavior, fluid, ignited, tick, context.localPos);
 		applyEntityAndItemEffects(context.world, origin, direction, profile, behavior, ignited, fluid);
+		SprayPerformanceDebug.record(context.world, "contraption_spray", context.localPos, perfStart, -1,
+			() -> "block=" + context.state.getBlock()
+				+ ", mode=" + profile.mode()
+				+ ", fluid=" + behavior
+				+ ", range=" + profile.range()
+				+ ", contraption=" + (context.contraption != null && context.contraption.entity != null
+					? context.contraption.entity.getId()
+					: -1));
 	}
 
 	private static SprayProfile profile(MovementContext context) {
@@ -335,10 +344,17 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		if (centerline.size() < 2)
 			return;
 		AABB scanArea = centerlineAabb(centerline).inflate(4.0);
-		FanProcessingType processingType = fanProcessingType(behavior, ignited);
-		processDepots(level, centerline, scanArea, origin, profile, null, processingType);
-		processSableSubLevelDepots(level, centerline, profile, processingType);
-		processMovingContraptionDepots(level, centerline, scanArea, origin, profile, processingType);
+		BlockPos sourcePos = BlockPos.containing(origin);
+		FanProcessingType fanProcessingType = fanProcessingType(behavior, ignited);
+		boolean processAuxiliary = fanProcessingType != null
+			&& SprayAuxiliaryScheduler.shouldProcess(level, sourcePos, false);
+		FanProcessingType processingType = processAuxiliary ? fanProcessingType : null;
+		if (processAuxiliary) {
+			processDepots(level, centerline, scanArea, origin, profile, null, processingType);
+			if (SprayAuxiliaryScheduler.shouldProcess(level, sourcePos, true))
+				processSableSubLevelDepots(level, centerline, profile, processingType);
+			processMovingContraptionDepots(level, centerline, scanArea, origin, profile, processingType);
+		}
 		Set<Integer> processed = new HashSet<>();
 		for (Entity entity : level.getEntities(null, scanArea)) {
 			if (!processed.add(entity.getId()))
@@ -424,32 +440,25 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			AABB scanArea, Vec3 origin, SprayProfile profile, UUID subLevelId, FanProcessingType type) {
 		if (type == null)
 			return;
-		Set<Long> seen = new HashSet<>();
-		for (BlockPos pos : BlockPos.betweenClosed(
-			(int) Math.floor(scanArea.minX), (int) Math.floor(scanArea.minY), (int) Math.floor(scanArea.minZ),
-			(int) Math.floor(scanArea.maxX), (int) Math.floor(scanArea.maxY), (int) Math.floor(scanArea.maxZ))) {
-			BlockPos depotPos = pos.immutable();
-			if (!seen.add(depotPos.asLong()))
-				continue;
-			if (!level.isLoaded(depotPos))
-				continue;
-			if (!(level.getBlockEntity(depotPos) instanceof DepotBlockEntity depot))
-				continue;
+		long perfStart = SprayPerformanceDebug.start();
+		SprayDepotScanner.Stats stats = new SprayDepotScanner.Stats();
+		try {
+			stats = SprayDepotScanner.scan(level, scanArea, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
 			ItemStack stack = depot.getHeldItem();
 			if (stack.isEmpty() || !type.canProcess(stack, level))
-				continue;
+				return 0;
 			Vec3 itemPos = Vec3.atCenterOf(depotPos).add(0, 0.55, 0);
 			AbstractSprayDeviceBlockEntity.CenterlineSample sample =
 				findClosestSample(itemPos, centerline, profile.projectileShape(), profile.range());
 			if (sample == null || isPointBlockedByWall(level, origin, itemPos))
-				continue;
+				return SprayDepotScanner.PROCESSABLE;
 			DepotKey key = new DepotKey(subLevelId, depotPos);
 			if (decrementDepotProcessingTime(level, key, stack, type) > 0)
-				continue;
+				return SprayDepotScanner.PROCESSABLE;
 			List<ItemStack> results = type.process(stack, level);
 			if (results == null || results.isEmpty()) {
 				markDepotProcessingBlocked(level, key, stack, type);
-				continue;
+				return SprayDepotScanner.PROCESSABLE;
 			}
 			depot.setHeldItem(results.get(0).copy());
 			for (int i = 1; i < results.size(); i++) {
@@ -458,6 +467,23 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 					Block.popResource(level, depotPos.above(), extra.copy());
 			}
 			depot.notifyUpdate();
+			return SprayDepotScanner.PROCESSABLE | SprayDepotScanner.PROCESSED;
+			});
+		} finally {
+			SprayDepotScanner.Stats finalStats = stats;
+			SprayPerformanceDebug.record(level, "contraption_depot_processing_scan", BlockPos.containing(origin),
+				perfStart, -1,
+				() -> "chunks=" + finalStats.loadedChunks
+					+ ", blockEntities=" + finalStats.blockEntities
+					+ ", inArea=" + finalStats.inArea
+					+ ", depots=" + finalStats.depots
+					+ ", testedDepots=" + finalStats.testedDepots
+					+ ", processable=" + finalStats.processable
+					+ ", processed=" + finalStats.processed
+					+ ", budgetHit=" + finalStats.budgetHit
+					+ ", centerline=" + centerline.size()
+					+ ", type=" + type
+					+ ", subLevel=" + (subLevelId != null));
 		}
 	}
 

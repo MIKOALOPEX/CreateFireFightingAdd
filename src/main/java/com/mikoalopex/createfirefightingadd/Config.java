@@ -64,6 +64,10 @@ public class Config {
 	private static final ModConfigSpec.IntValue SERVER_PROJECTILES_PER_TICK;
 	private static final ModConfigSpec.IntValue SERVER_MAX_ACTIVE_SPRAY_PROJECTILES;
 	private static final ModConfigSpec.IntValue SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES;
+	private static final ModConfigSpec.IntValue SPRAY_AUXILIARY_INTERVAL;
+	private static final ModConfigSpec.IntValue SPRAY_SABLE_PROCESSING_INTERVAL;
+	private static final ModConfigSpec.IntValue SPRAY_RECIPE_PROCESSING_BUDGET;
+	private static final ModConfigSpec.IntValue SPRAY_MAX_ACTIVE_NOZZLES_BEFORE_DEGRADE;
 	private static final ModConfigSpec.IntValue NOZZLE_IGNITION_CHANCE;
 	private static final ModConfigSpec.BooleanValue CDG_IGNITION_ENABLED;
 	private static final ModConfigSpec.DoubleValue FLAME_PROPAGATION_RADIUS;
@@ -227,6 +231,18 @@ public class Config {
 		SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES = BUILDER
 			.comment("Absolute cap for active spray projectiles simulated by all spray devices on the server (64-8192). This prevents runaway load if many nozzles are stacked.")
 			.defineInRange("serverHardMaxActiveSprayProjectiles", 1536, 64, 8192);
+		SPRAY_AUXILIARY_INTERVAL = BUILDER
+			.comment("Ticks between auxiliary spray processing passes such as depot recipes and item processing (1-100). Fire extinguishing is not delayed by this value.")
+			.defineInRange("sprayAuxiliaryInterval", 5, 1, 100);
+		SPRAY_SABLE_PROCESSING_INTERVAL = BUILDER
+			.comment("Ticks between auxiliary processing passes projected into Sable sub-structures (1-200). Higher values reduce TPS load when many moving sub-structures are sprayed.")
+			.defineInRange("spraySableProcessingInterval", 10, 1, 200);
+		SPRAY_RECIPE_PROCESSING_BUDGET = BUILDER
+			.comment("Maximum depot/block-entity recipe candidates processed by one spray source per auxiliary pass (0-512). 0 disables depot recipe processing from spray.")
+			.defineInRange("sprayRecipeProcessingBudget", 16, 0, 512);
+		SPRAY_MAX_ACTIVE_NOZZLES_BEFORE_DEGRADE = BUILDER
+			.comment("Approximate active spray sources before auxiliary processing is automatically slowed down (1-256). Use this to tune large server builds.")
+			.defineInRange("sprayMaxActiveNozzlesBeforeDegrade", 20, 1, 256);
 		MIST_TRANSITION_START = BUILDER
 			.comment("Fraction of projectile lifetime (0.0-1.0) where the stream begins breaking into mist. 0.6 = mist starts at 60% of max range")
 			.defineInRange("mistTransitionStart", 0.6, 0.0, 1.0);
@@ -305,6 +321,10 @@ public class Config {
 	public static int serverProjectilesPerTick;
 	public static int serverMaxActiveSprayProjectiles;
 	public static int serverHardMaxActiveSprayProjectiles;
+	public static int sprayAuxiliaryInterval;
+	public static int spraySableProcessingInterval;
+	public static int sprayRecipeProcessingBudget;
+	public static int sprayMaxActiveNozzlesBeforeDegrade;
 	public static int nozzleIgnitionChance;
 	public static boolean nozzleThrustEnabled;
 	public static double nozzleThrustMultiplier;
@@ -364,6 +384,10 @@ public class Config {
 		serverMaxActiveSprayProjectiles = SERVER_MAX_ACTIVE_SPRAY_PROJECTILES.get();
 		serverHardMaxActiveSprayProjectiles = Math.max(serverMaxActiveSprayProjectiles,
 			SERVER_HARD_MAX_ACTIVE_SPRAY_PROJECTILES.get());
+		sprayAuxiliaryInterval = SPRAY_AUXILIARY_INTERVAL.get();
+		spraySableProcessingInterval = SPRAY_SABLE_PROCESSING_INTERVAL.get();
+		sprayRecipeProcessingBudget = SPRAY_RECIPE_PROCESSING_BUDGET.get();
+		sprayMaxActiveNozzlesBeforeDegrade = SPRAY_MAX_ACTIVE_NOZZLES_BEFORE_DEGRADE.get();
 		nozzleIgnitionChance = NOZZLE_IGNITION_CHANCE.get();
 		nozzleThrustEnabled = NOZZLE_THRUST_ENABLED.get();
 		nozzleThrustMultiplier = NOZZLE_THRUST_MULTIPLIER.get();

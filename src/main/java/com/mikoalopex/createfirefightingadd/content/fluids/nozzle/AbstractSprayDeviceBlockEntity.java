@@ -479,6 +479,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	/** Creates projectiles using a seeded Random for server-client deterministic sync without network packets. */
 	protected void spawnSprayProjectiles(FluidStack fluidForProjectile) {
+		long perfStart = SprayPerformanceDebug.start();
+		int before = serverProjectiles.size();
 		Vec3 spawnPos = Vec3.atCenterOf(worldPosition).relative(getFacing(), 0.6);
 		Vec3 baseDir = Vec3.atLowerCornerOf(getFacing().getNormal());
 		SprayShape shape = getProjectileSprayShape();
@@ -492,6 +494,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				currentFluid, (float) PUSH_STREAM_SPEED, getGravityVector(), getProjectileFriction());
 			serverProjectiles.add(proj);
 		}
+		int spawned = serverProjectiles.size() - before;
+		SprayPerformanceDebug.record(level, "spawn_projectiles", worldPosition, perfStart, serverProjectiles.size(),
+			() -> "requested=" + Config.serverProjectilesPerTick
+				+ ", allowed=" + projectilesToSpawn
+				+ ", spawned=" + spawned
+				+ ", before=" + before
+				+ ", fluid=" + currentFluid);
 	}
 
 	// Block entity behaviour
@@ -549,10 +558,27 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			cachedThrustMagnitude = 0;
 		}
 
-		if (useProjectileSpray())
+		long perfStart = level.isClientSide ? 0L : SprayPerformanceDebug.start();
+		boolean projectileSpray = useProjectileSpray();
+		if (projectileSpray)
 			nozzleSprayTick();
 		else
 			baseSprayTick();
+		if (perfStart != 0L) {
+			if (projectileSpray) {
+				SprayPerformanceDebug.recordStandalone(level, "block_projectile_spray_total",
+					worldPosition, perfStart, serverProjectiles.size(),
+					() -> "fluid=" + currentFluid
+						+ ", spraying=" + isSpraying()
+						+ ", range=" + currentSprayRange
+						+ ", pendingPathSamples=" + pendingPathSweepSamples.size());
+			} else {
+				SprayPerformanceDebug.record(level, "block_scan_spray", worldPosition, perfStart, -1,
+					() -> "fluid=" + currentFluid
+						+ ", spraying=" + isSpraying()
+						+ ", range=" + currentSprayRange);
+			}
+		}
 	}
 
 	private void nozzleSprayTick() {
@@ -796,6 +822,10 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	// Server projectile processing
 
 	private void tickServerProjectiles() {
+		long perfStart = SprayPerformanceDebug.start();
+		int before = serverProjectiles.size();
+		int removed = 0;
+		int blockHits = 0;
 		int effectiveLifetime = getProjectileLifetime();
 		Iterator<LightweightProjectile> it = serverProjectiles.iterator();
 		while (it.hasNext()) {
@@ -805,16 +835,19 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 			if (proj.age >= effectiveLifetime) {
 				it.remove();
+				removed++;
 				continue;
 			}
 
 			if (proj.hasLostForwardMomentum()) {
 				it.remove();
+				removed++;
 				continue;
 			}
 
 			if (proj.isExpired()) {
 				it.remove();
+				removed++;
 				continue;
 			}
 
@@ -823,6 +856,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			if (blockHit.getType() != HitResult.Type.MISS) {
 				applyBlockEffect(proj, blockHit);
 				it.remove();
+				removed++;
+				blockHits++;
 			}
 		}
 
@@ -862,6 +897,17 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			sendData();
 		}
 		SprayProjectileBudget.updateServerProjectiles(this, serverProjectiles.size());
+		int after = serverProjectiles.size();
+		int pending = pendingPathSweepSamples.size();
+		int finalRemoved = removed;
+		int finalBlockHits = blockHits;
+		SprayPerformanceDebug.recordStandalone(level, "tick_server_projectiles_total", worldPosition, perfStart, after,
+			() -> "before=" + before
+				+ ", after=" + after
+				+ ", removed=" + finalRemoved
+				+ ", blockHits=" + finalBlockHits
+				+ ", pendingPathSamples=" + pending
+				+ ", fluid=" + currentFluid);
 	}
 
 	private static boolean usesWaterExtinguishRules(FluidBehavior behavior) {
@@ -869,24 +915,42 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	private void scanProjectileSprayContacts() {
+		long perfStart = SprayPerformanceDebug.start();
 		int range = Math.max(1, (int) Math.ceil(currentSprayRange));
 		Vec3 origin = getWorldSprayOrigin();
 		Vec3 direction = getWorldSprayDirection();
 		int rays = this instanceof FlatNozzleBlockEntity ? 9 : 8;
 		long tick = level.getGameTime();
 		long seed = tick * 37L + worldPosition.asLong();
+		int[] visited = {0};
+		int[] notified = {0};
+		int[] effects = {0};
 		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), range,
 			rays, tick, seed, 0.5,
 			(pos, state, samplePos, rayDirection, distance) -> {
+				visited[0]++;
 				NozzleSprayInteractionRegistry.notifyHit(
 					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance));
+				notified[0]++;
 				if (currentFluid == FluidBehavior.WATER
 					&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-						|| SprayEffectUtils.moistenFarmland(level, pos, state)))
+						|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+					effects[0]++;
 					return;
-				if (isExtinguishable(state))
+				}
+				if (isExtinguishable(state)) {
 					extinguishBlock(pos, state);
+					effects[0]++;
+				}
 			});
+		SprayPerformanceDebug.record(level, "projectile_contact_scan", worldPosition, perfStart,
+			serverProjectiles.size(),
+			() -> "range=" + range
+				+ ", rays=" + rays
+				+ ", visited=" + visited[0]
+				+ ", notified=" + notified[0]
+				+ ", effects=" + effects[0]
+				+ ", fluid=" + currentFluid);
 	}
 
 	/** Scans the full spray cone for any fire, lava, or lit campfire. */
@@ -1003,44 +1067,70 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		if (pendingPathSweepSamples.isEmpty())
 			return;
 
+		long perfStart = SprayPerformanceDebug.start();
+		int initialPending = pendingPathSweepSamples.size();
 		int centers = 0;
 		int checked = 0;
 		int effects = 0;
+		String stopReason = "complete";
 		Set<Long> visitedBlocks = new HashSet<>();
 		Iterator<PathSweepSample> samples = pendingPathSweepSamples.values().iterator();
 
-		while (samples.hasNext()) {
-			if (centers >= MAX_PATH_SWEEP_CENTERS_PER_TICK)
-				break;
-			PathSweepSample sample = samples.next();
-			samples.remove();
-			centers++;
+		try {
+			while (samples.hasNext()) {
+				if (centers >= MAX_PATH_SWEEP_CENTERS_PER_TICK) {
+					stopReason = "center_cap";
+					break;
+				}
+				PathSweepSample sample = samples.next();
+				samples.remove();
+				centers++;
 
-			BlockPos center = BlockPos.containing(sample.position());
-			for (int dx = -PATH_SWEEP_RADIUS; dx <= PATH_SWEEP_RADIUS; dx++) {
-				for (int dy = -PATH_SWEEP_RADIUS; dy <= PATH_SWEEP_RADIUS; dy++) {
-					for (int dz = -PATH_SWEEP_RADIUS; dz <= PATH_SWEEP_RADIUS; dz++) {
-						if (dx * dx + dy * dy + dz * dz > PATH_SWEEP_RADIUS * PATH_SWEEP_RADIUS)
-							continue;
-						BlockPos pos = center.offset(dx, dy, dz);
-						if (!visitedBlocks.add(pos.asLong()))
-							continue;
-						if (++checked > MAX_PATH_BLOCK_CHECKS_PER_TICK)
-							return;
-						if (!level.isLoaded(pos))
-							continue;
+				BlockPos center = BlockPos.containing(sample.position());
+				for (int dx = -PATH_SWEEP_RADIUS; dx <= PATH_SWEEP_RADIUS; dx++) {
+					for (int dy = -PATH_SWEEP_RADIUS; dy <= PATH_SWEEP_RADIUS; dy++) {
+						for (int dz = -PATH_SWEEP_RADIUS; dz <= PATH_SWEEP_RADIUS; dz++) {
+							if (dx * dx + dy * dy + dz * dz > PATH_SWEEP_RADIUS * PATH_SWEEP_RADIUS)
+								continue;
+							BlockPos pos = center.offset(dx, dy, dz);
+							if (!visitedBlocks.add(pos.asLong()))
+								continue;
+							if (++checked > MAX_PATH_BLOCK_CHECKS_PER_TICK) {
+								stopReason = "block_cap";
+								return;
+							}
+							if (!level.isLoaded(pos))
+								continue;
 
-						BlockState state = level.getBlockState(pos);
-						if (!canPathSweepAffect(sample, pos, state))
-							continue;
-						if (!hasBlockEffectLineOfSight(sample.position(), pos))
-							continue;
+							BlockState state = level.getBlockState(pos);
+							if (!canPathSweepAffect(sample, pos, state))
+								continue;
+							if (!hasBlockEffectLineOfSight(sample.position(), pos))
+								continue;
 
-						if (applyPathSweepEffect(sample, pos, state) && ++effects >= MAX_PATH_EFFECTS_PER_TICK)
-							return;
+							if (applyPathSweepEffect(sample, pos, state) && ++effects >= MAX_PATH_EFFECTS_PER_TICK) {
+								stopReason = "effect_cap";
+								return;
+							}
+						}
 					}
 				}
 			}
+		} finally {
+			int finalCenters = centers;
+			int finalChecked = checked;
+			int finalEffects = effects;
+			int remaining = pendingPathSweepSamples.size();
+			String finalStopReason = stopReason;
+			SprayPerformanceDebug.record(level, "path_sweep_samples", worldPosition, perfStart,
+				serverProjectiles.size(),
+				() -> "initialPending=" + initialPending
+					+ ", remaining=" + remaining
+					+ ", centers=" + finalCenters
+					+ ", checked=" + finalChecked
+					+ ", effects=" + finalEffects
+					+ ", stop=" + finalStopReason
+					+ ", fluid=" + currentFluid);
 		}
 	}
 
@@ -1627,8 +1717,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	private void applyEntityScan() {
+		long perfStart = SprayPerformanceDebug.start();
+		int worldSamples = 0;
+		int localSamples = 0;
+		boolean projectedToWorld = false;
 		Level entityLevel = SableStructureCompat.worldLevel(this);
 		List<CenterlineSample> centerline = computeStreamCenterline();
+		worldSamples = centerline.size();
 		UUID ownerSubLevelId = entityLevel != level
 			? SableStructureCompat.containingSubLevelId(level, worldPosition)
 			: null;
@@ -1637,11 +1732,22 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				true, true, true, null, ownerSubLevelId);
 
 		if (entityLevel != level) {
+			projectedToWorld = true;
 			List<CenterlineSample> localCenterline = computeLocalCenterline();
+			localSamples = localCenterline.size();
 			if (!localCenterline.isEmpty())
 				applyEntityScanFor(level, localCenterline, localCenterline.get(0).position,
 					true, false, true, ownerSubLevelId, null);
 		}
+		int finalWorldSamples = worldSamples;
+		int finalLocalSamples = localSamples;
+		boolean finalProjectedToWorld = projectedToWorld;
+		SprayPerformanceDebug.recordStandalone(level, "entity_scan_total", worldPosition, perfStart,
+			serverProjectiles.size(),
+			() -> "worldSamples=" + finalWorldSamples
+				+ ", localSamples=" + finalLocalSamples
+				+ ", projectedToWorld=" + finalProjectedToWorld
+				+ ", fluid=" + currentFluid);
 	}
 
 	private void applyEntityScanFor(Level entityLevel, List<CenterlineSample> centerline, Vec3 origin,
@@ -1651,11 +1757,15 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		AABB processingArea = scanArea.inflate(4.0);
 
 		FanProcessingType fanProcessingType = getNozzleFanProcessingType();
-		FanProcessingType entityProcessingType = processRecipes ? fanProcessingType : null;
-		if (processRecipes && fanProcessingType != null) {
+		boolean processAuxiliary = processRecipes
+			&& fanProcessingType != null
+			&& SprayAuxiliaryScheduler.shouldProcess(entityLevel, worldPosition, false);
+		FanProcessingType entityProcessingType = processAuxiliary ? fanProcessingType : null;
+		if (processAuxiliary) {
 			processDepotsOnCenterline(entityLevel, centerline, processingArea, origin, depotSubLevelId, fanProcessingType);
 			if (scanProjectedStructures) {
-				processSableSubLevelDepots(centerline, fanProcessingType, skippedProjectedSubLevelId);
+				if (SprayAuxiliaryScheduler.shouldProcess(entityLevel, worldPosition, true))
+					processSableSubLevelDepots(centerline, fanProcessingType, skippedProjectedSubLevelId);
 				processMovingContraptionDepots(entityLevel, centerline, processingArea, origin, fanProcessingType);
 			}
 		}
@@ -1814,39 +1924,49 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	private void processDepotsOnCenterline(Level depotLevel, List<CenterlineSample> centerline, AABB scanArea,
 			Vec3 origin, @Nullable UUID subLevelId, FanProcessingType type) {
-		Set<Long> seen = new HashSet<>();
-		for (BlockPos pos : BlockPos.betweenClosed(
-			(int) Math.floor(scanArea.minX), (int) Math.floor(scanArea.minY), (int) Math.floor(scanArea.minZ),
-			(int) Math.floor(scanArea.maxX), (int) Math.floor(scanArea.maxY), (int) Math.floor(scanArea.maxZ))) {
-			BlockPos depotPos = pos.immutable();
-			if (!seen.add(depotPos.asLong()))
-				continue;
-			if (!depotLevel.isLoaded(depotPos))
-				continue;
-			if (!(depotLevel.getBlockEntity(depotPos) instanceof DepotBlockEntity depot))
-				continue;
-			ItemStack stack = depot.getHeldItem();
-			if (stack.isEmpty() || !type.canProcess(stack, depotLevel))
-				continue;
-			Vec3 itemPos = Vec3.atCenterOf(depotPos).add(0, 0.55, 0);
-			CenterlineSample sample = findClosestSample(itemPos, centerline);
-			if (sample == null || isPointBlockedByWall(depotLevel, origin, itemPos))
-				continue;
-			DepotKey key = new DepotKey(subLevelId, depotPos);
-			if (decrementDepotProcessingTime(key, stack, type) > 0)
-				continue;
-			List<ItemStack> results = type.process(stack, depotLevel);
-			if (results == null || results.isEmpty()) {
-				markDepotProcessingBlocked(key, stack, type);
-				continue;
-			}
-			depot.setHeldItem(results.get(0).copy());
-			for (int i = 1; i < results.size(); i++) {
-				ItemStack extra = results.get(i);
-				if (!extra.isEmpty())
-					Block.popResource(depotLevel, depotPos.above(), extra.copy());
-			}
-			depot.notifyUpdate();
+		long perfStart = SprayPerformanceDebug.start();
+		SprayDepotScanner.Stats stats = new SprayDepotScanner.Stats();
+		try {
+			stats = SprayDepotScanner.scan(depotLevel, scanArea, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
+				ItemStack stack = depot.getHeldItem();
+				if (stack.isEmpty() || !type.canProcess(stack, depotLevel))
+					return 0;
+				Vec3 itemPos = Vec3.atCenterOf(depotPos).add(0, 0.55, 0);
+				CenterlineSample sample = findClosestSample(itemPos, centerline);
+				if (sample == null || isPointBlockedByWall(depotLevel, origin, itemPos))
+					return SprayDepotScanner.PROCESSABLE;
+				DepotKey key = new DepotKey(subLevelId, depotPos);
+				if (decrementDepotProcessingTime(key, stack, type) > 0)
+					return SprayDepotScanner.PROCESSABLE;
+				List<ItemStack> results = type.process(stack, depotLevel);
+				if (results == null || results.isEmpty()) {
+					markDepotProcessingBlocked(key, stack, type);
+					return SprayDepotScanner.PROCESSABLE;
+				}
+				depot.setHeldItem(results.get(0).copy());
+				for (int i = 1; i < results.size(); i++) {
+					ItemStack extra = results.get(i);
+					if (!extra.isEmpty())
+						Block.popResource(depotLevel, depotPos.above(), extra.copy());
+				}
+				depot.notifyUpdate();
+				return SprayDepotScanner.PROCESSABLE | SprayDepotScanner.PROCESSED;
+			});
+		} finally {
+			SprayDepotScanner.Stats finalStats = stats;
+			SprayPerformanceDebug.record(depotLevel, "depot_processing_scan", worldPosition, perfStart,
+				serverProjectiles.size(),
+				() -> "chunks=" + finalStats.loadedChunks
+					+ ", blockEntities=" + finalStats.blockEntities
+					+ ", inArea=" + finalStats.inArea
+					+ ", depots=" + finalStats.depots
+					+ ", testedDepots=" + finalStats.testedDepots
+					+ ", processable=" + finalStats.processable
+					+ ", processed=" + finalStats.processed
+					+ ", budgetHit=" + finalStats.budgetHit
+					+ ", centerline=" + centerline.size()
+					+ ", type=" + type
+					+ ", subLevel=" + (subLevelId != null));
 		}
 	}
 
@@ -2153,38 +2273,70 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			doSampledFullSweep();
 			return;
 		}
+		long perfStart = SprayPerformanceDebug.start();
+		int[] visited = {0};
+		int[] effects = {0};
 		forEachBlockInSpray((pos, state) -> {
+			visited[0]++;
 			NozzleSprayInteractionRegistry.notifyHit(
 				sprayHitContext(pos, state, currentFluid, sprayIgnited,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
 					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))));
 			if (currentFluid == FluidBehavior.WATER
 				&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-					|| SprayEffectUtils.moistenFarmland(level, pos, state)))
+					|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+				effects[0]++;
 				return;
-			if (isExtinguishable(state))
+			}
+			if (isExtinguishable(state)) {
 				extinguishBlock(pos, state);
+				effects[0]++;
+			}
 		});
+		SprayPerformanceDebug.record(level, "full_block_sweep", worldPosition, perfStart,
+			serverProjectiles.size(),
+			() -> "visited=" + visited[0]
+				+ ", effects=" + effects[0]
+				+ ", fluid=" + currentFluid
+				+ ", range=" + getEffectiveRange());
 	}
 
 	private void doSampledFullSweep() {
+		long perfStart = SprayPerformanceDebug.start();
 		Vec3 origin = getWorldSprayOrigin();
 		Vec3 direction = getWorldSprayDirection();
 		int rays = this instanceof FlatNozzleBlockEntity ? 5 : 4;
 		long tick = level.getGameTime();
 		long seed = tick * 31L + worldPosition.asLong();
+		int[] visited = {0};
+		int[] notified = {0};
+		int[] effects = {0};
 		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), getEffectiveRange(),
 			rays, tick, seed, 0.75,
 			(pos, state, samplePos, rayDirection, distance) -> {
+				visited[0]++;
 				NozzleSprayInteractionRegistry.notifyHit(
 					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance));
+				notified[0]++;
 				if (currentFluid == FluidBehavior.WATER
 					&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-						|| SprayEffectUtils.moistenFarmland(level, pos, state)))
+						|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+					effects[0]++;
 					return;
-				if (isExtinguishable(state))
+				}
+				if (isExtinguishable(state)) {
 					extinguishBlock(pos, state);
+					effects[0]++;
+				}
 			});
+		SprayPerformanceDebug.record(level, "sampled_full_sweep", worldPosition, perfStart,
+			serverProjectiles.size(),
+			() -> "range=" + getEffectiveRange()
+				+ ", rays=" + rays
+				+ ", visited=" + visited[0]
+				+ ", notified=" + notified[0]
+				+ ", effects=" + effects[0]
+				+ ", fluid=" + currentFluid);
 	}
 
 	private static final int ANGLE_PRECISION = 1000;

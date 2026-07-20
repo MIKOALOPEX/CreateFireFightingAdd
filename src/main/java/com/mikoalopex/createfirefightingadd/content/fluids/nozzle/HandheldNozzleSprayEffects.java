@@ -90,9 +90,15 @@ public final class HandheldNozzleSprayEffects {
 		boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA
 			|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE;
 
+		long perfStart = SprayPerformanceDebug.start();
 		applyBlockEffects(level, origin, direction, shape, range, behavior, fluid, ignited, tick);
 		applyEntityEffects(level, origin, direction, shape, range, behavior, fluid, ignited);
 		applyRecoil(player, direction);
+		SprayPerformanceDebug.record(level, "handheld_spray", player.blockPosition(), perfStart, -1,
+			() -> "player=" + player.getGameProfile().getName()
+				+ ", type=" + nozzleType
+				+ ", fluid=" + behavior
+				+ ", range=" + range);
 		return true;
 	}
 
