@@ -7,6 +7,7 @@ import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlo
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDebugLog;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseItem;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseItemHandler;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseMountedFluidStorageType;
@@ -422,6 +423,7 @@ public class CreateFireFightingAdd {
 		MOUNTED_FLUID_STORAGE_TYPES.register(modEventBus);
 
 		NeoForge.EVENT_BUS.register(this);
+		FireHoseDebugLog.init();
 
 		modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
 		modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);

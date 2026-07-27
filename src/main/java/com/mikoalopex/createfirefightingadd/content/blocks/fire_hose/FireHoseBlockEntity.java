@@ -225,6 +225,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         Direction back = getBlockState().getValue(FireHoseBlock.FACING).getOpposite();
         FireHoseBlockEntity partner = getPairedHose();
+        int tickTankBefore = getSharedTankRawAmount();
+        int tickRecordedInput = 0;
+        FireHoseDebugLog.logTickStart(this, partner, tickTankBefore);
         updateExternalInputSource();
         pumpScanTimer--;
         if (pumpScanTimer <= 0) {
@@ -234,6 +237,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         int inputThisCycle = consumeRecordedInput();
         refillFromSourceEndpoint(back, partner);
         inputThisCycle += consumeRecordedInput();
+        tickRecordedInput = inputThisCycle;
         updateEffectivePumpSpeed(inputThisCycle);
 
         SmartFluidTankBehaviour shared = getSharedTank();
@@ -301,6 +305,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         lastDriveBackPressure = driveBackPressure;
 
         tryContainerInteraction(back);
+        FireHoseDebugLog.logTickEnd(this, partner, tickTankBefore, getSharedTankRawAmount(), tickRecordedInput);
     }
 
     private void refreshDrivenTopology(Direction back, boolean driveBackPressure) {
@@ -477,6 +482,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         FireHoseBlockEntity partner = getPairedHose();
         if (partner != null)
             partner.inputThisTick += amount;
+        FireHoseDebugLog.logSharedInput(this, amount, "recordSharedInput");
     }
 
     private void recordExternalInput(int amount, boolean pushesTowardHose) {
@@ -485,6 +491,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (amount >= externalInputThisTick)
             externalInputPushesTowardHose = pushesTowardHose;
         externalInputThisTick += amount;
+        FireHoseDebugLog.logExternalSignal(this, amount, pushesTowardHose, "capability-access");
     }
 
     private void updateEffectivePumpSpeed(int inputAmount) {
@@ -571,15 +578,20 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         int space = Config.hoseTankCapacity - current.getAmount();
         int rate = (int) getActivePumpSpeed();
         int amount = Math.min(space, rate);
-        if (amount <= 0)
-            return;
-
         BlockPos sourcePos = endpoint.getBlockPos().relative(sourceBack);
+        if (amount <= 0) {
+            FireHoseDebugLog.logTransferSkip(endpoint, "refill source endpoint", sourcePos,
+                "no-space-or-rate", current.getAmount(), space, rate, current);
+            return;
+        }
+
         IFluidHandler sourceHandler = level.getCapability(
             Capabilities.FluidHandler.BLOCK, sourcePos, sourceBack.getOpposite());
         if (sourceHandler != null) {
             FluidStack simulated = sourceHandler.drain(amount, IFluidHandler.FluidAction.SIMULATE);
             if (simulated.isEmpty()) {
+                FireHoseDebugLog.logTransferSkip(endpoint, "refill handler", sourcePos,
+                    "simulated-empty", current.getAmount(), space, rate, simulated);
                 FireHoseDebugLog.logRawEvery("refill-empty-handler:" + endpoint.getBlockPos().asLong(), 5,
                     "refill empty handler endpoint={} source={} tank={} space={} rate={} amount={}",
                     endpoint.getBlockPos().toShortString(),
@@ -594,8 +606,13 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             toFill.setAmount(Math.min(amount, simulated.getAmount()));
             int filled = tankHandler.fill(toFill, IFluidHandler.FluidAction.EXECUTE);
             if (filled > 0) {
-                sourceHandler.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+                int tankAfterFill = getSharedTankRawAmount();
+                FluidStack executedDrain = sourceHandler.drain(filled, IFluidHandler.FluidAction.EXECUTE);
                 recordSharedInput(filled);
+                FireHoseDebugLog.logTransfer(endpoint, "refill handler execute", null, this,
+                    sourcePos, endpoint.getBlockPos(), toFill, filled,
+                    simulated.getAmount(), simulated.getAmount() - executedDrain.getAmount(),
+                    current.getAmount(), tankAfterFill);
                 FireHoseDebugLog.logRawEvery("refill-handler:" + endpoint.getBlockPos().asLong(), 5,
                     "refill handler endpoint={} source={} filled={} tankBefore={} tankAfter={} space={} rate={} type={}",
                     endpoint.getBlockPos().toShortString(),
@@ -612,6 +629,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         FluidTransportBehaviour sourcePipe = FluidPropagator.getPipe(level, sourcePos);
         if (sourcePipe == null) {
+            FireHoseDebugLog.logTransferSkip(endpoint, "refill pipe", sourcePos,
+                "no-pipe-or-handler", current.getAmount(), space, rate, current);
             FireHoseDebugLog.logRawEvery("refill-no-source:" + endpoint.getBlockPos().asLong(), 10,
                 "refill no source endpoint={} source={} tank={} space={} rate={}",
                 endpoint.getBlockPos().toShortString(),
@@ -623,6 +642,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         }
         FluidStack provided = sourcePipe.getProvidedOutwardFluid(sourceBack.getOpposite());
         if (provided.isEmpty()) {
+            FireHoseDebugLog.logTransferSkip(endpoint, "refill pipe", sourcePos,
+                "provided-empty", current.getAmount(), space, rate, provided);
             FireHoseDebugLog.logRawEvery("refill-empty-pipe:" + endpoint.getBlockPos().asLong(), 5,
                 "refill empty pipe endpoint={} source={} tank={} space={} rate={} side={}",
                 endpoint.getBlockPos().toShortString(),
@@ -633,22 +654,20 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
                 sourceBack.getOpposite());
             return;
         }
-        FluidStack toFill = provided.copy();
-        toFill.setAmount(Math.min(amount, provided.getAmount()));
-        int filled = tankHandler.fill(toFill, IFluidHandler.FluidAction.EXECUTE);
-        recordSharedInput(filled);
-        FireHoseDebugLog.logRawEvery("refill-pipe:" + endpoint.getBlockPos().asLong(), 5,
-            "refill pipe endpoint={} source={} filled={} provided={} tankBefore={} tankAfter={} space={} rate={} side={} type={}",
+        // A Create pipe exposes its current outbound flow here, not drainable storage.
+        // The pipe network transfers the real fluid through this hose's capability.
+        FireHoseDebugLog.logTransferSkip(endpoint, "refill pipe", sourcePos,
+            "descriptive-flow-only", current.getAmount(), space, rate, provided);
+        FireHoseDebugLog.logRawEvery("refill-pipe-observed:" + endpoint.getBlockPos().asLong(), 5,
+            "refill pipe observed endpoint={} source={} provided={} tank={} space={} rate={} side={} type={}",
             endpoint.getBlockPos().toShortString(),
             sourcePos.toShortString(),
-            filled,
             provided.getAmount(),
             current.getAmount(),
-            getSharedTankRawAmount(),
             space,
             rate,
             sourceBack.getOpposite(),
-            toFill.getHoverName().getString());
+            provided.getHoverName().getString());
     }
 
     private PumpScanResult findPumpInfo(Direction back) {
@@ -1647,19 +1666,33 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         IFluidHandler source = getSharedTank().getPrimaryHandler();
         IFluidHandler target = targetHose.getSharedTank().getPrimaryHandler();
         int rate = (int) getActivePumpSpeed();
-        if (rate <= 0)
+        if (rate <= 0) {
+            FireHoseDebugLog.logTransferSkip(this, "direct hose", backPos, "no-rate",
+                getSharedTankRawAmount(), 0, rate, FluidStack.EMPTY);
             return;
+        }
 
         FluidStack drained = source.drain(rate, IFluidHandler.FluidAction.SIMULATE);
-        if (drained.isEmpty())
+        if (drained.isEmpty()) {
+            FireHoseDebugLog.logTransferSkip(this, "direct hose", backPos, "source-empty",
+                getSharedTankRawAmount(), 0, rate, drained);
             return;
+        }
 
+        int sourceBefore = getSharedTankRawAmount();
+        int targetBefore = targetHose.getSharedTankRawAmount();
         int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
-        if (filled <= 0)
+        if (filled <= 0) {
+            FireHoseDebugLog.logTransferSkip(this, "direct hose", backPos, "target-rejected",
+                sourceBefore, 0, rate, drained);
             return;
+        }
 
         source.drain(filled, IFluidHandler.FluidAction.EXECUTE);
         notifyDirectHoseTransferChanged(targetHose);
+        FireHoseDebugLog.logTransfer(this, "direct hose execute", this, targetHose,
+            worldPosition, targetHose.getBlockPos(), drained, filled,
+            sourceBefore, getSharedTankRawAmount(), targetBefore, targetHose.getSharedTankRawAmount());
         FireHoseDebugLog.logRaw("direct hose transfer source={} target={} amount={} type={} sourcePull={} targetPull={} sourceTank={} targetTank={}",
             worldPosition.toShortString(),
             targetHose.getBlockPos().toShortString(),
@@ -1705,8 +1738,11 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         SmartFluidTankBehaviour shared = getSharedTank();
         IFluidHandler tankHandler = shared.getPrimaryHandler();
         int rate = (int) getActivePumpSpeed();
-        if (rate <= 0)
+        if (rate <= 0) {
+            FireHoseDebugLog.logTransferSkip(this, "container", backPos, "no-rate",
+                getSharedTankRawAmount(), 0, rate, FluidStack.EMPTY);
             return;
+        }
 
         if (isPulling()) {
             pullFromContainer(tankHandler, container, rate);
@@ -1717,31 +1753,54 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     private void pushToContainer(IFluidHandler tank, IFluidHandler container, int rate) {
         FluidStack drained = tank.drain(rate, IFluidHandler.FluidAction.SIMULATE);
-        if (drained.isEmpty()) return;
+        if (drained.isEmpty()) {
+            FireHoseDebugLog.logTransferSkip(this, "container push", getBlockPos().relative(getBack()),
+                "source-empty", getSharedTankRawAmount(), 0, rate, drained);
+            return;
+        }
+        int tankBefore = getSharedTankRawAmount();
         int filled = container.fill(drained, IFluidHandler.FluidAction.EXECUTE);
         if (filled > 0) {
             tank.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+            FireHoseDebugLog.logTransfer(this, "container push execute", this, null,
+                worldPosition, getBlockPos().relative(getBack()), drained, filled,
+                tankBefore, getSharedTankRawAmount(), -1, -1);
             FireHoseDebugLog.logRaw("container push source={} amount={} type={} tank={} container={}",
                 worldPosition.toShortString(),
                 filled,
                 drained.getHoverName().getString(),
                 getSharedTankRawAmount(),
                 container.getClass().getName());
+        } else {
+            FireHoseDebugLog.logTransferSkip(this, "container push", getBlockPos().relative(getBack()),
+                "container-rejected", tankBefore, 0, rate, drained);
         }
     }
 
     private void pullFromContainer(IFluidHandler tank, IFluidHandler container, int rate) {
         FluidStack drained = container.drain(rate, IFluidHandler.FluidAction.SIMULATE);
-        if (drained.isEmpty()) return;
+        if (drained.isEmpty()) {
+            FireHoseDebugLog.logTransferSkip(this, "container pull", getBlockPos().relative(getBack()),
+                "container-empty", getSharedTankRawAmount(), 0, rate, drained);
+            return;
+        }
+        int tankBefore = getSharedTankRawAmount();
         int filled = tank.fill(drained, IFluidHandler.FluidAction.EXECUTE);
         if (filled > 0) {
-            container.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+            FluidStack executed = container.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+            FireHoseDebugLog.logTransfer(this, "container pull execute", null, this,
+                getBlockPos().relative(getBack()), worldPosition, drained, filled,
+                drained.getAmount(), drained.getAmount() - executed.getAmount(),
+                tankBefore, getSharedTankRawAmount());
             FireHoseDebugLog.logRaw("container pull target={} amount={} type={} tank={} container={}",
                 worldPosition.toShortString(),
                 filled,
                 drained.getHoverName().getString(),
                 getSharedTankRawAmount(),
                 container.getClass().getName());
+        } else {
+            FireHoseDebugLog.logTransferSkip(this, "container pull", getBlockPos().relative(getBack()),
+                "tank-rejected", tankBefore, 0, rate, drained);
         }
     }
 
@@ -1852,6 +1911,26 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (renderLength.getValue() == 0)
             renderLength.setValue(1);
         readFireHoseConnection(tag, registries);
+    }
+
+    int pumpSourceKindDebug() {
+        return pumpSourceKind;
+    }
+
+    int pumpDistanceDebug() {
+        return pumpDistance;
+    }
+
+    int pumpRangeDebug() {
+        return pumpRange;
+    }
+
+    int externalInputThisTickDebug() {
+        return externalInputThisTick;
+    }
+
+    int externalInputMemoryTicksDebug() {
+        return externalInputMemoryTicks;
     }
 
     private static class HoseFluidHandler implements IFluidHandler {
