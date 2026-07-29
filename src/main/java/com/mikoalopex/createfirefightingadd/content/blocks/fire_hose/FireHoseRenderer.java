@@ -43,6 +43,10 @@ import org.joml.Vector3dc;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Renders static hose links and delegates moving-endpoint links to
+ * {@link FireHoseDynamicRenderer}.
+ */
 public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEntity> {
 
     private static final float TUBE_WIDTH = 8.0f;

@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
+import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
+
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mojang.logging.LogUtils;
@@ -22,10 +24,12 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+
 import org.slf4j.Logger;
 
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
-
+/**
+ * Server-authoritative placement and connection actions for the hose item.
+ */
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
 public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Direction targetFacing,
                                   InteractionHand hand, int action) implements CustomPacketPayload {

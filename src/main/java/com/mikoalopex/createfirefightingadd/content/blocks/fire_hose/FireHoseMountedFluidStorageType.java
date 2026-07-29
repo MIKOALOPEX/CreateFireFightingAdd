@@ -9,6 +9,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+/**
+ * Mounts fire-hose endpoint state into Create contraptions.
+ */
 public class FireHoseMountedFluidStorageType extends MountedFluidStorageType<FireHoseMountedFluidStorage> {
 
 	public FireHoseMountedFluidStorageType() {

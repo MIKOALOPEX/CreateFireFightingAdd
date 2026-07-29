@@ -5,6 +5,7 @@ import com.mikoalopex.createfirefightingadd.PartialModels;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 
+import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import dev.engine_room.flywheel.lib.transform.TransformStack;
 import net.createmod.catnip.render.CachedBuffers;
 import net.createmod.catnip.render.SuperByteBuffer;
@@ -15,6 +16,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
 
+/**
+ * Animates the flow meter's two linear pointers from synchronized samples.
+ */
 public class FlowMeterRenderer extends SmartBlockEntityRenderer<FlowMeterBlockEntity> {
 
 	private static final float MAX_DISPLAY_PRESSURE = 512f;
@@ -49,8 +53,7 @@ public class FlowMeterRenderer extends SmartBlockEntityRenderer<FlowMeterBlockEn
 		poseStack.popPose();
 	}
 
-	private static void renderSlidingPointer(dev.engine_room.flywheel.lib.model.baked.PartialModel west,
-			dev.engine_room.flywheel.lib.model.baked.PartialModel east, BlockState state, PoseStack poseStack,
+	private static void renderSlidingPointer(PartialModel west, PartialModel east, BlockState state, PoseStack poseStack,
 			MultiBufferSource buffer, int packedLight, int packedOverlay, float ratio) {
 		float offset = (Mth.clamp(ratio, 0f, 1f) - 0.5f) * POINTER_TRAVEL;
 		poseStack.pushPose();
@@ -60,8 +63,8 @@ public class FlowMeterRenderer extends SmartBlockEntityRenderer<FlowMeterBlockEn
 		poseStack.popPose();
 	}
 
-	private static void renderPartial(dev.engine_room.flywheel.lib.model.baked.PartialModel model,
-			BlockState state, PoseStack poseStack, MultiBufferSource buffer, int packedLight, int packedOverlay) {
+	private static void renderPartial(PartialModel model, BlockState state, PoseStack poseStack,
+			MultiBufferSource buffer, int packedLight, int packedOverlay) {
 		SuperByteBuffer partial = CachedBuffers.partial(model, state);
 		partial.light(packedLight)
 			.overlay(packedOverlay)

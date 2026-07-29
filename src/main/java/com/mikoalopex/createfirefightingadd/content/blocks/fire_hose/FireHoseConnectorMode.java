@@ -5,6 +5,9 @@ import net.minecraft.util.StringRepresentable;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions;
 import com.simibubi.create.foundation.gui.AllIcons;
 
+/**
+ * Redstone-triggered endpoint action performed by a fire-hose connector.
+ */
 public enum FireHoseConnectorMode implements StringRepresentable, INamedIconOptions {
 	IDLE("idle"),
 	FIXED("fixed"),

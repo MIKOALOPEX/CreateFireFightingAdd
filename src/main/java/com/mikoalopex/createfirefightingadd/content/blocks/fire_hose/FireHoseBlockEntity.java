@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
+import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
+
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,6 +25,7 @@ import com.simibubi.create.content.fluids.pump.PumpBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
+
 import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.data.Couple;
@@ -41,17 +44,25 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
+/**
+ * Owns one fire-hose endpoint and the shared state of a connected endpoint pair.
+ *
+ * <p>The controller endpoint owns the shared tank. Pump discovery identifies
+ * the real source side, while the opposite endpoint exposes virtual Create
+ * pressure. Actual fluid movement remains capability-driven. Stable endpoint
+ * identities and moving-endpoint leases preserve links across supported
+ * structure mappings.</p>
+ */
 public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseConnectionAccess {
 
     private static final double TIME_TO_SNAP = 3.0;
@@ -64,10 +75,10 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private static final String TAG_PARTNER_MOVING = "PartnerMoving";
     private static final int MOVING_PARTNER_LEASE_TICKS = 8;
 
-    // Rendering
+    // Rendering state
     protected LerpedFloat renderLength = LerpedFloat.linear();
 
-    // Partner
+    // Connection identity and partner state
     protected boolean isController;
     protected boolean assembling;
     private UUID endpointId = UUID.randomUUID();
@@ -84,9 +95,10 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private float ticksWithoutPartner;
     private double snappingTime;
 
+    // Shared fluid storage
     private SmartFluidTankBehaviour tank;
 
-    // Pump detection
+    // Pump source state
     static final int PUMP_SIDE_NONE = 0;
     static final int PUMP_SIDE_BACK = 1;
     static final int PUMP_SIDE_PARTNER = 2;
@@ -105,8 +117,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     int pumpSide = PUMP_SIDE_NONE;
     boolean pumpPushesTowardHose;
 
-    // Pressure distribution cache
-    // Cached graphs are rebuilt when topology or source pressure changes, without wiping pressure every tick.
+    // Cached pressure graph
+    // Rebuilt when topology or source pressure changes without wiping pressure every tick.
     private Map<BlockPos, Pair<Integer, Map<Direction, Boolean>>> cachedPipeGraph;
     private Set<BlockFace> cachedTargets;
     private Map<Integer, Set<BlockFace>> cachedValidFaces;
@@ -124,6 +136,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private int pumpScanTimer;
     private int topologyRefreshTimer;
 
+    // Observed input and adaptive transfer rate
     private float effectivePumpSpeed;
     private float observedInputRate;
     private int inputThisTick;
@@ -153,7 +166,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         behaviours.add(hoseTransferBehaviour);
     }
 
-    // Geometry
+    // Geometry and rendering
 
     public Vector3d getCenter() {
         BlockState state = getBlockState();
@@ -171,7 +184,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         return this.renderLength.getValue(pt);
     }
 
-    // Tick
+    // Lifecycle
 
     @Override
     public void tick() {
@@ -260,10 +273,14 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         boolean apply = shouldApplyPressure();
         boolean driveBackPressure = shouldDriveBackPressure();
+        boolean previousDriveBackPressure = lastDriveBackPressure;
+        boolean previousPull = lastPull;
+        boolean pull = isPulling();
+        boolean wakeBackNetwork = driveBackPressure != previousDriveBackPressure
+            || (driveBackPressure && previousPull != pull);
         refreshDrivenTopology(back, driveBackPressure);
         logPressureState(back, partner, apply);
         if (driveBackPressure) {
-            boolean pull = isPulling();
             int partnerDist = partner != null ? partner.pumpDistance : Integer.MAX_VALUE;
 
             if (!cacheValid
@@ -303,6 +320,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             cacheValid = false;
         }
         lastDriveBackPressure = driveBackPressure;
+        if (wakeBackNetwork)
+            propagateBackPipeChange(back);
 
         tryContainerInteraction(back);
         FireHoseDebugLog.logTickEnd(this, partner, tickTankBefore, getSharedTankRawAmount(), tickRecordedInput);
@@ -335,8 +354,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         invalidateFluidTopology(false);
     }
 
-    // Pump detection
-    // The side connected to a real Create pump remains open; only the opposite hose end drives virtual pressure.
+    // Pump source discovery
+    // A real pump side stays open; only the opposite endpoint drives virtual pressure.
 
     private void scanForPumpAndLock(Direction back, @Nullable FireHoseBlockEntity partner) {
         int oldPumpSide = pumpSide;
@@ -488,10 +507,21 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private void recordExternalInput(int amount, boolean pushesTowardHose) {
         if (amount <= 0)
             return;
+        if (isDrivenBackCapabilityTraffic(pushesTowardHose)) {
+            FireHoseDebugLog.logExternalSignal(this, amount, pushesTowardHose, "self-driven-capability");
+            return;
+        }
         if (amount >= externalInputThisTick)
             externalInputPushesTowardHose = pushesTowardHose;
         externalInputThisTick += amount;
         FireHoseDebugLog.logExternalSignal(this, amount, pushesTowardHose, "capability-access");
+    }
+
+    private boolean isDrivenBackCapabilityTraffic(boolean pushesTowardHose) {
+        // Create answers virtual pressure through this capability. That response is flow, not a new pump source.
+        return pumpSide == PUMP_SIDE_PARTNER
+            && shouldDriveBackPressure()
+            && pushesTowardHose == isPulling();
     }
 
     private void updateEffectivePumpSpeed(int inputAmount) {
@@ -1720,8 +1750,22 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             return;
         hose.invalidateFluidTopology();
         hose.notifyUpdate();
-        Direction hoseBack = hose.getBack();
-        BlockPos pipePos = hose.getBlockPos().relative(hoseBack);
+        hose.propagateBackPipeChange(hose.getBack());
+    }
+
+    private void propagateBackPipeChange(Direction back) {
+        if (level == null || level.isClientSide)
+            return;
+        BlockPos pipePos = worldPosition.relative(back);
+        if (!level.isLoaded(pipePos) || FluidPropagator.getPipe(level, pipePos) == null)
+            return;
+        FireHoseDebugLog.logRaw(
+            "propagate back network hose={} pipe={} drive={} pull={} speed={}",
+            worldPosition.toShortString(),
+            pipePos.toShortString(),
+            shouldDriveBackPressure(),
+            isPulling(),
+            getActivePumpSpeed());
         FluidPropagator.propagateChangedPipe(level, pipePos, level.getBlockState(pipePos));
     }
 

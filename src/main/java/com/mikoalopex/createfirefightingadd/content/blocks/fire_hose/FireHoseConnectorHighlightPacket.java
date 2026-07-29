@@ -15,6 +15,9 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+/**
+ * Client feedback for a connector-selected hose endpoint.
+ */
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
 public record FireHoseConnectorHighlightPacket(BlockPos pos, int color) implements CustomPacketPayload {
 	public static final Type<FireHoseConnectorHighlightPacket> TYPE =

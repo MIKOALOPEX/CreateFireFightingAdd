@@ -1,12 +1,15 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.FluidAccessoryDebugLog;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.content.fluids.FluidPropagator;
+import com.simibubi.create.content.fluids.PipeConnection;
 import com.simibubi.create.content.fluids.pipes.StraightPipeBlockEntity.StraightPipeFluidTransportBehaviour;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
@@ -14,6 +17,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour;
 
 import net.createmod.catnip.data.Iterate;
+import net.createmod.catnip.data.Couple;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -31,9 +35,16 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
-import java.util.List;
-
+/**
+ * A standard straight pipe with optional fire-hose endpoint automation.
+ *
+ * <p>Fluid transport is always delegated to Create's straight-pipe behaviour.
+ * Redstone only triggers endpoint lookup, highlighting, or reconnection; it
+ * never gates or redirects fluid flow.</p>
+ */
 public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_ATTACHED_POS = "AttachedPos";
 	private static final String TAG_ATTACHED_SUB_LEVEL = "AttachedSubLevel";
@@ -43,12 +54,15 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_CACHED_ENDPOINT_ID = "CachedEndpointId";
 	private static final String TAG_POWERED = "Powered";
 
+	// Endpoint currently adjacent to the connector's pipe axis.
 	@Nullable
 	private BlockPos attachedPos;
 	@Nullable
 	private UUID attachedSubLevel;
 	@Nullable
 	private UUID attachedEndpointId;
+
+	// Last valid remote endpoint observed through the attached hose.
 	@Nullable
 	private BlockPos cachedPos;
 	@Nullable
@@ -86,6 +100,9 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		setChanged();
 	}
 
+	/**
+	 * Refreshes endpoint identity without changing the hose connection itself.
+	 */
 	public void refreshAttachedEndpoint() {
 		FireHoseBlockEntity attached = findAttachedEndpoint();
 		if (attached == null) {
@@ -95,7 +112,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 			setChanged();
 			return;
 		}
-
 		boolean changedEndpoint = attachedPos == null
 			|| !attachedPos.equals(attached.getBlockPos())
 			|| !attached.getFireHoseEndpointId().equals(attachedEndpointId);
@@ -357,6 +373,46 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		public boolean canHaveFlowToward(BlockState state, Direction direction) {
 			return state.getBlock() instanceof FireHoseConnectorBlock
 				&& direction.getAxis() == FireHoseConnectorBlock.pipeAxis(state);
+		}
+
+		@Override
+		public void tick() {
+			if (debugServerSide())
+				logState("PRE_SUPER");
+			super.tick();
+			if (debugServerSide())
+				logState("POST_SUPER");
+		}
+
+		private boolean debugServerSide() {
+			return FluidAccessoryDebugLog.ENABLED
+				&& blockEntity.getLevel() != null
+				&& !blockEntity.getLevel().isClientSide
+				&& interfaces != null;
+		}
+
+		private void logState(String phase) {
+			Level level = blockEntity.getLevel();
+			if (level == null)
+				return;
+			Direction.Axis axis = FireHoseConnectorBlock.pipeAxis(blockEntity.getBlockState());
+			for (Direction direction : Iterate.directions) {
+				if (direction.getAxis() != axis)
+					continue;
+				PipeConnection connection = interfaces.get(direction);
+				Couple<Float> pressure = connection == null ? null : connection.getPressure();
+				BlockPos adjacentPos = blockEntity.getBlockPos().relative(direction);
+				IFluidHandler adjacent = level.getCapability(Capabilities.FluidHandler.BLOCK, adjacentPos,
+					direction.getOpposite());
+				FluidAccessoryDebugLog.log(
+					"CONNECTOR_STATE phase={} tick={} pos={} axis={} side={} pressure={}/{} hasFlow={} provided={} adjacent={} adjacentAmount={} adjacentState={}",
+					phase, level.getGameTime(), blockEntity.getBlockPos().toShortString(), axis, direction,
+					pressure == null ? 0 : pressure.getFirst(), pressure == null ? 0 : pressure.getSecond(),
+					connection != null && connection.hasFlow(),
+					connection == null ? "no_connection" : FluidAccessoryDebugLog.fluid(connection.getProvidedFluid()),
+					adjacentPos.toShortString(), FluidAccessoryDebugLog.amount(adjacent),
+					FluidAccessoryDebugLog.contents(adjacent));
+			}
 		}
 	}
 }

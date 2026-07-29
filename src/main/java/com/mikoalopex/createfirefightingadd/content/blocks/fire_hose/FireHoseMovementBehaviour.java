@@ -4,6 +4,9 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
 import com.simibubi.create.api.contraption.storage.fluid.MountedFluidStorage;
 import com.simibubi.create.content.contraptions.behaviour.MovementContext;
 
+/**
+ * Forwards Create contraption ticks to the moving-endpoint registry.
+ */
 public class FireHoseMovementBehaviour implements MovementBehaviour {
 	public static final FireHoseMovementBehaviour INSTANCE = new FireHoseMovementBehaviour();
 

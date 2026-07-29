@@ -11,6 +11,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 
+/**
+ * Exposes a hose endpoint as a single-sided Create pipe connection.
+ *
+ * <p>The behaviour publishes virtual pressure and the shared hose fluid. Pump
+ * discovery, flow direction, and capability transfer remain owned by
+ * {@link FireHoseBlockEntity}.</p>
+ */
 public class HoseFluidTransferBehaviour extends FluidTransportBehaviour {
 
     public HoseFluidTransferBehaviour(SmartBlockEntity be) {

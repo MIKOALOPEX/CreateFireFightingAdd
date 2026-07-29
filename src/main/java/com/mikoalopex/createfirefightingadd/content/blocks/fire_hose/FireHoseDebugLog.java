@@ -1,12 +1,14 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.mojang.logging.LogUtils;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
+
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -16,8 +18,9 @@ import java.util.UUID;
 
 /**
  * Disabled-by-default diagnostics for fire hose pressure and transfer behaviour.
- * Keep this class available so field logging can be enabled without scattering
- * one-off logger calls through the transfer path.
+ *
+ * <p>The call sites remain available for field testing without scattering
+ * temporary logger calls throughout the transfer path.</p>
  */
 public final class FireHoseDebugLog {
 

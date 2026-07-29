@@ -37,6 +37,9 @@ import org.lwjgl.glfw.GLFW;
 
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 
+/**
+ * Client-side state machine for selecting and placing fire-hose endpoints.
+ */
 public class FireHoseItemHandler {
 
     public static final FireHoseItemHandler INSTANCE = new FireHoseItemHandler();

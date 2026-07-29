@@ -27,6 +27,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
+/**
+ * Create contraption storage wrapper for a mounted fire-hose endpoint.
+ *
+ * <p>It serializes endpoint identity, partner identity, appearance, and shared
+ * fluid state so moving endpoints can be matched without duplicating links.</p>
+ */
 public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<FireHoseMountedFluidStorage.Handler>
 	implements SyncedMountedStorage {
 

@@ -1,10 +1,11 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.flow_meter;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
+import com.mikoalopex.createfirefightingadd.content.blocks.FluidAccessoryDebugLog;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.content.fluids.FluidTransportBehaviour;
 import com.simibubi.create.content.fluids.PipeConnection;
@@ -30,8 +31,10 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
  */
 public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
-	private int scanTimer;
 	private static final int SCAN_INTERVAL = 10;
+	private static final int MAX_PUMP_SCAN_DISTANCE = 64;
+
+	private int scanTimer;
 
 	public FlowMeterBehaviour(SmartBlockEntity be) {
 		super(be);
@@ -51,6 +54,9 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 	@Override
 	public void tick() {
+		if (debugServerSide())
+			logConnectionState("PRE_SUPER");
+
 		// Read monitoring data before super.tick() consumes transient flow data.
 		if (blockEntity instanceof FlowMeterBlockEntity meter
 			&& meter.getLevel() != null
@@ -61,22 +67,15 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 			scanTimer--;
 			if (scanTimer <= 0) {
-				scanForPump(meter);
+				updatePumpSample(meter);
 				scanTimer = SCAN_INTERVAL;
 			}
 		}
 
 		super.tick();
 
-		// Forward fluid between axial sides after the monitor has sampled flow.
-		if (blockEntity instanceof FlowMeterBlockEntity meter
-			&& meter.getLevel() != null
-			&& !meter.getLevel().isClientSide
-			&& interfaces != null
-			&& meter.cachedPumpSpeed > 0) {
-
-			forwardFluidBetweenAxialSides(meter);
-		}
+		if (debugServerSide())
+			logConnectionState("POST_SUPER");
 	}
 
 	private void readPressureAndFlow(FlowMeterBlockEntity meter) {
@@ -85,10 +84,13 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 		Direction facing = meter.getBlockState().getValue(FlowMeterBlock.FACING);
 
-		// Gather pressures from both axial connections, grouped by flow direction.
-		// ab = FACING -> OPPOSITE (A -> B), ba = OPPOSITE -> FACING (B -> A).
-		float abIn = 0, abOut = 0, baIn = 0, baOut = 0;
-		FluidStack abFluid = FluidStack.EMPTY, baFluid = FluidStack.EMPTY;
+		// A is the facing side and B is the opposite side.
+		float aToBInbound = 0;
+		float aToBOutbound = 0;
+		float bToAInbound = 0;
+		float bToAOutbound = 0;
+		FluidStack aToBFluid = FluidStack.EMPTY;
+		FluidStack bToAFluid = FluidStack.EMPTY;
 
 		for (Direction dir : Direction.values()) {
 			if (dir.getAxis() != facing.getAxis())
@@ -102,33 +104,29 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 			float out = pressure != null ? pressure.getSecond() : 0;
 
 			if (dir == facing) {
-				// FACING side: in = A -> B, out = B -> A.
-				abIn = Math.max(abIn, in);
-				baOut = Math.max(baOut, out);
-				if (conn.hasFlow() && conn.getProvidedFluid() != null) {
-					abFluid = conn.getProvidedFluid();
-				}
+				aToBInbound = Math.max(aToBInbound, in);
+				bToAOutbound = Math.max(bToAOutbound, out);
+				if (conn.hasFlow() && conn.getProvidedFluid() != null)
+					aToBFluid = conn.getProvidedFluid();
 			} else {
-				// OPPOSITE side: in = B -> A, out = A -> B.
-				baIn = Math.max(baIn, in);
-				abOut = Math.max(abOut, out);
-				if (conn.hasFlow() && conn.getProvidedFluid() != null) {
-					baFluid = conn.getProvidedFluid();
-				}
+				bToAInbound = Math.max(bToAInbound, in);
+				aToBOutbound = Math.max(aToBOutbound, out);
+				if (conn.hasFlow() && conn.getProvidedFluid() != null)
+					bToAFluid = conn.getProvidedFluid();
 			}
 		}
 
 		// Expose only the dominant flow direction to the meter display.
-		float abScore = abIn + abOut;
-		float baScore = baIn + baOut;
-		if (abScore >= baScore && abScore > 0) {
-			meter.cachedInboundPressure = abIn;
-			meter.cachedOutboundPressure = abOut;
-			meter.cachedFluid = abFluid.isEmpty() ? FluidStack.EMPTY : abFluid;
-		} else if (baScore > 0) {
-			meter.cachedInboundPressure = baIn;
-			meter.cachedOutboundPressure = baOut;
-			meter.cachedFluid = baFluid.isEmpty() ? FluidStack.EMPTY : baFluid;
+		float aToBScore = aToBInbound + aToBOutbound;
+		float bToAScore = bToAInbound + bToAOutbound;
+		if (aToBScore >= bToAScore && aToBScore > 0) {
+			meter.cachedInboundPressure = aToBInbound;
+			meter.cachedOutboundPressure = aToBOutbound;
+			meter.cachedFluid = aToBFluid.isEmpty() ? FluidStack.EMPTY : aToBFluid;
+		} else if (bToAScore > 0) {
+			meter.cachedInboundPressure = bToAInbound;
+			meter.cachedOutboundPressure = bToAOutbound;
+			meter.cachedFluid = bToAFluid.isEmpty() ? FluidStack.EMPTY : bToAFluid;
 		} else {
 			meter.cachedInboundPressure = 0;
 			meter.cachedOutboundPressure = 0;
@@ -136,66 +134,36 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 		}
 	}
 
-	private void forwardFluidBetweenAxialSides(FlowMeterBlockEntity meter) {
-		if (interfaces == null)
-			return;
-
-		Level level = meter.getLevel();
-		if (level == null || level.isClientSide)
-			return;
-
-		Direction facing = meter.getBlockState().getValue(FlowMeterBlock.FACING);
-		PipeConnection facingConn = interfaces.get(facing);
-		PipeConnection oppositeConn = interfaces.get(facing.getOpposite());
-		if (facingConn == null || oppositeConn == null)
-			return;
-		if (facingConn.getPressure() == null || oppositeConn.getPressure() == null)
-			return;
-
-		float facingIn = facingConn.getPressure().getFirst();
-		float facingOut = facingConn.getPressure().getSecond();
-		float oppositeIn = oppositeConn.getPressure().getFirst();
-		float oppositeOut = oppositeConn.getPressure().getSecond();
-
-		if (oppositeIn > 0 && facingOut > 0)
-			tryTransfer(level, meter, facing.getOpposite(), facing);
-		if (facingIn > 0 && oppositeOut > 0)
-			tryTransfer(level, meter, facing, facing.getOpposite());
+	private boolean debugServerSide() {
+		return FluidAccessoryDebugLog.ENABLED
+			&& blockEntity.getLevel() != null
+			&& !blockEntity.getLevel().isClientSide
+			&& interfaces != null;
 	}
 
-	private void tryTransfer(Level level, FlowMeterBlockEntity meter, Direction fromDir, Direction toDir) {
-		BlockPos fromPos = meter.getBlockPos().relative(fromDir);
-		BlockPos toPos = meter.getBlockPos().relative(toDir);
-
-		IFluidHandler target = level.getCapability(
-			Capabilities.FluidHandler.BLOCK, toPos, toDir.getOpposite());
-		if (target == null)
+	private void logConnectionState(String phase) {
+		Level level = blockEntity.getLevel();
+		if (level == null)
 			return;
-
-		FluidStack sourceFluid = FluidStack.EMPTY;
-		IFluidHandler sourceHandler = level.getCapability(
-			Capabilities.FluidHandler.BLOCK, fromPos, fromDir.getOpposite());
-
-		if (sourceHandler != null) {
-			sourceFluid = sourceHandler.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
-		} else {
-			FluidTransportBehaviour sourcePipe = FluidPropagator.getPipe(level, fromPos);
-			if (sourcePipe != null)
-				sourceFluid = sourcePipe.getProvidedOutwardFluid(fromDir.getOpposite());
+		Direction facing = blockEntity.getBlockState().getValue(FlowMeterBlock.FACING);
+		for (Direction direction : new Direction[] { facing, facing.getOpposite() }) {
+			PipeConnection connection = interfaces.get(direction);
+			Couple<Float> pressure = connection == null ? null : connection.getPressure();
+			BlockPos adjacentPos = blockEntity.getBlockPos().relative(direction);
+			IFluidHandler adjacent = level.getCapability(Capabilities.FluidHandler.BLOCK, adjacentPos,
+				direction.getOpposite());
+			FluidAccessoryDebugLog.log(
+				"FLOW_METER_STATE phase={} tick={} pos={} side={} pressure={}/{} hasFlow={} provided={} adjacent={} adjacentAmount={} adjacentState={}",
+				phase, level.getGameTime(), blockEntity.getBlockPos().toShortString(), direction,
+				pressure == null ? 0 : pressure.getFirst(), pressure == null ? 0 : pressure.getSecond(),
+				connection != null && connection.hasFlow(),
+				connection == null ? "no_connection" : FluidAccessoryDebugLog.fluid(connection.getProvidedFluid()),
+				adjacentPos.toShortString(), FluidAccessoryDebugLog.amount(adjacent),
+				FluidAccessoryDebugLog.contents(adjacent));
 		}
-
-		if (sourceFluid.isEmpty())
-			return;
-
-		int rate = Math.max(1, (int) (meter.cachedPumpSpeed / 2f));
-		FluidStack toTransfer = sourceFluid.copy();
-		toTransfer.setAmount(Math.min(rate, sourceFluid.getAmount()));
-		int filled = target.fill(toTransfer, IFluidHandler.FluidAction.EXECUTE);
-		if (filled > 0 && sourceHandler != null)
-			sourceHandler.drain(filled, IFluidHandler.FluidAction.EXECUTE);
 	}
 
-	private void scanForPump(FlowMeterBlockEntity meter) {
+	private void updatePumpSample(FlowMeterBlockEntity meter) {
 		Level level = meter.getLevel();
 		if (level == null)
 			return;
@@ -207,7 +175,7 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 
 		for (Direction searchDir : new Direction[] { facing, facing.getOpposite() }) {
 			BlockPos startPos = meter.getBlockPos().relative(searchDir);
-			int result = bfsFindPump(level, startPos, meter.getBlockPos(), 64);
+			int result = findCreatePumpSpeed(level, startPos, meter.getBlockPos(), MAX_PUMP_SCAN_DISTANCE);
 			if (result > 0) {
 				meter.cachedPumpSpeed = result;
 				meter.cachedPumpDistance = 1;
@@ -216,15 +184,15 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 		}
 	}
 
-	private int bfsFindPump(Level level, BlockPos start, BlockPos origin, int maxDist) {
-		List<Pair<Integer, BlockPos>> frontier = new ArrayList<>();
+	private int findCreatePumpSpeed(Level level, BlockPos start, BlockPos origin, int maxDistance) {
+		Deque<Pair<Integer, BlockPos>> frontier = new ArrayDeque<>();
 		Set<BlockPos> visited = new HashSet<>();
-		frontier.add(Pair.of(1, start));
+		frontier.addLast(Pair.of(1, start));
 		visited.add(origin);
 
 		while (!frontier.isEmpty()) {
-			Pair<Integer, BlockPos> entry = frontier.remove(0);
-			int dist = entry.getFirst();
+			Pair<Integer, BlockPos> entry = frontier.removeFirst();
+			int distance = entry.getFirst();
 			BlockPos pos = entry.getSecond();
 
 			if (!level.isLoaded(pos) || !visited.add(pos))
@@ -235,7 +203,7 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 				return (int) Math.abs(pumpBe.getSpeed());
 			}
 
-			if (dist >= maxDist)
+			if (distance >= maxDistance)
 				continue;
 
 			FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, pos);
@@ -246,7 +214,7 @@ public class FlowMeterBehaviour extends FluidTransportBehaviour {
 				BlockPos next = pos.relative(face);
 				if (visited.contains(next))
 					continue;
-				frontier.add(Pair.of(dist + 1, next));
+				frontier.addLast(Pair.of(distance + 1, next));
 			}
 		}
 		return 0;

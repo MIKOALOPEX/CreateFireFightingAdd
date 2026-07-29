@@ -1,9 +1,12 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
-import com.simibubi.create.content.equipment.wrench.IWrenchable;
+import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
+
 import com.simibubi.create.api.contraption.ContraptionMovementSetting;
+import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import com.simibubi.create.foundation.block.IBE;
 import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
+
 import net.createmod.catnip.math.VoxelShaper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -29,8 +32,13 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
-
+/**
+ * A placeable endpoint for a two-ended fire hose connection.
+ *
+ * <p>Connection identity and fluid behaviour live in
+ * {@link FireHoseBlockEntity}; this block owns placement, interaction, shape,
+ * and lifecycle hooks.</p>
+ */
 public class FireHoseBlock extends WrenchableDirectionalBlock
         implements IBE<FireHoseBlockEntity>, IWrenchable, ContraptionMovementSetting.MovementSettingProvider {
 

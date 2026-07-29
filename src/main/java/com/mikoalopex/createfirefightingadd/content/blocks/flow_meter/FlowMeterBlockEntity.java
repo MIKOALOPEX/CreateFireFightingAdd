@@ -8,6 +8,7 @@ import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.utility.CreateLang;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,11 +26,19 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * Engineer's Goggles via {@link IHaveGoggleInformation}.
  */
 public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggleInformation {
+	private static final String TAG_INBOUND_PRESSURE = "InPressure";
+	private static final String TAG_OUTBOUND_PRESSURE = "OutPressure";
+	private static final String TAG_PUMP_SPEED = "PumpSpeed";
+	private static final String TAG_PUMP_DISTANCE = "PumpDist";
+	private static final String TAG_INBOUND = "Inbound";
+	private static final String TAG_FLUID = "Fluid";
+
 	private static final Map<Long, DisplayState> CLIENT_DISPLAY_STATES = new ConcurrentHashMap<>();
 	private static final float MIN_VISIBLE_TARGET = 0.01f;
 	private static final int ZERO_TARGET_GRACE_TICKS = 30;
+	private static final int SYNC_INTERVAL = 20;
 
-	// Cached monitoring data written by FlowMeterBehaviour.
+	// Server-side samples written by FlowMeterBehaviour.
 	float cachedInboundPressure;
 	float cachedOutboundPressure;
 	FluidStack cachedFluid = FluidStack.EMPTY;
@@ -37,6 +46,7 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	int cachedPumpSpeed;
 	int cachedPumpDistance = -1;
 
+	// Client-side display state retained across block-entity refreshes.
 	float previousDisplayPressure;
 	float displayPressure;
 	float previousDisplayFlow;
@@ -64,7 +74,7 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 
 	@Override
 	public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-		com.simibubi.create.foundation.utility.CreateLang.builder()
+		CreateLang.builder()
 			.add(Component.translatable("createfirefightingadd.flow_meter.info"))
 			.forGoggles(tooltip);
 
@@ -75,24 +85,22 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 			tooltip.add(Component.translatable("createfirefightingadd.flow_meter.no_pump"));
 		}
 
-		// Pressure is usually close to pump speed on a straight pipe run.
 		float pressure = Math.max(cachedOutboundPressure, cachedInboundPressure);
 		tooltip.add(Component.translatable(
 			"createfirefightingadd.flow_meter.pressure",
 			String.format("%.1f", pressure)));
 
-		// Flow rate is derived from pressure. Create pumps transfer pressure / 2 mb/t.
+		// Create pumps transfer approximately half their pressure value in mB/t.
 		float flowRate = pressure / 2f;
 		tooltip.add(Component.translatable(
 			"createfirefightingadd.flow_meter.flow_rate",
 			String.format("%.1f", flowRate)));
 
-		// Current fluid.
 		if (!cachedFluid.isEmpty()) {
 			tooltip.add(Component.translatable(
 				"createfirefightingadd.flow_meter.fluid",
 				cachedFluid.getHoverName()));
-			}
+		}
 
 		return true;
 	}
@@ -101,13 +109,13 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 		super.write(tag, registries, clientPacket);
 		if (clientPacket) {
-			tag.putFloat("InPressure", cachedInboundPressure);
-			tag.putFloat("OutPressure", cachedOutboundPressure);
-			tag.putInt("PumpSpeed", cachedPumpSpeed);
-			tag.putInt("PumpDist", cachedPumpDistance);
-			tag.putBoolean("Inbound", cachedInbound);
+			tag.putFloat(TAG_INBOUND_PRESSURE, cachedInboundPressure);
+			tag.putFloat(TAG_OUTBOUND_PRESSURE, cachedOutboundPressure);
+			tag.putInt(TAG_PUMP_SPEED, cachedPumpSpeed);
+			tag.putInt(TAG_PUMP_DISTANCE, cachedPumpDistance);
+			tag.putBoolean(TAG_INBOUND, cachedInbound);
 			if (!cachedFluid.isEmpty())
-				tag.put("Fluid", cachedFluid.saveOptional(registries));
+				tag.put(TAG_FLUID, cachedFluid.saveOptional(registries));
 		}
 	}
 
@@ -115,13 +123,13 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 		super.read(tag, registries, clientPacket);
 		if (clientPacket) {
-			cachedInboundPressure = tag.getFloat("InPressure");
-			cachedOutboundPressure = tag.getFloat("OutPressure");
-			cachedPumpSpeed = tag.getInt("PumpSpeed");
-			cachedPumpDistance = tag.getInt("PumpDist");
-			cachedInbound = tag.getBoolean("Inbound");
-			cachedFluid = tag.contains("Fluid")
-				? FluidStack.parseOptional(registries, tag.getCompound("Fluid"))
+			cachedInboundPressure = tag.getFloat(TAG_INBOUND_PRESSURE);
+			cachedOutboundPressure = tag.getFloat(TAG_OUTBOUND_PRESSURE);
+			cachedPumpSpeed = tag.getInt(TAG_PUMP_SPEED);
+			cachedPumpDistance = tag.getInt(TAG_PUMP_DISTANCE);
+			cachedInbound = tag.getBoolean(TAG_INBOUND);
+			cachedFluid = tag.contains(TAG_FLUID)
+				? FluidStack.parseOptional(registries, tag.getCompound(TAG_FLUID))
 				: FluidStack.EMPTY;
 			restoreClientDisplayState();
 		}
@@ -139,7 +147,7 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 			syncTimer--;
 			if (syncTimer <= 0) {
 				sendData();
-				syncTimer = 20;
+				syncTimer = SYNC_INTERVAL;
 			}
 		}
 	}

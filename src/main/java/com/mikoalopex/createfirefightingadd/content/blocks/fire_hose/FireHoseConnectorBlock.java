@@ -37,6 +37,12 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.ticks.TickPriority;
 
+/**
+ * Pipe-derived block that exposes redstone and dial faces around its fluid axis.
+ *
+ * <p>The block keeps Create's straight-pipe transport semantics. Its block
+ * entity adds fire-hose reconnection controls without modifying fluid flow.</p>
+ */
 public class FireHoseConnectorBlock extends AxisPipeBlock
 		implements IBE<FireHoseConnectorBlockEntity>, ProperWaterloggedBlock {
 	public static final MapCodec<FireHoseConnectorBlock> CODEC = simpleCodec(FireHoseConnectorBlock::new);

@@ -4,6 +4,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 
+/**
+ * Starts the client-side two-endpoint placement workflow for a fire hose.
+ */
 public class FireHoseItem extends Item {
 
     public FireHoseItem(Properties properties) {

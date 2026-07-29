@@ -30,6 +30,10 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
+/**
+ * Renders hose segments whose endpoints are represented by moving structures
+ * rather than two static block entities.
+ */
 public final class FireHoseDynamicRenderer {
 	private static final float TUBE_WIDTH = 8.0f;
 	private static final float TEXTURE_WIDTH = 16.0f;
