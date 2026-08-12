@@ -10,6 +10,10 @@ public class PartialModels {
 	public static final PartialModel HIGH_PRESSURE_PUMP_COG = block("high_pressure_pump_cog");
 	public static final PartialModel MULTIPURPOSE_BACKTANK_COG = block("multipurpose_backtank_cog");
 	public static final PartialModel MULTIPURPOSE_BACKTANK_SHAFT = block("multipurpose_backtank_shaft");
+	public static final PartialModel HYDRAULIC_RAM_MOVE = block("hydraulic_ram/move");
+	public static final PartialModel EXTENSION_LADDER_NOMOVE = block("extension_ladder/nomove");
+	public static final PartialModel EXTENSION_LADDER_ONLYMOVE = block("extension_ladder/onlymove");
+	public static final PartialModel EXTENSION_LADDER_ROPE = block("extension_ladder/rope");
 	public static final PartialModel FLUID_FLOW_METER_DIAL = block("fluid_flow_meter/dial");
 	public static final PartialModel FLUID_FLOW_METER_GREEN_POINTER_EAST = block("fluid_flow_meter/green_pointer_east");
 	public static final PartialModel FLUID_FLOW_METER_GREEN_POINTER_WEST = block("fluid_flow_meter/green_pointer_west");
@@ -40,6 +44,10 @@ public class PartialModels {
 		event.register(ModelResourceLocation.standalone(HIGH_PRESSURE_PUMP_COG.modelLocation()));
 		event.register(ModelResourceLocation.standalone(MULTIPURPOSE_BACKTANK_COG.modelLocation()));
 		event.register(ModelResourceLocation.standalone(MULTIPURPOSE_BACKTANK_SHAFT.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HYDRAULIC_RAM_MOVE.modelLocation()));
+		event.register(ModelResourceLocation.standalone(EXTENSION_LADDER_NOMOVE.modelLocation()));
+		event.register(ModelResourceLocation.standalone(EXTENSION_LADDER_ONLYMOVE.modelLocation()));
+		event.register(ModelResourceLocation.standalone(EXTENSION_LADDER_ROPE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(FLUID_FLOW_METER_DIAL.modelLocation()));
 		event.register(ModelResourceLocation.standalone(FLUID_FLOW_METER_GREEN_POINTER_EAST.modelLocation()));
 		event.register(ModelResourceLocation.standalone(FLUID_FLOW_METER_GREEN_POINTER_WEST.modelLocation()));

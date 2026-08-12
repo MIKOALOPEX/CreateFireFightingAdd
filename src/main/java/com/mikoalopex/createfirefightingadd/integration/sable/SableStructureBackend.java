@@ -74,6 +74,31 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
     }
 
     @Override
+    public boolean hasCollisionAtWorld(BlockEntity owner, Vec3 worldPosition) {
+        SubLevel ownerSubLevel = Sable.HELPER.getContaining(owner);
+        Level worldLevel = ownerSubLevel != null ? ownerSubLevel.getLevel() : owner.getLevel();
+        if (worldLevel == null)
+            return false;
+
+        BlockPos worldPos = BlockPos.containing(worldPosition);
+        if (!worldLevel.getBlockState(worldPos).getCollisionShape(worldLevel, worldPos).isEmpty())
+            return true;
+
+        if (!(worldLevel instanceof ServerLevel serverLevel))
+            return false;
+        Iterable<SubLevel> candidates = Sable.HELPER.getAllIntersecting(serverLevel,
+            new BoundingBox3d(new AABB(worldPosition, worldPosition).inflate(0.01)));
+        for (SubLevel subLevel : candidates) {
+            Vec3 localPosition = subLevel.logicalPose().transformPositionInverse(worldPosition);
+            BlockPos localPos = BlockPos.containing(localPosition);
+            Level localLevel = subLevel.getLevel();
+            if (!localLevel.getBlockState(localPos).getCollisionShape(localLevel, localPos).isEmpty())
+                return true;
+        }
+        return false;
+    }
+
+    @Override
     public List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
                                                                                           List<Vec3> worldPositions) {
         if (!(level instanceof ServerLevel serverLevel) || worldPositions.isEmpty())

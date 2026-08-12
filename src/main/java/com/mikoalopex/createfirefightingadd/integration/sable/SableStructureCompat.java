@@ -13,6 +13,7 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControll
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.core.BlockPos;
@@ -91,6 +92,15 @@ public final class SableStructureCompat {
         return blockEntity != null ? blockEntity : new WaterIntakeBlockEntity(pos, state);
     }
 
+    public static ExtensionLadderBlockEntity createExtensionLadderBlockEntity(BlockPos pos, BlockState state) {
+        ExtensionLadderBlockEntity blockEntity = instantiateSableBlockEntity(
+            "com.mikoalopex.createfirefightingadd.integration.sable.SableExtensionLadderBlockEntity",
+            ExtensionLadderBlockEntity.class,
+            pos,
+            state);
+        return blockEntity != null ? blockEntity : new ExtensionLadderBlockEntity(pos, state);
+    }
+
     public static double distanceSquared(Level level, BlockPos first, BlockPos second) {
         return distanceSquared(level, Vec3.atCenterOf(first), Vec3.atCenterOf(second));
     }
@@ -139,6 +149,15 @@ public final class SableStructureCompat {
 
     public static boolean isInSubLevel(BlockEntity owner) {
         return owner.getLevel() != null && BACKEND != null && BACKEND.isInSubLevel(owner);
+    }
+
+    public static boolean hasCollisionAtWorld(BlockEntity owner, Vec3 worldPosition) {
+        if (owner.getLevel() != null && BACKEND != null)
+            return BACKEND.hasCollisionAtWorld(owner, worldPosition);
+        if (owner.getLevel() == null)
+            return false;
+        BlockPos pos = BlockPos.containing(worldPosition);
+        return !owner.getLevel().getBlockState(pos).getCollisionShape(owner.getLevel(), pos).isEmpty();
     }
 
     public static List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions) {
@@ -299,6 +318,8 @@ public final class SableStructureCompat {
         Vec3 transformNormalToLocal(BlockEntity owner, Vec3 worldNormal);
 
         boolean isInSubLevel(BlockEntity owner);
+
+        boolean hasCollisionAtWorld(BlockEntity owner, Vec3 worldPosition);
 
         List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions);
 

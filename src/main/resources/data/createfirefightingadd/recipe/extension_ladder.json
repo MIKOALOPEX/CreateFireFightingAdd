@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "IRI",
+    " S "
+  ],
+  "key": {
+    "I": { "item": "create:iron_sheet" },
+    "R": { "item": "minecraft:iron_bars" },
+    "S": { "item": "create:andesite_alloy" }
+  },
+  "result": {
+    "id": "createfirefightingadd:extension_ladder",
+    "count": 1
+  }
+}

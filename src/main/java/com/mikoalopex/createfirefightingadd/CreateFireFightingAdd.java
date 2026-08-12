@@ -49,6 +49,14 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDebugRend
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMountedFluidStorageType;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.BoundBlockHighlightHandler;
+import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlock;
+import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamRenderer;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderItem;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderItemHandler;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.items.PneumaticHammerClientExtensions;
@@ -92,6 +100,7 @@ import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -206,6 +215,17 @@ public class CreateFireFightingAdd {
 		() -> new WaterIntakeBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0f).noOcclusion()));
 
 	public static final DeferredItem<BlockItem> WATER_INTAKE_ITEM = ITEMS.registerSimpleBlockItem("water_intake", WATER_INTAKE);
+
+	public static final DeferredBlock<HydraulicRamBlock> HYDRAULIC_RAM = BLOCKS.register("hydraulic_ram",
+		() -> new HydraulicRamBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0f).noOcclusion()));
+
+	public static final DeferredItem<BlockItem> HYDRAULIC_RAM_ITEM = ITEMS.registerSimpleBlockItem("hydraulic_ram", HYDRAULIC_RAM);
+
+	public static final DeferredBlock<ExtensionLadderBlock> EXTENSION_LADDER = BLOCKS.register("extension_ladder",
+		() -> new ExtensionLadderBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+
+	public static final DeferredItem<ExtensionLadderItem> EXTENSION_LADDER_ITEM = ITEMS.register("extension_ladder",
+		() -> new ExtensionLadderItem(new Item.Properties().stacksTo(1)));
 
 	public static final DeferredBlock<FireHoseBlock> FIRE_HOSE = BLOCKS.register("fire_hose",
 		() -> SableStructureCompat.createFireHoseBlock(
@@ -342,6 +362,14 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("water_intake",
 			() -> BlockEntityType.Builder.of(SableStructureCompat::createWaterIntakeBlockEntity, WATER_INTAKE.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HydraulicRamBlockEntity>> HYDRAULIC_RAM_BE =
+		BLOCK_ENTITY_TYPES.register("hydraulic_ram",
+			() -> BlockEntityType.Builder.of(HydraulicRamBlockEntity::new, HYDRAULIC_RAM.get()).build(null));
+
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ExtensionLadderBlockEntity>> EXTENSION_LADDER_BE =
+		BLOCK_ENTITY_TYPES.register("extension_ladder",
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createExtensionLadderBlockEntity, EXTENSION_LADDER.get()).build(null));
+
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireHoseBlockEntity>> FIRE_HOSE_BE =
 		BLOCK_ENTITY_TYPES.register("fire_hose",
 			() -> BlockEntityType.Builder.of(SableStructureCompat::createFireHoseBlockEntity, FIRE_HOSE.get()).build(null));
@@ -363,6 +391,14 @@ public class CreateFireFightingAdd {
 	public static final DeferredHolder<SoundEvent, SoundEvent> NOZZLE_SPRAY_SOUND =
 		SOUND_EVENTS.register("nozzle_spray",
 			() -> SoundEvent.createVariableRangeEvent(path("nozzle_spray")));
+
+	public static final DeferredHolder<SoundEvent, SoundEvent> HYDRAULIC_RAM_WATERFLYOFF_SOUND =
+		SOUND_EVENTS.register("hydraulic_ram_waterflyoff",
+			() -> SoundEvent.createVariableRangeEvent(path("hydraulic_ram_waterflyoff")));
+
+	public static final DeferredHolder<SoundEvent, SoundEvent> HYDRAULIC_RAM_CLICK_SOUND =
+		SOUND_EVENTS.register("hydraulic_ram_click",
+			() -> SoundEvent.createVariableRangeEvent(path("hydraulic_ram_click")));
 
 	public static final DeferredHolder<SoundEvent, SoundEvent> FIRE_HYDRANT_CABINET_OPEN_SOUND =
 		SOUND_EVENTS.register("fire_hydrant_cabinet_open",
@@ -390,6 +426,8 @@ public class CreateFireFightingAdd {
 				output.accept(FLAT_NOZZLE_ITEM.get());
 				output.accept(BUCKET_CONTROLLER_ITEM.get());
 				output.accept(WATER_INTAKE_ITEM.get());
+				output.accept(HYDRAULIC_RAM_ITEM.get());
+				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
@@ -483,6 +521,11 @@ public class CreateFireFightingAdd {
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			WATER_INTAKE_BE.get(),
+			(be, context) -> be.getFluidHandler(context)
+		);
+		event.registerBlockEntity(
+			Capabilities.FluidHandler.BLOCK,
+			HYDRAULIC_RAM_BE.get(),
 			(be, context) -> be.getFluidHandler(context)
 		);
 		event.registerBlockEntity(
@@ -630,6 +673,8 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());
 			event.registerBlockEntityRenderer(WATER_INTAKE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
+			event.registerBlockEntityRenderer(HYDRAULIC_RAM_BE.get(), HydraulicRamRenderer::new);
+			event.registerBlockEntityRenderer(EXTENSION_LADDER_BE.get(), ExtensionLadderRenderer::new);
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
@@ -662,6 +707,7 @@ public class CreateFireFightingAdd {
 			NozzleSprayClientSounds.clientTick();
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
+				ExtensionLadderItemHandler.INSTANCE.clientTick();
 				HandheldNozzleClientHandler.clientTick();
 			}
 		}
@@ -701,6 +747,10 @@ public class CreateFireFightingAdd {
 					&& mc.player != null
 					&& mc.screen == null) {
 				FireHoseItemHandler.INSTANCE.onUse(0, GLFW.GLFW_PRESS, mc.options.keyUse);
+				if (mc.player.getMainHandItem().getItem() instanceof ExtensionLadderItem)
+					ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.MAIN_HAND);
+				else if (mc.player.getOffhandItem().getItem() instanceof ExtensionLadderItem)
+					ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.OFF_HAND);
 			}
 		}
 

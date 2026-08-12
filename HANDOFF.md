@@ -1,6 +1,6 @@
 # Create Firefighting Add - Project Handoff
 
-Last updated: 2026-07-29
+Last updated: 2026-08-05
 
 This is the authoritative handoff for new Codex tasks working on this repository.
 Read it before changing code. For exact behavior, the current source and Git
@@ -27,6 +27,7 @@ Recent important commits:
 - `f4a8bb1` - guard multipurpose backtank tooltip before Create config load
 - `9f9c8f8` - release `0.2.1-beta` updates
 - `ea2efd4` - handheld nozzle entity handling
+- `e631cb9` - stabilize hose transfer and pipe accessories
 
 Do not change the version or push commits unless the user explicitly asks.
 
@@ -49,6 +50,9 @@ These rules apply to every task:
 9. Register mod content only in this mod's creative tab unless explicitly
    requested otherwise.
 10. Code is MIT. Art and other visual assets are All Rights Reserved.
+11. In Codex Desktop, use separate sidebar conversations for separate modules
+    when requested. Do not create Git worktrees unless the user explicitly asks
+    for a worktree or branch checkout.
 
 ## Important Paths
 
@@ -64,6 +68,17 @@ These rules apply to every task:
 
 The `run` and backup directories may contain large amounts of historical data.
 Do not treat old logs as current evidence without checking timestamps.
+
+## Codex Desktop Notes
+
+The main historical conversation is extremely large. Prefer opening a fresh
+same-directory Codex Desktop conversation for new feature work and paste the
+prompt from this document.
+
+Do not fork into a worktree for ordinary module separation. A previous mistaken
+worktree was removed, but `.codex/sessions` may still contain large JSONL
+history files. If C: becomes tight, review `C:\Users\ASUS\.codex\sessions`
+before touching project files.
 
 ## Project Structure
 
@@ -141,6 +156,21 @@ Latest conservation fix:
   through a real executable capability transfer.
 - This fixed multi-hose/multi-pump loop fluid duplication. The user verified
   that fluid totals remain conserved even when individual tank amounts fluctuate.
+
+Latest accessory transfer fix:
+
+- Commit `e631cb9` stabilized reverse and intermittent transfer around hose
+  chains and pipe-like accessories.
+- `FlowMeterBlockEntity` should remain a passive reader. It must use Create's
+  normal straight-pipe behavior and must not add a second manual fluid forwarding
+  path.
+- `FireHoseBlockEntity` contains wake/update handling for back-side pressure
+  edges. Keep Create-native and externally driven capability traffic separated.
+- `FireHoseBlockEntity` intentionally treats externally driven traffic with a
+  compound check. Do not reduce this to a single pressure or flow heuristic.
+- `FireHoseConnectorBlockEntity` redstone automation should only manage hose
+  reconnection/marking. Fluid transport through the connector must behave like a
+  straight pipe and remain independent from redstone state.
 
 Debug logging:
 
@@ -293,6 +323,9 @@ Regression tests:
 - Water intake and bucket controller: infinite-source search, binding,
   blueprint persistence, and Ponder scenes.
 - Fluid flow meter: two smooth sliding indicators, pipe-like item/drop behavior.
+- Flow meter, hose connector, and pipeline turbine use pipe-like mining/drop
+  expectations; middle-click and wrench removal should return their own block
+  items, not vanilla/Create pipe items.
 - Pneumatic hammer: air charging, charge persistence, 3x3 use, split model
   animation, Create-style tooltip.
 - Ponder: pump, hose, nozzles, water intake, and bucket-controller scenes using
@@ -409,38 +442,42 @@ Confirmed open or deferred work:
 Do not revive older issue lists without reproducing them against the current
 baseline.
 
-## Multi-Task And Worktree Protocol
+## Multi-Task Protocol
 
-Use one Codex task per module when work can proceed independently.
+Use one Codex Desktop conversation per module when work can proceed
+independently.
 
-Recommended task branches:
+Recommended conversation titles:
 
-- `codex/firehose`
-- `codex/spray-system`
-- `codex/handheld-tools`
-- `codex/structure-compat`
-- `codex/rendering-assets`
-- `codex/release`
+- `水带与流体网络`
+- `喷头与性能`
+- `手持工具`
+- `结构兼容`
+- `模型与渲染`
+- `发布准备`
 
 Rules:
 
-1. Each task uses its own Git worktree and branch.
-2. Start from a known clean `main` commit.
-3. A module task must state its owned files and non-goals.
-4. Avoid simultaneous edits to shared registration, config, or language files.
-5. Module tasks build and create local commits but do not push unless explicitly
+1. Use the same project directory unless the user explicitly requests a Git
+   worktree.
+2. Start by reading this handoff and checking `git status --short --branch`.
+3. A module conversation must state its owned files and non-goals.
+4. Avoid simultaneous edits to shared registration, config, or language files
+   across multiple open conversations.
+5. Module conversations may build and create local commits but do not push unless explicitly
    instructed.
-6. The coordinating task reviews and integrates commits into `main`.
+6. The main conversation or user coordinates final integration and GitHub push.
 7. Update this document when a module changes project-wide behavior.
 
 Suggested task opening prompt:
 
 ```text
-Work only on the <module> module in this task's isolated worktree.
-Start from main commit <hash> and use branch codex/<module>.
-Read HANDOFF.md before editing.
-Do not update backups, change the version, or push GitHub.
-Preserve all behavior outside the stated module.
+你正在处理 Create Fire Fighting Add 项目的 <模块名> 专区。
+项目目录是 D:\CreateAdd\CreateFireFightingAdd，请使用当前目录，不要创建 Git worktree 或切换分支，除非我明确要求。
+先阅读 HANDOFF.md，然后检查 git status。
+本对话只处理 <模块名> 相关文件；不要更新 tempbackup，不要修改版本号，不要推送 GitHub。
+如果需要动注册、配置、语言文件等共享文件，先说明原因和影响范围。
+完成后运行相关构建/测试，整理改动和风险，等待我决定是否提交或推送。
 ```
 
 Suggested task completion prompt:

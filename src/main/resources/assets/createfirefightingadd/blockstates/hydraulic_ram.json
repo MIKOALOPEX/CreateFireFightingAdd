@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=east":  { "model": "createfirefightingadd:block/hydraulic_ram", "y": 270 },
+    "facing=north": { "model": "createfirefightingadd:block/hydraulic_ram", "y": 180 },
+    "facing=south": { "model": "createfirefightingadd:block/hydraulic_ram" },
+    "facing=west":  { "model": "createfirefightingadd:block/hydraulic_ram", "y": 90 }
+  }
+}

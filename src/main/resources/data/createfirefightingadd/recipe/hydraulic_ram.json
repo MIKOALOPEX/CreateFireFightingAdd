@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " P ",
+    "CHC",
+    " B "
+  ],
+  "key": {
+    "P": { "item": "create:fluid_pipe" },
+    "C": { "item": "create:copper_sheet" },
+    "H": { "item": "create:mechanical_pump" },
+    "B": { "item": "minecraft:bucket" }
+  },
+  "result": {
+    "id": "createfirefightingadd:hydraulic_ram",
+    "count": 1
+  }
+}

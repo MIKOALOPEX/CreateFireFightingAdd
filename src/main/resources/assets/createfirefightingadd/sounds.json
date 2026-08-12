@@ -11,6 +11,18 @@
       "createfirefightingadd:nozzle_spray"
     ]
   },
+  "hydraulic_ram_waterflyoff": {
+    "subtitle": "subtitles.createfirefightingadd.hydraulic_ram_waterflyoff",
+    "sounds": [
+      "createfirefightingadd:waterflyoff"
+    ]
+  },
+  "hydraulic_ram_click": {
+    "subtitle": "subtitles.createfirefightingadd.hydraulic_ram_click",
+    "sounds": [
+      "createfirefightingadd:ramclick"
+    ]
+  },
   "fire_hydrant_cabinet_open": {
     "subtitle": "subtitles.createfirefightingadd.fire_hydrant_cabinet",
     "sounds": [

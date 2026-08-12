@@ -53,6 +53,7 @@ public class Config {
 	private static final ModConfigSpec.IntValue HOSE_EXTERNAL_INPUT_MEMORY_TICKS;
 	private static final ModConfigSpec.IntValue HOSE_EXTERNAL_INPUT_OUTPUT_RANGE;
 	private static final ModConfigSpec.DoubleValue HIGH_PRESSURE_PUMP_MULTIPLIER;
+	private static final ModConfigSpec.DoubleValue HYDRAULIC_RAM_OUTPUT_RATIO;
 	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_MAX_OUTPUT_SPEED;
 	private static final ModConfigSpec.DoubleValue PIPELINE_TURBINE_STRESS_EFFICIENCY;
 	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_SOURCE_SCAN_RANGE;
@@ -202,6 +203,12 @@ public class Config {
 			.defineInRange("amplificationMultiplier", 2.0, 1.0, 16.0);
 		BUILDER.pop();
 
+		BUILDER.push("HydraulicRam");
+		HYDRAULIC_RAM_OUTPUT_RATIO = BUILDER
+			.comment("Fraction of the hydraulic ram's charged buffer that is pumped out. The remaining fluid is consumed by the water hammer cycle.")
+			.defineInRange("outputRatio", 0.5, 0.0, 1.0);
+		BUILDER.pop();
+
 		BUILDER.push("PipelineTurbine");
 		PIPELINE_TURBINE_MAX_OUTPUT_SPEED = BUILDER
 			.comment("Maximum rotation speed produced by the pipeline turbine after pressure conversion. Default 256; raise this if custom pumps provide higher pressure.")
@@ -312,6 +319,7 @@ public class Config {
 	public static int hoseExternalInputMemoryTicks;
 	public static int hoseExternalInputOutputRange;
 	public static float highPressurePumpMultiplier;
+	public static double hydraulicRamOutputRatio = 0.5;
 	public static int pipelineTurbineMaxOutputSpeed;
 	public static float pipelineTurbineStressEfficiency;
 	public static int pipelineTurbineSourceScanRange;
@@ -374,6 +382,7 @@ public class Config {
 		hoseExternalInputMemoryTicks = HOSE_EXTERNAL_INPUT_MEMORY_TICKS.get();
 		hoseExternalInputOutputRange = HOSE_EXTERNAL_INPUT_OUTPUT_RANGE.get();
 		highPressurePumpMultiplier = HIGH_PRESSURE_PUMP_MULTIPLIER.get().floatValue();
+		hydraulicRamOutputRatio = HYDRAULIC_RAM_OUTPUT_RATIO.get();
 		pipelineTurbineMaxOutputSpeed = PIPELINE_TURBINE_MAX_OUTPUT_SPEED.get();
 		pipelineTurbineStressEfficiency = PIPELINE_TURBINE_STRESS_EFFICIENCY.get().floatValue();
 		pipelineTurbineSourceScanRange = PIPELINE_TURBINE_SOURCE_SCAN_RANGE.get();
