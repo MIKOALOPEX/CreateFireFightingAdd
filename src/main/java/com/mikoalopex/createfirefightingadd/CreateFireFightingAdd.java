@@ -54,6 +54,8 @@ import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.Hydraul
 import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderClientInputHandler;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderClimbingController;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderItem;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderItemHandler;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderRenderer;
@@ -222,7 +224,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> HYDRAULIC_RAM_ITEM = ITEMS.registerSimpleBlockItem("hydraulic_ram", HYDRAULIC_RAM);
 
 	public static final DeferredBlock<ExtensionLadderBlock> EXTENSION_LADDER = BLOCKS.register("extension_ladder",
-		() -> new ExtensionLadderBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+		() -> SableStructureCompat.createExtensionLadderBlock(
+			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(0.2f)
+				.sound(SoundType.NETHERITE_BLOCK).noOcclusion()));
 
 	public static final DeferredItem<ExtensionLadderItem> EXTENSION_LADDER_ITEM = ITEMS.register("extension_ladder",
 		() -> new ExtensionLadderItem(new Item.Properties().stacksTo(1)));
@@ -587,8 +591,10 @@ public class CreateFireFightingAdd {
 
 	@SubscribeEvent
 	public void onPlayerTick(PlayerTickEvent.Post event) {
-		if (!event.getEntity().level().isClientSide)
+		if (!event.getEntity().level().isClientSide) {
 			HandheldNozzleSprayHandler.serverTick(event.getEntity());
+			ExtensionLadderClimbingController.serverTick(event.getEntity());
+		}
 	}
 
 	@SubscribeEvent
@@ -708,6 +714,7 @@ public class CreateFireFightingAdd {
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 				ExtensionLadderItemHandler.INSTANCE.clientTick();
+				ExtensionLadderClientInputHandler.clientTick();
 				HandheldNozzleClientHandler.clientTick();
 			}
 		}

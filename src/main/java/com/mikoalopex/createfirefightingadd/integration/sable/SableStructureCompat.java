@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControllerBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
@@ -54,6 +55,15 @@ public final class SableStructureCompat {
                 return blockEntity;
         }
         return new FireHoseBlockEntity(pos, state);
+    }
+
+    public static ExtensionLadderBlock createExtensionLadderBlock(BlockBehaviour.Properties properties) {
+        if (BACKEND != null) {
+            ExtensionLadderBlock block = instantiateSableExtensionLadderBlock(properties);
+            if (block != null)
+                return block;
+        }
+        return new ExtensionLadderBlock(properties);
     }
 
     public static ConeNozzleBlockEntity createConeNozzleBlockEntity(BlockPos pos, BlockState state) {
@@ -130,24 +140,32 @@ public final class SableStructureCompat {
     }
 
     public static Vec3 transformPositionToWorld(BlockEntity owner, Vec3 localPos) {
+        if (owner.getLevel() != null && owner.getLevel().isClientSide)
+            return SableStructureClientCompat.logicalPositionToWorld(owner, localPos);
         if (owner.getLevel() != null && BACKEND != null)
             return BACKEND.transformPositionToWorld(owner, localPos);
         return localPos;
     }
 
     public static Vec3 transformNormalToWorld(BlockEntity owner, Vec3 localNormal) {
+        if (owner.getLevel() != null && owner.getLevel().isClientSide)
+            return SableStructureClientCompat.logicalNormalToWorld(owner, localNormal);
         if (owner.getLevel() != null && BACKEND != null)
             return BACKEND.transformNormalToWorld(owner, localNormal);
         return localNormal;
     }
 
     public static Vec3 transformNormalToLocal(BlockEntity owner, Vec3 worldNormal) {
+        if (owner.getLevel() != null && owner.getLevel().isClientSide)
+            return SableStructureClientCompat.logicalNormalToLocal(owner, worldNormal);
         if (owner.getLevel() != null && BACKEND != null)
             return BACKEND.transformNormalToLocal(owner, worldNormal);
         return worldNormal;
     }
 
     public static boolean isInSubLevel(BlockEntity owner) {
+        if (owner.getLevel() != null && owner.getLevel().isClientSide)
+            return SableStructureClientCompat.isInSubLevel(owner);
         return owner.getLevel() != null && BACKEND != null && BACKEND.isInSubLevel(owner);
     }
 
@@ -161,6 +179,8 @@ public final class SableStructureCompat {
     }
 
     public static List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions) {
+        if (level != null && level.isClientSide)
+            return SableStructureClientCompat.projectWorldPositionsToSubLevels(level, worldPositions);
         if (level != null && BACKEND != null)
             return BACKEND.projectWorldPositionsToSubLevels(level, worldPositions);
         return Collections.emptyList();
@@ -271,6 +291,21 @@ public final class SableStructureCompat {
                 true,
                 SableStructureCompat.class.getClassLoader());
             return (FireHoseBlock) blockClass
+                .getConstructor(BlockBehaviour.Properties.class)
+                .newInstance(properties);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static ExtensionLadderBlock instantiateSableExtensionLadderBlock(BlockBehaviour.Properties properties) {
+        try {
+            Class<?> blockClass = Class.forName(
+                "com.mikoalopex.createfirefightingadd.integration.sable.SableExtensionLadderBlock",
+                true,
+                SableStructureCompat.class.getClassLoader());
+            return (ExtensionLadderBlock) blockClass
                 .getConstructor(BlockBehaviour.Properties.class)
                 .newInstance(properties);
         } catch (Throwable ignored) {

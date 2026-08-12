@@ -13,7 +13,11 @@ public final class ExtensionLadderGeometry {
 	public static final float WIDTH = 16 * PIXEL;
 	public static final float HALF_WIDTH = WIDTH * 0.5f;
 	public static final float PROBE_RADIUS = 1.5f * PIXEL;
-	public static final float MAX_PITCH = (float) Math.toRadians(88);
+	public static final float MAX_PITCH = (float) Math.toRadians(90);
+	public static final double CLIMB_NORMAL_MIN = 0;
+	public static final double CLIMB_NORMAL_MAX = 0.5;
+	public static final double CLIMB_WIDTH_HALF_EXTENT = 0.4;
+	public static final double CLIMB_LENGTH_PADDING = 0;
 
 	public static final Vec3 MODEL_PIVOT = pixels(8, -13, 8);
 	public static final Vec3 PULLEY_POINT_1 = pixels(8, 24, 7);
@@ -86,6 +90,30 @@ public final class ExtensionLadderGeometry {
 			Vec3 delta = worldPosition.subtract(anchor);
 			return new Projection(delta.dot(longAxis), delta.dot(right), delta.dot(normal));
 		}
+
+		public Vec3 point(double along, double width, double normalOffset) {
+			return anchor
+				.add(longAxis.scale(along))
+				.add(right.scale(width))
+				.add(normal.scale(normalOffset));
+		}
+
+		public Vec3[] climbBoxCorners(double moveOffsetPixels) {
+			Vec3[] corners = new Vec3[8];
+			int index = 0;
+			double[] alongs = { -CLIMB_LENGTH_PADDING, climbLength(moveOffsetPixels) + CLIMB_LENGTH_PADDING };
+			double[] widths = { -CLIMB_WIDTH_HALF_EXTENT, CLIMB_WIDTH_HALF_EXTENT };
+			double[] normals = { CLIMB_NORMAL_MIN, CLIMB_NORMAL_MAX };
+			for (double along : alongs)
+				for (double width : widths)
+					for (double normal : normals)
+						corners[index++] = point(along, width, normal);
+			return corners;
+		}
+	}
+
+	public static double climbLength(double moveOffsetPixels) {
+		return BASE_LENGTH + moveOffsetPixels * PIXEL;
 	}
 
 	public record Projection(double along, double width, double normal) {

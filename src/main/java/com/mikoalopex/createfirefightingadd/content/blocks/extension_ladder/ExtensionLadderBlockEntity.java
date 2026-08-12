@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -13,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -24,6 +26,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private static final int EXTEND_TICKS = 16;
 	private static final int TILT_TICKS = 12;
 	private static final int SUPPORT_CHECK_INTERVAL = 10;
+	private static final int ADJUST_TIMEOUT_TICKS = 3;
 	private static final double SUPPORT_SAMPLE_RADIUS = 0.08;
 	private static final double ANCHOR_CLEARANCE = 0.26;
 
@@ -41,6 +44,9 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private float currentPitch;
 	private float startPitch;
 	private float targetPitch;
+	@Nullable
+	private UUID adjustingPlayer;
+	private long lastAdjustTick;
 
 	public ExtensionLadderBlockEntity(BlockPos pos, BlockState state) {
 		super(CreateFireFightingAdd.EXTENSION_LADDER_BE.get(), pos, state);
@@ -64,6 +70,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		this.animationTick = 0;
 		this.previousAnimationTick = 0;
 		this.supportCheckTimer = 0;
+		this.adjustingPlayer = null;
+		this.lastAdjustTick = 0;
 		this.searchTask.restart(0);
 		markDirtyAndSync();
 	}
@@ -86,6 +94,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 			case SEARCHING -> tickSearch();
 			case TILTING -> tickTilt();
 			case SUPPORTED -> tickSupported();
+			case ADJUSTING -> tickAdjusting();
 			case FALLEN -> {
 			}
 		}
@@ -108,20 +117,23 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		if (result.state() == ExtensionLadderSearchTask.State.SEARCHING)
 			return;
 		if (result.state() == ExtensionLadderSearchTask.State.EXHAUSTED) {
-			currentPitch = ExtensionLadderGeometry.MAX_PITCH;
-			phase = Phase.FALLEN;
-			animationTick = 0;
+			startTilt(ExtensionLadderGeometry.MAX_PITCH, null);
 			markDirtyAndSync();
 			return;
 		}
 
-		startPitch = currentPitch;
-		targetPitch = result.pitch();
-		support = result.support();
-		phase = Phase.TILTING;
-		animationTick = 0;
-		previousAnimationTick = 0;
+		startTilt(result.pitch(), result.support());
 		markDirtyAndSync();
+	}
+
+	private void startTilt(float targetPitch, @Nullable ExtensionLadderSupportRef support) {
+		this.startPitch = currentPitch;
+		this.targetPitch = targetPitch;
+		this.support = support;
+		this.adjustingPlayer = null;
+		this.phase = Phase.TILTING;
+		this.animationTick = 0;
+		this.previousAnimationTick = 0;
 	}
 
 	private void tickTilt() {
@@ -136,6 +148,20 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		markDirtyAndSync();
 	}
 
+	private void tickAdjusting() {
+		currentPitch = 0;
+		if (level != null && level.getGameTime() - lastAdjustTick <= ADJUST_TIMEOUT_TICKS)
+			return;
+
+		adjustingPlayer = null;
+		support = null;
+		phase = Phase.SEARCHING;
+		animationTick = 0;
+		previousAnimationTick = 0;
+		searchTask.restart(0);
+		markDirtyAndSync();
+	}
+
 	private void tickSupported() {
 		if (++supportCheckTimer < SUPPORT_CHECK_INTERVAL)
 			return;
@@ -146,6 +172,40 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		phase = Phase.SEARCHING;
 		searchTask.restart(currentPitch);
 		markDirtyAndSync();
+	}
+
+	public void adjustWithPlayer(Player player) {
+		adjustWithDirection(player.getUUID(), player.getViewVector(1.0f));
+	}
+
+	public void adjustWithDirection(UUID playerId, Vec3 direction) {
+		if (level == null || level.isClientSide)
+			return;
+		Vec3 normalized = ExtensionLadderGeometry.normalizeHorizontal(direction);
+		if (normalized.lengthSqr() < 1.0E-6)
+			return;
+
+		boolean changed = phase != Phase.ADJUSTING || currentPitch != 0
+			|| normalized.distanceToSqr(fallDirection) > 1.0E-4;
+		fallDirection = normalized;
+		adjustingPlayer = playerId;
+		lastAdjustTick = level.getGameTime();
+		support = null;
+		currentPitch = 0;
+		startPitch = 0;
+		targetPitch = 0;
+		phase = Phase.ADJUSTING;
+		animationTick = 0;
+		previousAnimationTick = 0;
+		supportCheckTimer = 0;
+		if (changed)
+			markDirtyAndSync();
+	}
+
+	public void reinitializeAfterStructureMove() {
+		Vec3 anchor = new Vec3(worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5);
+		Vec3 direction = fallDirection.lengthSqr() < 1.0E-6 ? new Vec3(0, 0, 1) : fallDirection;
+		initialize(anchor, direction, worldPosition.below());
 	}
 
 	private boolean hasAnchorSupport() {
@@ -337,6 +397,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		currentPitch = tag.getFloat("CurrentPitch");
 		startPitch = tag.getFloat("StartPitch");
 		targetPitch = tag.getFloat("TargetPitch");
+		adjustingPlayer = null;
+		lastAdjustTick = 0;
 		searchTask.setNextPitch(tag.contains("SearchPitch") ? tag.getFloat("SearchPitch") : currentPitch);
 		support = ExtensionLadderSupportRef.read(tag, "Support");
 	}
@@ -347,6 +409,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		SEARCHING,
 		TILTING,
 		SUPPORTED,
-		FALLEN
+		FALLEN,
+		ADJUSTING
 	}
 }

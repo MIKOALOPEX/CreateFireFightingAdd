@@ -3,18 +3,21 @@ package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.PartialModels;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 
 import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import net.createmod.catnip.render.CachedBuffers;
 import net.createmod.catnip.render.SuperByteBuffer;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -56,6 +59,7 @@ public class ExtensionLadderRenderer extends SmartBlockEntityRenderer<ExtensionL
 		renderRope(tip, p1, poseStack, buffer, packedLight, packedOverlay);
 		renderRope(p1, p2, poseStack, buffer, packedLight, packedOverlay);
 		renderRope(p2, p2.add(0, -30 * ExtensionLadderGeometry.PIXEL, 0), poseStack, buffer, packedLight, packedOverlay);
+		renderClimbDebugBox(be, pitch, movePixels, poseStack, buffer);
 	}
 
 	private static Quaternionf basisRotation(Vec3 xAxis, Vec3 yAxis, Vec3 zAxis) {
@@ -105,5 +109,40 @@ public class ExtensionLadderRenderer extends SmartBlockEntityRenderer<ExtensionL
 		poseStack.scale(1, (float) length, 1);
 		renderPartial(PartialModels.EXTENSION_LADDER_ROPE, poseStack, buffer, packedLight, packedOverlay);
 		poseStack.popPose();
+	}
+
+	private static void renderClimbDebugBox(ExtensionLadderBlockEntity be, float pitch, float movePixels,
+		PoseStack poseStack, MultiBufferSource buffer) {
+		if (!Minecraft.getInstance().getEntityRenderDispatcher().shouldRenderHitBoxes())
+			return;
+
+		ExtensionLadderGeometry.LocalFrame localFrame = be.localPhysicsFrame(pitch);
+		ExtensionLadderGeometry.WorldFrame frame =
+			new ExtensionLadderGeometry.WorldFrame(localFrame.anchor(), localFrame.right(), localFrame.longAxis(),
+				localFrame.normal());
+		Vec3 base = Vec3.atLowerCornerOf(be.getBlockPos());
+		Vec3[] corners = frame.climbBoxCorners(movePixels);
+		int[][] edges = {
+			{ 0, 1 }, { 0, 2 }, { 1, 3 }, { 2, 3 },
+			{ 4, 5 }, { 4, 6 }, { 5, 7 }, { 6, 7 },
+			{ 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }
+		};
+
+		VertexConsumer vc = buffer.getBuffer(RenderType.lines());
+		Matrix4f matrix = poseStack.last().pose();
+		for (int[] edge : edges) {
+			Vec3 a = corners[edge[0]].subtract(base);
+			Vec3 b = corners[edge[1]].subtract(base);
+			renderLine(matrix, vc, a, b);
+		}
+	}
+
+	private static void renderLine(Matrix4f matrix, VertexConsumer vc, Vec3 from, Vec3 to) {
+		vc.addVertex(matrix, (float) from.x, (float) from.y, (float) from.z)
+			.setColor(1f, 1f, 1f, 1f)
+			.setNormal(0, 1, 0);
+		vc.addVertex(matrix, (float) to.x, (float) to.y, (float) to.z)
+			.setColor(1f, 1f, 1f, 1f)
+			.setNormal(0, 1, 0);
 	}
 }

@@ -1,11 +1,14 @@
 package com.mikoalopex.createfirefightingadd.integration.sable;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -39,6 +42,35 @@ public final class SableStructureClientCompat {
 		return localNormal;
 	}
 
+	public static Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos) {
+		if (BACKEND != null)
+			return BACKEND.logicalPositionToWorld(owner, localPos);
+		return localPos;
+	}
+
+	public static Vec3 logicalNormalToWorld(BlockEntity owner, Vec3 localNormal) {
+		if (BACKEND != null)
+			return BACKEND.logicalNormalToWorld(owner, localNormal);
+		return localNormal;
+	}
+
+	public static Vec3 logicalNormalToLocal(BlockEntity owner, Vec3 worldNormal) {
+		if (BACKEND != null)
+			return BACKEND.logicalNormalToLocal(owner, worldNormal);
+		return worldNormal;
+	}
+
+	public static boolean isInSubLevel(BlockEntity owner) {
+		return BACKEND != null && BACKEND.isInSubLevel(owner);
+	}
+
+	public static List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
+			List<Vec3> worldPositions) {
+		if (BACKEND != null)
+			return BACKEND.projectWorldPositionsToSubLevels(level, worldPositions);
+		return Collections.emptyList();
+	}
+
 	private static ClientStructureBackend loadBackend() {
 		try {
 			ClassLoader loader = SableStructureClientCompat.class.getClassLoader();
@@ -70,9 +102,14 @@ public final class SableStructureClientCompat {
 			false,
 			loader);
 		clientContainer.getMethod("getSubLevel", UUID.class);
+		clientContainer.getMethod("getAllSubLevels");
 
 		Class<?> clientSubLevel = Class.forName("dev.ryanhcode.sable.sublevel.ClientSubLevel", false, loader);
+		clientSubLevel.getMethod("logicalPose");
 		clientSubLevel.getMethod("renderPose");
+		clientSubLevel.getMethod("isRemoved");
+		clientSubLevel.getMethod("getUniqueId");
+		clientSubLevel.getMethod("getLevel");
 
 		Class<?> pose = Class.forName("dev.ryanhcode.sable.companion.math.Pose3dc", false, loader);
 		pose.getMethod("transformPosition", Vector3d.class);
@@ -85,6 +122,7 @@ public final class SableStructureClientCompat {
 			"dev.ryanhcode.sable.companion.ClientSubLevelAccess",
 			false,
 			loader);
+		clientAccess.getMethod("logicalPose");
 		clientAccess.getMethod("renderPose");
 		return true;
 	}
@@ -104,5 +142,16 @@ public final class SableStructureClientCompat {
 		Vec3 renderPositionToWorld(BlockEntity owner, Vec3 localPos);
 
 		Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal);
+
+		Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos);
+
+		Vec3 logicalNormalToWorld(BlockEntity owner, Vec3 localNormal);
+
+		Vec3 logicalNormalToLocal(BlockEntity owner, Vec3 worldNormal);
+
+		boolean isInSubLevel(BlockEntity owner);
+
+		List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
+				List<Vec3> worldPositions);
 	}
 }

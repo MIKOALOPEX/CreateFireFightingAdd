@@ -3,7 +3,9 @@ package com.mikoalopex.createfirefightingadd.integration.sable;
 import java.util.List;
 import java.util.UUID;
 
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.AbstractSprayDeviceBlockEntity;
 
 import org.jetbrains.annotations.NotNull;
@@ -64,6 +66,17 @@ public final class SableStructureCallbacks {
         if (newLevel.getBlockEntity(newPos) instanceof FireHoseBlockEntity hose) {
             hose.updatePartnerEndpoint(newPos, SableStructureCompat.containingSubLevelId(newLevel, newPos));
             SableStructureCompat.notifyBlockChanged(newLevel, newPos, state);
+        }
+    }
+
+    public static void afterExtensionLadderMove(ServerLevel newLevel, BlockState state, BlockPos newPos) {
+        try {
+            if (newLevel.getBlockEntity(newPos) instanceof ExtensionLadderBlockEntity ladder) {
+                ladder.reinitializeAfterStructureMove();
+                SableStructureCompat.notifyBlockChanged(newLevel, newPos, state);
+            }
+        } catch (Throwable e) {
+            CreateFireFightingAdd.LOGGER.warn("Failed to reinitialize extension ladder after Sable assembly move.", e);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.integration.sable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +14,7 @@ import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
 import dev.ryanhcode.sable.sublevel.ClientSubLevel;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -62,5 +65,51 @@ final class SableStructureClientBackend implements SableStructureClientCompat.Cl
 	public Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal) {
 		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
 		return clientAccess != null ? clientAccess.renderPose().transformNormal(localNormal) : localNormal;
+	}
+
+	@Override
+	public Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos) {
+		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
+		return clientAccess != null ? clientAccess.logicalPose().transformPosition(localPos) : localPos;
+	}
+
+	@Override
+	public Vec3 logicalNormalToWorld(BlockEntity owner, Vec3 localNormal) {
+		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
+		return clientAccess != null ? clientAccess.logicalPose().transformNormal(localNormal) : localNormal;
+	}
+
+	@Override
+	public Vec3 logicalNormalToLocal(BlockEntity owner, Vec3 worldNormal) {
+		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
+		return clientAccess != null ? clientAccess.logicalPose().transformNormalInverse(worldNormal) : worldNormal;
+	}
+
+	@Override
+	public boolean isInSubLevel(BlockEntity owner) {
+		return Sable.HELPER.getContainingClient(owner) != null;
+	}
+
+	@Override
+	public List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
+			List<Vec3> worldPositions) {
+		if (worldPositions.isEmpty() || Minecraft.getInstance().level == null)
+			return List.of();
+
+		ClientSubLevelContainer container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
+		if (container == null)
+			return List.of();
+
+		List<SableStructureCompat.SubLevelProjection> projections = new ArrayList<>();
+		for (ClientSubLevel subLevel : container.getAllSubLevels()) {
+			if (subLevel.isRemoved())
+				continue;
+			List<Vec3> localPositions = new ArrayList<>(worldPositions.size());
+			for (Vec3 worldPosition : worldPositions)
+				localPositions.add(subLevel.logicalPose().transformPositionInverse(worldPosition));
+			projections.add(new SableStructureCompat.SubLevelProjection(
+				subLevel.getUniqueId(), subLevel.getLevel(), localPositions));
+		}
+		return projections;
 	}
 }
