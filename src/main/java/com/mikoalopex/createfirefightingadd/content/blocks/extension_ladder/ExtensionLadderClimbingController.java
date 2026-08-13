@@ -24,13 +24,12 @@ import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 public final class ExtensionLadderClimbingController {
 	private static final double CLIMB_SPEED = 0.16;
 	private static final double RETRACT_SPEED = 0.13;
-	private static final double SLOW_SLIDE_SPEED = 0.035;
 	private static final double LADDER_JUMP_UP_SPEED = 0.42;
 	private static final double COLLISION_HALF_THICKNESS = 2.0 / 16.0;
 	private static final double COLLISION_SKIN = 0.01;
 	private static final double COLLISION_EPSILON = 1.0E-4;
 	private static final double SURFACE_CONTACT_DISTANCE = 0.08;
-	private static final double LOOK_DIRECTION_EPSILON = 0.05;
+	private static final double LOOK_DIRECTION_EPSILON = 0.2;
 	private static final double TOP_SUPPORT_OVERHANG = 1.0 / 16.0;
 	private static final double TOP_SUPPORT_ENTRY_MARGIN = 1.0 / 16.0;
 	private static final int LOCAL_SCAN_RADIUS = 6;
@@ -42,7 +41,6 @@ public final class ExtensionLadderClimbingController {
 	private static final Map<UUID, ForwardInputState> FORWARD_INPUTS = new HashMap<>();
 	private static final Map<UUID, Long> JUMP_REQUESTS = new HashMap<>();
 	private static final Map<PlayerSideKey, Long> JUMP_RELEASES = new HashMap<>();
-	private static final Map<PlayerSideKey, HoldState> SHIFT_HOLDS = new HashMap<>();
 
 	private ExtensionLadderClimbingController() {
 	}
@@ -50,14 +48,11 @@ public final class ExtensionLadderClimbingController {
 	public static void serverTick(Player player) {
 		if (player.level().isClientSide || player.isSpectator() || player.getAbilities().flying)
 			return;
-		if (isJumpReleased(player)) {
-			clearShiftHold(player);
+		if (isJumpReleased(player))
 			return;
-		}
 
 		ClimbTarget target = findTarget(player);
 		if (target == null) {
-			clearShiftHold(player);
 			logNoTarget(player);
 			return;
 		}
@@ -68,15 +63,11 @@ public final class ExtensionLadderClimbingController {
 	public static void clientTick(Player player, int forwardInput, boolean jumpPulse) {
 		if (!player.level().isClientSide || player.isSpectator() || player.getAbilities().flying)
 			return;
-		if (isJumpReleased(player) && !jumpPulse) {
-			clearShiftHold(player);
+		if (isJumpReleased(player) && !jumpPulse)
 			return;
-		}
 		ClimbTarget target = findTarget(player);
-		if (target == null) {
-			clearShiftHold(player);
+		if (target == null)
 			return;
-		}
 		applyClimbMotion(player, target, Mth.clamp(forwardInput, -1, 1), jumpPulse, false);
 	}
 
@@ -93,7 +84,6 @@ public final class ExtensionLadderClimbingController {
 
 		CollisionCorrection correction = resolvePenetration(target, motion);
 		if (!correction.touchingSurface()) {
-			clearShiftHold(player);
 			if (log)
 				logNearNoCore(player, target);
 			return;
@@ -109,14 +99,8 @@ public final class ExtensionLadderClimbingController {
 		if (correction.hasCorrection())
 			player.setPos(player.getX() + correction.positionDelta().x, player.getY() + correction.positionDelta().y,
 				player.getZ() + correction.positionDelta().z);
-		Vec3 holdCorrection = shiftHoldCorrection(player, target);
-		if (holdCorrection.lengthSqr() > COLLISION_EPSILON * COLLISION_EPSILON)
-			player.setPos(player.getX() + holdCorrection.x, player.getY() + holdCorrection.y,
-				player.getZ() + holdCorrection.z);
 
-		Vec3 sideMotion = player.isShiftKeyDown()
-			? Vec3.ZERO
-			: target.frame().right().scale(motion.dot(target.frame().right()));
+		Vec3 sideMotion = target.frame().right().scale(motion.dot(target.frame().right()));
 		Vec3 ladderMotion = sideMotion.add(target.frame().longAxis().scale(axisSpeed));
 		player.setDeltaMovement(ladderMotion.x, ladderMotion.y, ladderMotion.z);
 		player.fallDistance = 0;
@@ -126,7 +110,6 @@ public final class ExtensionLadderClimbingController {
 	}
 
 	private static void applyTopSupport(Player player, ClimbTarget target, Vec3 motion, boolean jumpPulse, boolean log) {
-		clearShiftHold(player);
 		if (jumpPulse) {
 			jumpFromLadder(player, target, motion);
 			if (log)
@@ -147,13 +130,11 @@ public final class ExtensionLadderClimbingController {
 	}
 
 	private static void applyPassiveEndCollision(Player player, ClimbTarget target, Vec3 motion, boolean log) {
-		clearShiftHold(player);
 		if (log)
 			logPassiveEnd(player, target, motion, motion, CollisionCorrection.NONE);
 	}
 
 	private static void jumpFromLadder(Player player, ClimbTarget target, Vec3 previousMotion) {
-		clearShiftHold(player);
 		JUMP_RELEASES.put(PlayerSideKey.of(player), player.level().getGameTime() + JUMP_RELEASE_TICKS);
 		Vec3 jump = new Vec3(previousMotion.x, LADDER_JUMP_UP_SPEED, previousMotion.z);
 		player.setDeltaMovement(jump);
@@ -163,39 +144,27 @@ public final class ExtensionLadderClimbingController {
 	}
 
 	private static double climbAxisSpeed(Player player, ClimbTarget target, double input) {
-		if (player.isShiftKeyDown())
-			return 0;
 		if (input != 0) {
-			double lookAlong = player.getLookAngle().dot(target.frame().longAxis());
-			double viewSign = Math.abs(lookAlong) < LOOK_DIRECTION_EPSILON ? 1 : Math.signum(lookAlong);
+			double viewSign = climbViewSign(player, target);
 			double speed = input > 0 ? CLIMB_SPEED : RETRACT_SPEED;
 			return Math.signum(input) * viewSign * speed;
 		}
-		return -SLOW_SLIDE_SPEED;
+		return 0;
 	}
 
-	private static Vec3 shiftHoldCorrection(Player player, ClimbTarget target) {
-		PlayerSideKey key = PlayerSideKey.of(player);
-		if (!player.isShiftKeyDown()) {
-			SHIFT_HOLDS.remove(key);
-			return Vec3.ZERO;
-		}
+	private static double climbViewSign(Player player, ClimbTarget target) {
+		Vec3 look = ExtensionLadderGeometry.normalizeHorizontal(player.getLookAngle());
+		if (look.lengthSqr() < COLLISION_EPSILON)
+			return 1;
 
-		HoldState hold = SHIFT_HOLDS.get(key);
-		double currentAlong = target.frame().project(player.position()).along();
-		if (hold == null || !hold.ladderPos().equals(target.ladderPos())) {
-			SHIFT_HOLDS.put(key, new HoldState(target.ladderPos(), currentAlong));
-			return Vec3.ZERO;
-		}
+		Vec3 climbDirection = ExtensionLadderGeometry.normalizeHorizontal(target.frame().longAxis());
+		if (climbDirection.lengthSqr() < COLLISION_EPSILON)
+			climbDirection = ExtensionLadderGeometry.normalizeHorizontal(target.frame().normal().scale(-1));
+		if (climbDirection.lengthSqr() < COLLISION_EPSILON)
+			return 1;
 
-		double alongDelta = hold.along() - currentAlong;
-		if (Math.abs(alongDelta) < COLLISION_EPSILON)
-			return Vec3.ZERO;
-		return target.frame().longAxis().scale(alongDelta);
-	}
-
-	private static void clearShiftHold(Player player) {
-		SHIFT_HOLDS.remove(PlayerSideKey.of(player));
+		double lookAlong = look.dot(climbDirection);
+		return Math.abs(lookAlong) < LOOK_DIRECTION_EPSILON ? 1 : Math.signum(lookAlong);
 	}
 
 	public static void setInput(Player player, int input, boolean jumpPulse) {
@@ -422,10 +391,10 @@ public final class ExtensionLadderClimbingController {
 			return;
 		ExtensionLadderGeometry.Projection projection = target.contact().centerProjection();
 		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] applied player={} ladder={} along={} feetAlong={} length={} width={} normal={} axisSpeed={} input={} shift={} collisionPush={} before={} after={}",
+			"[ExtensionLadderClimb] applied player={} ladder={} along={} feetAlong={} length={} width={} normal={} axisSpeed={} input={} collisionPush={} before={} after={}",
 			player.getName().getString(), target.ladderPos(), round(projection.along()),
 			round(target.contact().feetProjection().along()), round(target.climbLength()), round(projection.width()),
-			round(projection.normal()), round(axisSpeed), round(getForwardInput(player)), player.isShiftKeyDown(),
+			round(projection.normal()), round(axisSpeed), round(getForwardInput(player)),
 			round(correction.normalPush()), before, after);
 	}
 
@@ -567,9 +536,6 @@ public final class ExtensionLadderClimbingController {
 	}
 
 	private record ForwardInputState(int input, long updatedAt) {
-	}
-
-	private record HoldState(BlockPos ladderPos, double along) {
 	}
 
 	private enum ContactMode {
