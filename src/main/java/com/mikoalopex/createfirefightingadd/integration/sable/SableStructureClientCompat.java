@@ -8,6 +8,9 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
@@ -42,6 +45,12 @@ public final class SableStructureClientCompat {
 		return localNormal;
 	}
 
+	public static Vec3 projectToWorld(Level level, Vec3 localPos) {
+		if (BACKEND != null)
+			return BACKEND.projectToWorld(level, localPos);
+		return localPos;
+	}
+
 	public static Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos) {
 		if (BACKEND != null)
 			return BACKEND.logicalPositionToWorld(owner, localPos);
@@ -64,10 +73,23 @@ public final class SableStructureClientCompat {
 		return BACKEND != null && BACKEND.isInSubLevel(owner);
 	}
 
+	public static Level worldLevel(Level level, BlockPos pos) {
+		if (BACKEND != null)
+			return BACKEND.worldLevel(level, pos);
+		return level;
+	}
+
 	public static List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
 			List<Vec3> worldPositions) {
 		if (BACKEND != null)
 			return BACKEND.projectWorldPositionsToSubLevels(level, worldPositions);
+		return Collections.emptyList();
+	}
+
+	public static List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(Level level,
+			List<Vec3> worldPositions) {
+		if (BACKEND != null)
+			return BACKEND.projectWorldPositionsToIntersectingSubLevels(level, worldPositions);
 		return Collections.emptyList();
 	}
 
@@ -80,8 +102,15 @@ public final class SableStructureClientCompat {
 				"com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientBackend",
 				true,
 				loader);
-			return (ClientStructureBackend) backendClass.getDeclaredConstructor().newInstance();
-		} catch (Throwable ignored) {
+			ClientStructureBackend backend = (ClientStructureBackend) backendClass.getDeclaredConstructor().newInstance();
+			CreateFireFightingAdd.LOGGER.info("Sable client structure compatibility enabled.");
+			return backend;
+		} catch (ClassNotFoundException ignored) {
+			return null;
+		} catch (Throwable e) {
+			CreateFireFightingAdd.LOGGER.warn(
+				"Sable client structure compatibility is disabled because the available Sable API is not compatible.",
+				e);
 			return null;
 		}
 	}
@@ -143,6 +172,8 @@ public final class SableStructureClientCompat {
 
 		Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal);
 
+		Vec3 projectToWorld(Level level, Vec3 localPos);
+
 		Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos);
 
 		Vec3 logicalNormalToWorld(BlockEntity owner, Vec3 localNormal);
@@ -151,7 +182,12 @@ public final class SableStructureClientCompat {
 
 		boolean isInSubLevel(BlockEntity owner);
 
+		Level worldLevel(Level level, BlockPos pos);
+
 		List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
+				List<Vec3> worldPositions);
+
+		List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(Level level,
 				List<Vec3> worldPositions);
 	}
 }

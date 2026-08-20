@@ -721,6 +721,16 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
+			if (event.isUseItem() && ExtensionLadderClientInputHandler.isAdjusting()) {
+				event.setSwingHand(false);
+				event.setCanceled(true);
+				return;
+			}
+			if (event.isUseItem() && handleUseKeyAction()) {
+				event.setSwingHand(false);
+				event.setCanceled(true);
+				return;
+			}
 			if (event.isUseItem() && HandheldNozzleClientHandler.shouldSuppressControllerUseAnimation()) {
 				event.setSwingHand(false);
 				HandheldNozzleClientHandler.suppressUseSwing();
@@ -742,23 +752,45 @@ public class CreateFireFightingAdd {
 		public static void onMouseInput(InputEvent.MouseButton.Post event) {
 			HandheldNozzleClientHandler.onMouseButton(event.getButton(), event.getAction());
 			var mc = net.minecraft.client.Minecraft.getInstance();
-			if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-					&& event.getAction() == GLFW.GLFW_PRESS
+			if (event.getAction() == GLFW.GLFW_PRESS
 					&& mc.player != null
 					&& mc.screen == null
+					&& mc.options.keyAttack.matchesMouse(event.getButton())
 					&& PneumaticHammerItem.isCharged(mc.player.getMainHandItem())) {
 				PneumaticHammerItemRenderer.triggerReleaseSpin();
 			}
-			if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
-					&& event.getAction() == GLFW.GLFW_PRESS
+		}
+
+		@SubscribeEvent
+		public static void onKeyInput(InputEvent.Key event) {
+			HandheldNozzleClientHandler.onKey(event.getKey(), event.getScanCode(), event.getAction());
+			var mc = net.minecraft.client.Minecraft.getInstance();
+			if (event.getAction() == GLFW.GLFW_PRESS
 					&& mc.player != null
-					&& mc.screen == null) {
-				FireHoseItemHandler.INSTANCE.onUse(0, GLFW.GLFW_PRESS, mc.options.keyUse);
-				if (mc.player.getMainHandItem().getItem() instanceof ExtensionLadderItem)
-					ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.MAIN_HAND);
-				else if (mc.player.getOffhandItem().getItem() instanceof ExtensionLadderItem)
-					ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.OFF_HAND);
+					&& mc.screen == null
+					&& mc.options.keyAttack.matches(event.getKey(), event.getScanCode())
+					&& PneumaticHammerItem.isCharged(mc.player.getMainHandItem())) {
+				PneumaticHammerItemRenderer.triggerReleaseSpin();
 			}
+		}
+
+		@SubscribeEvent
+		public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+			if (ExtensionLadderClientInputHandler.onMouseScroll(event.getScrollDeltaY()))
+				event.setCanceled(true);
+		}
+
+		private static boolean handleUseKeyAction() {
+			var mc = net.minecraft.client.Minecraft.getInstance();
+			if (mc.player == null || mc.screen != null)
+				return false;
+			if (FireHoseItemHandler.INSTANCE.onUse(GLFW.GLFW_PRESS))
+				return true;
+			if (mc.player.getMainHandItem().getItem() instanceof ExtensionLadderItem)
+				return ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.MAIN_HAND);
+			if (mc.player.getOffhandItem().getItem() instanceof ExtensionLadderItem)
+				return ExtensionLadderItemHandler.INSTANCE.onUse(InteractionHand.OFF_HAND);
+			return false;
 		}
 
 	}

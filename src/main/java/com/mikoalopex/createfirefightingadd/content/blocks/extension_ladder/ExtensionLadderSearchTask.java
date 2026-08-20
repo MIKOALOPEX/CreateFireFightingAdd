@@ -50,8 +50,9 @@ public class ExtensionLadderSearchTask {
 	@Nullable
 	private static ExtensionLadderSupportRef findSupportAt(ExtensionLadderBlockEntity ladder, float pitch) {
 		ExtensionLadderGeometry.LocalFrame frame = ladder.localPhysicsFrame(pitch);
+		double length = ladder.getClimbLength();
 		for (int alongIndex = 1; alongIndex <= ALONG_SAMPLES; alongIndex++) {
-			double along = ExtensionLadderGeometry.MAX_LENGTH * alongIndex / ALONG_SAMPLES;
+			double along = length * alongIndex / ALONG_SAMPLES;
 			if (along < 0.28)
 				continue;
 			for (double width : WIDTH_SAMPLES) {

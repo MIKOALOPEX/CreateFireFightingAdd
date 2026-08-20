@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -14,7 +15,8 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
-public record ExtensionLadderAdjustPacket(BlockPos pos, double x, double z) implements CustomPacketPayload {
+public record ExtensionLadderAdjustPacket(BlockPos pos, double x, double z, float moveOffsetPixels)
+	implements CustomPacketPayload {
 	public static final Type<ExtensionLadderAdjustPacket> TYPE =
 		new Type<>(CreateFireFightingAdd.path("extension_ladder_adjust"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, ExtensionLadderAdjustPacket> STREAM_CODEC =
@@ -24,10 +26,12 @@ public record ExtensionLadderAdjustPacket(BlockPos pos, double x, double z) impl
 		BlockPos.STREAM_CODEC.encode(buf, packet.pos);
 		buf.writeDouble(packet.x);
 		buf.writeDouble(packet.z);
+		buf.writeFloat(packet.moveOffsetPixels);
 	}
 
 	private static ExtensionLadderAdjustPacket read(RegistryFriendlyByteBuf buf) {
-		return new ExtensionLadderAdjustPacket(BlockPos.STREAM_CODEC.decode(buf), buf.readDouble(), buf.readDouble());
+		return new ExtensionLadderAdjustPacket(BlockPos.STREAM_CODEC.decode(buf), buf.readDouble(), buf.readDouble(),
+			buf.readFloat());
 	}
 
 	@SubscribeEvent
@@ -49,8 +53,12 @@ public record ExtensionLadderAdjustPacket(BlockPos pos, double x, double z) impl
 				return;
 			if (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty())
 				return;
-			if (player.level().getBlockEntity(packet.pos) instanceof ExtensionLadderBlockEntity ladder)
-				ladder.adjustWithDirection(player.getUUID(), new Vec3(packet.x, 0, packet.z));
+			if (player.level().getBlockEntity(packet.pos) instanceof ExtensionLadderBlockEntity ladder) {
+				Vec3 direction = new Vec3(packet.x, 0, packet.z);
+				Vec3 localDirection = SableStructureCompat.transformNormalToLocal(player.level(), packet.pos.below(),
+					direction);
+				ladder.adjustWithSettings(localDirection, packet.moveOffsetPixels());
+			}
 		});
 	}
 }

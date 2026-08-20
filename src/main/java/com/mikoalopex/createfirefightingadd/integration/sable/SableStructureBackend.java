@@ -13,6 +13,7 @@ import dev.ryanhcode.sable.api.schematic.SubLevelSchematicSerializationContext;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3d;
+import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -22,7 +23,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 
 final class SableStructureBackend implements SableStructureCompat.StructureBackend {
 
@@ -40,6 +40,12 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
     public Level worldLevel(BlockEntity owner) {
         SubLevel subLevel = Sable.HELPER.getContaining(owner);
         return subLevel != null ? subLevel.getLevel() : owner.getLevel();
+    }
+
+    @Override
+    public Level worldLevel(Level level, BlockPos pos) {
+        SubLevel subLevel = Sable.HELPER.getContaining(level, pos);
+        return subLevel != null ? subLevel.getLevel() : level;
     }
 
     @Override
@@ -65,6 +71,12 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
     @Override
     public Vec3 transformNormalToLocal(BlockEntity owner, Vec3 worldNormal) {
         SubLevel subLevel = Sable.HELPER.getContaining(owner);
+        return subLevel != null ? subLevel.logicalPose().transformNormalInverse(worldNormal) : worldNormal;
+    }
+
+    @Override
+    public Vec3 transformNormalToLocal(Level level, BlockPos pos, Vec3 worldNormal) {
+        SubLevel subLevel = Sable.HELPER.getContaining(level, pos);
         return subLevel != null ? subLevel.logicalPose().transformNormalInverse(worldNormal) : worldNormal;
     }
 
@@ -121,10 +133,49 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
     }
 
     @Override
+    public List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(
+        Level level, List<Vec3> worldPositions) {
+        if (!(level instanceof ServerLevel serverLevel) || worldPositions.isEmpty())
+            return List.of();
+
+        List<SableStructureCompat.SubLevelProjection> projections = new ArrayList<>();
+        for (SubLevel subLevel : Sable.HELPER.getAllIntersecting(serverLevel,
+            new BoundingBox3d(around(worldPositions)))) {
+            if (subLevel.isRemoved())
+                continue;
+            List<Vec3> localPositions = new ArrayList<>(worldPositions.size());
+            for (Vec3 worldPosition : worldPositions)
+                localPositions.add(subLevel.logicalPose().transformPositionInverse(worldPosition));
+            projections.add(new SableStructureCompat.SubLevelProjection(
+                subLevel.getUniqueId(), subLevel.getLevel(), localPositions));
+        }
+        return projections;
+    }
+
+    private static AABB around(List<Vec3> positions) {
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double minZ = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        double maxZ = -Double.MAX_VALUE;
+        for (Vec3 position : positions) {
+            minX = Math.min(minX, position.x);
+            minY = Math.min(minY, position.y);
+            minZ = Math.min(minZ, position.z);
+            maxX = Math.max(maxX, position.x);
+            maxY = Math.max(maxY, position.y);
+            maxZ = Math.max(maxZ, position.z);
+        }
+        return new AABB(minX, minY, minZ, maxX, maxY, maxZ).inflate(0.01);
+    }
+
+    @Override
     public boolean hasFirePoleNearEntity(Level level, AABB entityBox, List<Vec3> worldSamples, double radiusSqr) {
         if (worldSamples.isEmpty())
             return false;
-        Iterable<SubLevel> subLevels = Sable.HELPER.getAllIntersecting(level, new BoundingBox3d(entityBox.inflate(Math.sqrt(radiusSqr))));
+        Iterable<SubLevel> subLevels = Sable.HELPER.getAllIntersecting(level,
+            new BoundingBox3d(entityBox.inflate(Math.sqrt(radiusSqr))));
         for (SubLevel subLevel : subLevels) {
             for (Vec3 worldSample : worldSamples) {
                 Vec3 localSample = subLevel.logicalPose().transformPositionInverse(worldSample);

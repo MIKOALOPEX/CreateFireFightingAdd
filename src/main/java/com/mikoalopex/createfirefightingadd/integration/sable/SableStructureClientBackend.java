@@ -11,11 +11,15 @@ import org.joml.Vector3d;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.sublevel.ClientSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.ryanhcode.sable.companion.math.BoundingBox3d;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
 import dev.ryanhcode.sable.sublevel.ClientSubLevel;
+import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 final class SableStructureClientBackend implements SableStructureClientCompat.ClientStructureBackend {
@@ -68,6 +72,21 @@ final class SableStructureClientBackend implements SableStructureClientCompat.Cl
 	}
 
 	@Override
+	public Vec3 projectToWorld(Level level, Vec3 localPos) {
+		ClientSubLevelContainer container = Minecraft.getInstance().level == null ? null
+			: SubLevelContainer.getContainer(Minecraft.getInstance().level);
+		if (container == null)
+			return localPos;
+		for (ClientSubLevel subLevel : container.getAllSubLevels()) {
+			if (subLevel.isRemoved())
+				continue;
+			if (subLevel.getLevel() == level)
+				return subLevel.logicalPose().transformPosition(localPos);
+		}
+		return localPos;
+	}
+
+	@Override
 	public Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos) {
 		dev.ryanhcode.sable.companion.ClientSubLevelAccess clientAccess = Sable.HELPER.getContainingClient(owner);
 		return clientAccess != null ? clientAccess.logicalPose().transformPosition(localPos) : localPos;
@@ -91,6 +110,21 @@ final class SableStructureClientBackend implements SableStructureClientCompat.Cl
 	}
 
 	@Override
+	public Level worldLevel(Level level, BlockPos pos) {
+		ClientSubLevelContainer container = Minecraft.getInstance().level == null ? null
+			: SubLevelContainer.getContainer(Minecraft.getInstance().level);
+		if (container == null)
+			return level;
+		for (ClientSubLevel subLevel : container.getAllSubLevels()) {
+			if (subLevel.isRemoved())
+				continue;
+			if (subLevel.getLevel() == level)
+				return Minecraft.getInstance().level;
+		}
+		return level;
+	}
+
+	@Override
 	public List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToSubLevels(Level level,
 			List<Vec3> worldPositions) {
 		if (worldPositions.isEmpty() || Minecraft.getInstance().level == null)
@@ -111,5 +145,43 @@ final class SableStructureClientBackend implements SableStructureClientCompat.Cl
 				subLevel.getUniqueId(), subLevel.getLevel(), localPositions));
 		}
 		return projections;
+	}
+
+	@Override
+	public List<SableStructureCompat.SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(Level level,
+			List<Vec3> worldPositions) {
+		if (worldPositions.isEmpty() || Minecraft.getInstance().level == null)
+			return List.of();
+
+		List<SableStructureCompat.SubLevelProjection> projections = new ArrayList<>();
+		for (SubLevel subLevel : Sable.HELPER.getAllIntersecting(Minecraft.getInstance().level,
+			new BoundingBox3d(around(worldPositions)))) {
+			if (subLevel.isRemoved())
+				continue;
+			List<Vec3> localPositions = new ArrayList<>(worldPositions.size());
+			for (Vec3 worldPosition : worldPositions)
+				localPositions.add(subLevel.logicalPose().transformPositionInverse(worldPosition));
+			projections.add(new SableStructureCompat.SubLevelProjection(
+				subLevel.getUniqueId(), subLevel.getLevel(), localPositions));
+		}
+		return projections;
+	}
+
+	private static AABB around(List<Vec3> positions) {
+		double minX = Double.MAX_VALUE;
+		double minY = Double.MAX_VALUE;
+		double minZ = Double.MAX_VALUE;
+		double maxX = -Double.MAX_VALUE;
+		double maxY = -Double.MAX_VALUE;
+		double maxZ = -Double.MAX_VALUE;
+		for (Vec3 position : positions) {
+			minX = Math.min(minX, position.x);
+			minY = Math.min(minY, position.y);
+			minZ = Math.min(minZ, position.z);
+			maxX = Math.max(maxX, position.x);
+			maxY = Math.max(maxY, position.y);
+			maxZ = Math.max(maxZ, position.z);
+		}
+		return new AABB(minX, minY, minZ, maxX, maxY, maxZ).inflate(0.01);
 	}
 }

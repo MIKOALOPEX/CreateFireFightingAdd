@@ -13,17 +13,20 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
-public record ExtensionLadderInputPacket(int forwardInput, boolean jumpPulse) implements CustomPacketPayload {
+public record ExtensionLadderInputPacket(int forwardInput, int strafeInput, boolean jumpPulse)
+	implements CustomPacketPayload {
 	public static final Type<ExtensionLadderInputPacket> TYPE =
 		new Type<>(CreateFireFightingAdd.path("extension_ladder_input"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, ExtensionLadderInputPacket> STREAM_CODEC =
 		StreamCodec.composite(ByteBufCodecs.VAR_INT, ExtensionLadderInputPacket::forwardInput,
+			ByteBufCodecs.VAR_INT, ExtensionLadderInputPacket::strafeInput,
 			ByteBufCodecs.BOOL, ExtensionLadderInputPacket::jumpPulse,
 			ExtensionLadderInputPacket::new);
 
 	@SubscribeEvent
 	static void register(RegisterPayloadHandlersEvent event) {
-		event.registrar(CreateFireFightingAdd.MODID).playToServer(TYPE, STREAM_CODEC, ExtensionLadderInputPacket::handle);
+		event.registrar(CreateFireFightingAdd.MODID)
+			.playToServer(TYPE, STREAM_CODEC, ExtensionLadderInputPacket::handle);
 	}
 
 	@Override
@@ -34,6 +37,7 @@ public record ExtensionLadderInputPacket(int forwardInput, boolean jumpPulse) im
 	private static void handle(ExtensionLadderInputPacket packet, IPayloadContext context) {
 		if (context.player() instanceof ServerPlayer player)
 			context.enqueueWork(() ->
-				ExtensionLadderClimbingController.setInput(player, packet.forwardInput(), packet.jumpPulse()));
+				ExtensionLadderClimbingController.setInput(player, packet.forwardInput(), packet.strafeInput(),
+					packet.jumpPulse()));
 	}
 }

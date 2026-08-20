@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.glfw.GLFW;
 
 public final class HandheldNozzleClientHandler {
 	private static final int REMOTE_SPRAYING_TTL = 40;
@@ -22,7 +23,7 @@ public final class HandheldNozzleClientHandler {
 	private static final Map<Integer, Long> REMOTE_SPRAYING = new HashMap<>();
 	private static final Map<Integer, SyncedControllerState> REMOTE_CONTROLLERS = new HashMap<>();
 	private static boolean lastSentSpraying;
-	private static boolean leftMouseHeld;
+	private static boolean attackHeld;
 	private static boolean waitForFreshAttack;
 	private static int useSwingSuppressTicks;
 	private static float previousSprayProgress;
@@ -38,7 +39,7 @@ public final class HandheldNozzleClientHandler {
 		cleanupRemoteSpraying(mc);
 		previousSprayProgress = sprayProgress;
 		if (mc.level == null || mc.player == null) {
-			leftMouseHeld = false;
+			attackHeld = false;
 			setSpraying(false);
 			updateProgress(false);
 			HandheldNozzleClientSprayVisuals.clearAll();
@@ -47,7 +48,7 @@ public final class HandheldNozzleClientHandler {
 		if (useSwingSuppressTicks > 0)
 			useSwingSuppressTicks--;
 		if (mc.screen != null) {
-			leftMouseHeld = false;
+			attackHeld = false;
 			setSpraying(false);
 			updateProgress(false);
 			HandheldNozzleClientSprayVisuals.tick(mc.player, ItemStack.EMPTY, false);
@@ -66,7 +67,7 @@ public final class HandheldNozzleClientHandler {
 			setSpraying(false);
 		}
 
-		boolean attacking = leftMouseHeld;
+		boolean attacking = attackHeld || mc.options.keyAttack.isDown();
 		if (!attacking)
 			waitForFreshAttack = false;
 		boolean shouldSpray = holdingController && attacking && !waitForFreshAttack
@@ -133,12 +134,21 @@ public final class HandheldNozzleClientHandler {
 	}
 
 	public static void onMouseButton(int button, int action) {
-		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-			leftMouseHeld = action != org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-			return;
-		}
-		if (button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT
-			&& action == org.lwjgl.glfw.GLFW.GLFW_PRESS
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.options.keyAttack.matchesMouse(button))
+			attackHeld = action != GLFW.GLFW_RELEASE;
+		if (mc.options.keyUse.matchesMouse(button)
+			&& action == GLFW.GLFW_PRESS
+			&& shouldSuppressControllerUseAnimation())
+			suppressUseSwing();
+	}
+
+	public static void onKey(int key, int scanCode, int action) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.options.keyAttack.matches(key, scanCode))
+			attackHeld = action != GLFW.GLFW_RELEASE;
+		if (mc.options.keyUse.matches(key, scanCode)
+			&& action == GLFW.GLFW_PRESS
 			&& shouldSuppressControllerUseAnimation())
 			suppressUseSwing();
 	}

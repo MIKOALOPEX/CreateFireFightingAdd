@@ -1,7 +1,6 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -25,10 +24,14 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private static final int DROP_LAND_TICK = 2;
 	private static final int EXTEND_TICKS = 16;
 	private static final int TILT_TICKS = 12;
+	private static final int CLIENT_PLACEMENT_TICKS = DROP_TICKS + EXTEND_TICKS + TILT_TICKS;
+	private static final int CLIENT_PLACEMENT_REPLAY_WINDOW = 100;
 	private static final int SUPPORT_CHECK_INTERVAL = 10;
 	private static final int ADJUST_TIMEOUT_TICKS = 3;
 	private static final double SUPPORT_SAMPLE_RADIUS = 0.08;
 	private static final double ANCHOR_CLEARANCE = 0.26;
+	private static final String TAG_MOVE_OFFSET = "MoveOffset";
+	private static final String TAG_CREATED_GAME_TIME = "CreatedGameTime";
 
 	private Vec3 anchorOffset = new Vec3(0.5, 0, 0.5);
 	private Vec3 fallDirection = new Vec3(0, 0, 1);
@@ -40,12 +43,15 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private Phase phase = Phase.DROP;
 	private int animationTick;
 	private int previousAnimationTick;
+	private int clientPlacementTick = CLIENT_PLACEMENT_TICKS;
+	private int previousClientPlacementTick = CLIENT_PLACEMENT_TICKS;
 	private int supportCheckTimer;
 	private float currentPitch;
 	private float startPitch;
 	private float targetPitch;
-	@Nullable
-	private UUID adjustingPlayer;
+	private float targetMoveOffsetPixels = ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS;
+	private long createdGameTime = Long.MIN_VALUE;
+	private long clientAnimatedCreatedGameTime = Long.MIN_VALUE;
 	private long lastAdjustTick;
 
 	public ExtensionLadderBlockEntity(BlockPos pos, BlockState state) {
@@ -66,11 +72,14 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		this.currentPitch = 0;
 		this.startPitch = 0;
 		this.targetPitch = 0;
+		this.targetMoveOffsetPixels = ExtensionLadderPlacement.initialMoveOffsetPixels(level, anchorSupport);
 		this.phase = Phase.DROP;
 		this.animationTick = 0;
 		this.previousAnimationTick = 0;
+		this.clientPlacementTick = CLIENT_PLACEMENT_TICKS;
+		this.previousClientPlacementTick = CLIENT_PLACEMENT_TICKS;
 		this.supportCheckTimer = 0;
-		this.adjustingPlayer = null;
+		this.createdGameTime = level == null ? Long.MIN_VALUE : level.getGameTime();
 		this.lastAdjustTick = 0;
 		this.searchTask.restart(0);
 		markDirtyAndSync();
@@ -80,8 +89,14 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	public void tick() {
 		super.tick();
 		previousAnimationTick = animationTick;
-		if (level == null || level.isClientSide)
+		previousClientPlacementTick = clientPlacementTick;
+		if (level == null)
 			return;
+		if (level.isClientSide) {
+			startClientPlacementAnimationIfRecent();
+			tickClientPlacementAnimation();
+			return;
+		}
 
 		if (!hasAnchorSupport()) {
 			breakSelf();
@@ -112,6 +127,15 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		markDirtyAndSync();
 	}
 
+	private void tickClientPlacementAnimation() {
+		if (clientPlacementTick >= CLIENT_PLACEMENT_TICKS)
+			return;
+		// Let the client play drop and extend immediately, then wait for the server's support-search result before tilting.
+		if (clientPlacementTick >= DROP_TICKS + EXTEND_TICKS && phase == Phase.SEARCHING)
+			return;
+		clientPlacementTick++;
+	}
+
 	private void tickSearch() {
 		ExtensionLadderSearchTask.SearchResult result = searchTask.tick(this);
 		if (result.state() == ExtensionLadderSearchTask.State.SEARCHING)
@@ -130,7 +154,6 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		this.startPitch = currentPitch;
 		this.targetPitch = targetPitch;
 		this.support = support;
-		this.adjustingPlayer = null;
 		this.phase = Phase.TILTING;
 		this.animationTick = 0;
 		this.previousAnimationTick = 0;
@@ -153,7 +176,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		if (level != null && level.getGameTime() - lastAdjustTick <= ADJUST_TIMEOUT_TICKS)
 			return;
 
-		adjustingPlayer = null;
+		// Releasing right click ends the capture; the ladder searches again from upright with the chosen yaw and length.
 		support = null;
 		phase = Phase.SEARCHING;
 		animationTick = 0;
@@ -175,20 +198,28 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	public void adjustWithPlayer(Player player) {
-		adjustWithDirection(player.getUUID(), player.getViewVector(1.0f));
+		BlockPos supportPos = anchorSupport != null ? anchorSupport : worldPosition.below();
+		Vec3 localDirection = SableStructureCompat.transformNormalToLocal(level, supportPos,
+			player.getViewVector(1.0f));
+		adjustWithSettings(localDirection, targetMoveOffsetPixels);
 	}
 
-	public void adjustWithDirection(UUID playerId, Vec3 direction) {
+	public void adjustWithSettings(Vec3 direction, float moveOffsetPixels) {
 		if (level == null || level.isClientSide)
 			return;
 		Vec3 normalized = ExtensionLadderGeometry.normalizeHorizontal(direction);
 		if (normalized.lengthSqr() < 1.0E-6)
 			return;
+		float clampedMoveOffset = Mth.clamp(moveOffsetPixels, 0, ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS);
+		if (anchorSupport != null)
+			clampedMoveOffset = Math.min(clampedMoveOffset,
+				ExtensionLadderPlacement.initialMoveOffsetPixels(level, anchorSupport));
 
 		boolean changed = phase != Phase.ADJUSTING || currentPitch != 0
-			|| normalized.distanceToSqr(fallDirection) > 1.0E-4;
+			|| normalized.distanceToSqr(fallDirection) > 1.0E-4
+			|| Math.abs(clampedMoveOffset - targetMoveOffsetPixels) > 1.0E-4;
 		fallDirection = normalized;
-		adjustingPlayer = playerId;
+		targetMoveOffsetPixels = clampedMoveOffset;
 		lastAdjustTick = level.getGameTime();
 		support = null;
 		currentPitch = 0;
@@ -205,7 +236,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	public void reinitializeAfterStructureMove() {
 		Vec3 anchor = new Vec3(worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5);
 		Vec3 direction = fallDirection.lengthSqr() < 1.0E-6 ? new Vec3(0, 0, 1) : fallDirection;
+		float moveOffset = targetMoveOffsetPixels;
 		initialize(anchor, direction, worldPosition.below());
+		targetMoveOffsetPixels = moveOffset;
+		markDirtyAndSync();
 	}
 
 	private boolean hasAnchorSupport() {
@@ -258,6 +292,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private boolean isIgnoredLocalSupport(BlockPos pos) {
 		if (pos.equals(worldPosition) || pos.equals(anchorSupport))
 			return true;
+		if (anchorSupport != null && pos.getY() == anchorSupport.getY())
+			return true;
 		return Vec3.atCenterOf(pos).distanceToSqr(localAnchor()) < ANCHOR_CLEARANCE * ANCHOR_CLEARANCE;
 	}
 
@@ -265,8 +301,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		BlockPos worldBlock = SableStructureCompat.worldBlockPos(this);
 		if (pos.equals(worldBlock))
 			return true;
-		if (!SableStructureCompat.isInSubLevel(this) && anchorSupport != null && pos.equals(anchorSupport))
-			return true;
+		if (!SableStructureCompat.isInSubLevel(this) && anchorSupport != null) {
+			if (pos.equals(anchorSupport) || pos.getY() == anchorSupport.getY())
+				return true;
+		}
 		return false;
 	}
 
@@ -298,10 +336,25 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	public boolean isClimbable() {
-		return phase == Phase.SUPPORTED;
+		return phase == Phase.SUPPORTED || phase == Phase.FALLEN;
+	}
+
+	public float getTargetMoveOffsetPixels() {
+		return targetMoveOffsetPixels;
+	}
+
+	public double getClimbLength() {
+		return ExtensionLadderGeometry.climbLength(targetMoveOffsetPixels);
 	}
 
 	public float getPitch(float partialTick) {
+		if (isClientPlacementAnimationActive()) {
+			float tick = clientPlacementTick(partialTick);
+			if (tick < DROP_TICKS + EXTEND_TICKS)
+				return 0;
+			float tiltTick = tick - DROP_TICKS - EXTEND_TICKS;
+			return Mth.lerp(ease(tiltTick / TILT_TICKS), 0, clientPlacementTargetPitch());
+		}
 		if (phase != Phase.TILTING)
 			return currentPitch;
 		float tick = Mth.lerp(partialTick, previousAnimationTick, animationTick);
@@ -309,16 +362,30 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	public float getMoveOffsetPixels(float partialTick) {
+		if (isClientPlacementAnimationActive()) {
+			float tick = clientPlacementTick(partialTick);
+			if (tick < DROP_TICKS)
+				return 0;
+			if (tick < DROP_TICKS + EXTEND_TICKS)
+				return targetMoveOffsetPixels * ease((tick - DROP_TICKS) / EXTEND_TICKS);
+			return targetMoveOffsetPixels;
+		}
 		if (phase == Phase.DROP)
 			return 0;
 		if (phase == Phase.EXTENDING) {
 			float tick = Mth.lerp(partialTick, previousAnimationTick, animationTick);
-			return ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS * ease(tick / EXTEND_TICKS);
+			return targetMoveOffsetPixels * ease(tick / EXTEND_TICKS);
 		}
-		return ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS;
+		return targetMoveOffsetPixels;
 	}
 
 	public float getDropOffsetPixels(float partialTick) {
+		if (isClientPlacementAnimationActive()) {
+			float tick = Mth.clamp(clientPlacementTick(partialTick), 0, DROP_TICKS);
+			if (tick <= DROP_LAND_TICK)
+				return Mth.lerp(tick / DROP_LAND_TICK, 4, 0);
+			return 0;
+		}
 		if (phase != Phase.DROP)
 			return 0;
 		float tick = Mth.clamp(Mth.lerp(partialTick, previousAnimationTick, animationTick), 0, DROP_TICKS);
@@ -328,14 +395,34 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	public float getDropWobbleDegrees(float partialTick) {
+		if (isClientPlacementAnimationActive())
+			return dropWobbleFromTick(clientPlacementTick(partialTick));
 		if (phase != Phase.DROP)
 			return 0;
-		float tick = Mth.clamp(Mth.lerp(partialTick, previousAnimationTick, animationTick), 0, DROP_TICKS);
+		return dropWobbleFromTick(Mth.lerp(partialTick, previousAnimationTick, animationTick));
+	}
+
+	private float dropWobbleFromTick(float tick) {
+		tick = Mth.clamp(tick, 0, DROP_TICKS);
 		if (tick <= DROP_LAND_TICK)
 			return 0;
 		float t = (tick - DROP_LAND_TICK) / (DROP_TICKS - DROP_LAND_TICK);
 		float decay = 1 - t;
 		return Mth.sin(t * Mth.TWO_PI) * decay * 4.0f;
+	}
+
+	private boolean isClientPlacementAnimationActive() {
+		return level != null && level.isClientSide && clientPlacementTick < CLIENT_PLACEMENT_TICKS;
+	}
+
+	private float clientPlacementTick(float partialTick) {
+		return Mth.lerp(partialTick, previousClientPlacementTick, clientPlacementTick);
+	}
+
+	private float clientPlacementTargetPitch() {
+		if (phase == Phase.TILTING)
+			return targetPitch;
+		return currentPitch != 0 ? currentPitch : targetPitch;
 	}
 
 	public ExtensionLadderGeometry.LocalFrame localPhysicsFrame(float pitch) {
@@ -376,6 +463,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		tag.putFloat("CurrentPitch", currentPitch);
 		tag.putFloat("StartPitch", startPitch);
 		tag.putFloat("TargetPitch", targetPitch);
+		tag.putFloat(TAG_MOVE_OFFSET, targetMoveOffsetPixels);
+		tag.putLong(TAG_CREATED_GAME_TIME, createdGameTime);
 		tag.putFloat("SearchPitch", searchTask.nextPitch());
 		if (support != null)
 			support.write(tag, "Support");
@@ -397,10 +486,26 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		currentPitch = tag.getFloat("CurrentPitch");
 		startPitch = tag.getFloat("StartPitch");
 		targetPitch = tag.getFloat("TargetPitch");
-		adjustingPlayer = null;
+		targetMoveOffsetPixels = tag.contains(TAG_MOVE_OFFSET)
+			? Mth.clamp(tag.getFloat(TAG_MOVE_OFFSET), 0, ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS)
+			: ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS;
+		createdGameTime = tag.contains(TAG_CREATED_GAME_TIME) ? tag.getLong(TAG_CREATED_GAME_TIME) : Long.MIN_VALUE;
 		lastAdjustTick = 0;
 		searchTask.setNextPitch(tag.contains("SearchPitch") ? tag.getFloat("SearchPitch") : currentPitch);
 		support = ExtensionLadderSupportRef.read(tag, "Support");
+		startClientPlacementAnimationIfRecent();
+	}
+
+	private void startClientPlacementAnimationIfRecent() {
+		if (level == null || !level.isClientSide || createdGameTime == Long.MIN_VALUE
+			|| clientAnimatedCreatedGameTime == createdGameTime)
+			return;
+		long age = level.getGameTime() - createdGameTime;
+		if (age < 0 || age > CLIENT_PLACEMENT_REPLAY_WINDOW)
+			return;
+		clientAnimatedCreatedGameTime = createdGameTime;
+		clientPlacementTick = 0;
+		previousClientPlacementTick = 0;
 	}
 
 	public enum Phase {

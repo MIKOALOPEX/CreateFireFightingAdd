@@ -18,13 +18,11 @@ import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
 import com.mikoalopex.createfirefightingadd.content.fluids.SafeFluidStacks;
-import com.mikoalopex.createfirefightingadd.integration.burnt.BurntCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.api.registry.CreateBuiltInRegistries;
 import com.simibubi.create.AllFluids;
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorage;
-import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
 import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
@@ -53,7 +51,6 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -65,7 +62,6 @@ import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.FireBlock;
-import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.ClipContext;
@@ -925,23 +921,17 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		int[] visited = {0};
 		int[] notified = {0};
 		int[] effects = {0};
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), range,
 			rays, tick, seed, 0.5,
 			(pos, state, samplePos, rayDirection, distance) -> {
 				visited[0]++;
-				NozzleSprayInteractionRegistry.notifyHit(
-					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance));
+				NozzleSprayHitContext context =
+					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance);
+				boolean applied = NozzleSprayEffects.applyBlockSample(context, currentFluid, sprayIgnited, options);
 				notified[0]++;
-				if (currentFluid == FluidBehavior.WATER
-					&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-						|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+				if (applied)
 					effects[0]++;
-					return;
-				}
-				if (isExtinguishable(state)) {
-					extinguishBlock(pos, state);
-					effects[0]++;
-				}
 			});
 		SprayPerformanceDebug.record(level, "projectile_contact_scan", worldPosition, perfStart,
 			serverProjectiles.size(),
@@ -1135,79 +1125,17 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	private boolean canPathSweepAffect(PathSweepSample sample, BlockPos pos, BlockState state) {
-		if (NozzleSprayInteractionRegistry.shouldNotify(
-			sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
-				sample.position(), Vec3.atCenterOf(pos), null, 0)))
-			return true;
-		return switch (sample.fluidBehavior()) {
-			case WATER, MILK, POTION -> state.getBlock() instanceof BaseFireBlock
-				|| (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT))
-				|| state.is(Blocks.SNOW)
-				|| (sample.fluidBehavior() == FluidBehavior.WATER
-					&& (SprayEffectUtils.isConcretePowder(state) || SprayEffectUtils.isDryFarmland(state)));
-			case LAVA -> state.isAir()
-				|| state.is(Blocks.ICE) || state.is(Blocks.FROSTED_ICE) || state.is(Blocks.PACKED_ICE)
-				|| state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK);
-			case FLAMMABLE -> sample.ignited() && (state.isAir()
-				|| state.is(Blocks.ICE) || state.is(Blocks.FROSTED_ICE) || state.is(Blocks.PACKED_ICE)
-				|| state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK));
-			case DRAGON_BREATH, UNSUPPORTED -> false;
-		};
+		NozzleSprayHitContext context = sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
+			sample.position(), Vec3.atCenterOf(pos), null, 0);
+		return NozzleSprayEffects.canAffectBlock(context, sample.fluidBehavior(), sample.ignited(),
+			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
 	}
 
 	private boolean applyPathSweepEffect(PathSweepSample sample, BlockPos pos, BlockState state) {
-		NozzleSprayInteractionRegistry.notifyHit(
-			sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
-				sample.position(), Vec3.atCenterOf(pos), null, 0));
-		switch (sample.fluidBehavior()) {
-			case WATER, MILK, POTION -> {
-				if (sample.fluidBehavior() == FluidBehavior.WATER
-					&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-						|| SprayEffectUtils.moistenFarmland(level, pos, state)))
-					return true;
-				if (state.getBlock() instanceof BaseFireBlock) {
-					if (tryTfcDouse(level, pos))
-						return false;
-					level.removeBlock(pos, false);
-					clearWildfireHeat(level, pos);
-					return true;
-				}
-				if (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT)) {
-					level.setBlock(pos, state.setValue(CampfireBlock.LIT, false), 3);
-					return true;
-				}
-				if (state.is(Blocks.SNOW)) {
-					int layers = state.getValue(SnowLayerBlock.LAYERS);
-					if (layers > 1)
-						level.setBlock(pos, state.setValue(SnowLayerBlock.LAYERS, layers - 1), 3);
-					else
-						level.removeBlock(pos, false);
-					return true;
-				}
-			}
-			case LAVA, FLAMMABLE -> {
-				boolean ignited = sample.fluidBehavior() == FluidBehavior.LAVA || sample.ignited();
-				if (!ignited)
-					return false;
-				if (state.isAir() && level.getFluidState(pos).isEmpty()
-					&& level.getRandom().nextDouble() < Config.nozzleIgnitionChance / 100.0
-					&& BaseFireBlock.canBePlacedAt(level, pos, Direction.UP)) {
-					level.setBlock(pos, getFireState(level, pos), 3);
-					return true;
-				}
-				if (state.is(Blocks.ICE) || state.is(Blocks.FROSTED_ICE) || state.is(Blocks.PACKED_ICE)) {
-					level.setBlock(pos, Blocks.WATER.defaultBlockState(), 3);
-					return true;
-				}
-				if (state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK)) {
-					level.removeBlock(pos, false);
-					return true;
-				}
-			}
-			case DRAGON_BREATH, UNSUPPORTED -> {
-			}
-		}
-		return false;
+		NozzleSprayHitContext context = sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
+			sample.position(), Vec3.atCenterOf(pos), null, 0);
+		return NozzleSprayEffects.applyBlockSample(context, sample.fluidBehavior(), sample.ignited(),
+			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
 	}
 
 	private static long pathSweepKey(BlockPos pos, FluidBehavior behavior, boolean ignited) {
@@ -1229,24 +1157,24 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			case WATER, MILK, POTION -> {
 				int radius = 5;
 				BlockPos center = facePos;
-				boolean soundPlayed = false;
+				boolean[] soundPlayed = {false};
+				NozzleSprayEffects.BlockEffectOptions options =
+					NozzleSprayEffects.BlockEffectOptions.projectilePath((soundLevel, soundPos) -> {
+						if (soundPlayed[0])
+							return;
+						soundLevel.playSound(null, soundPos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5f, 1.2f);
+						soundPlayed[0] = true;
+					});
 				BlockPos impactPos = hit.getBlockPos();
 				if (level.isLoaded(impactPos)) {
 					BlockState impactState = level.getBlockState(impactPos);
-					NozzleSprayInteractionRegistry.notifyHit(
+					boolean applied = NozzleSprayEffects.applyBlockSample(
 						sprayHitContext(impactPos, impactState, proj.fluidBehavior, proj.ignited,
 							proj.prevPosition, hit.getLocation(), proj.velocity.normalize(),
-							proj.prevPosition.distanceTo(hit.getLocation())));
-					if (proj.fluidBehavior == FluidBehavior.WATER
-						&& (SprayEffectUtils.hydrateConcretePowder(level, impactPos, impactState)
-							|| SprayEffectUtils.moistenFarmland(level, impactPos, impactState)))
+							proj.prevPosition.distanceTo(hit.getLocation())),
+						proj.fluidBehavior, proj.ignited, options);
+					if (applied && impactState.isCollisionShapeFullBlock(level, impactPos))
 						return;
-					if (BurntCompat.extinguishAt(level, impactPos, impactState)) {
-						level.playSound(null, impactPos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5f, 1.2f);
-						if (impactState.isCollisionShapeFullBlock(level, impactPos))
-							return;
-						soundPlayed = true;
-					}
 				}
 				for (int dx = -radius; dx <= radius; dx++) {
 					for (int dy = -radius; dy <= radius; dy++) {
@@ -1258,34 +1186,11 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 							if (!isOnImpactSide(hit, pos) || !hasBlockEffectLineOfSight(hit.getLocation(), pos))
 								continue;
 							BlockState st = level.getBlockState(pos);
-							NozzleSprayInteractionRegistry.notifyHit(
+							NozzleSprayEffects.applyBlockSample(
 								sprayHitContext(pos, st, proj.fluidBehavior, proj.ignited,
 									proj.prevPosition, Vec3.atCenterOf(pos), proj.velocity.normalize(),
-									proj.prevPosition.distanceTo(Vec3.atCenterOf(pos))));
-							if (proj.fluidBehavior == FluidBehavior.WATER
-								&& (SprayEffectUtils.hydrateConcretePowder(level, pos, st)
-									|| SprayEffectUtils.moistenFarmland(level, pos, st))) {
-								continue;
-							} else if (st.getBlock() instanceof BaseFireBlock) {
-								level.removeBlock(pos, false);
-								clearWildfireHeat(level, pos);
-								if (!soundPlayed) {
-									level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5f, 1.2f);
-									soundPlayed = true;
-								}
-							} else if (st.getBlock() instanceof CampfireBlock && st.getValue(CampfireBlock.LIT)) {
-								level.setBlock(pos, st.setValue(CampfireBlock.LIT, false), 3);
-								if (!soundPlayed) {
-									level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5f, 1.2f);
-									soundPlayed = true;
-								}
-							} else if (st.is(Blocks.SNOW)) {
-								int layers = st.getValue(SnowLayerBlock.LAYERS);
-								if (layers > 1)
-									level.setBlock(pos, st.setValue(SnowLayerBlock.LAYERS, layers - 1), 3);
-								else
-									level.removeBlock(pos, false);
-							}
+									proj.prevPosition.distanceTo(Vec3.atCenterOf(pos))),
+								proj.fluidBehavior, proj.ignited, options);
 						}
 					}
 				}
@@ -1770,156 +1675,23 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			}
 		}
 
-		switch (currentFluid) {
-			case WATER -> {
-				forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-					if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-					if (entity instanceof ItemEntity itemEntity)
-						processItemEntity(itemEntity, entityProcessingType);
-					SprayEntityEffects.applyWaterContact(entityLevel, entity);
-					if (entity.isCrouching() || entity.getPose() == Pose.SWIMMING)
-						return;
+		if (currentFluid == FluidBehavior.DRAGON_BREATH && level.getGameTime() % 5 != 0)
+			return;
 
-					Vec3 worldDir = sample.direction;
-					double pushSpeed = PUSH_STREAM_SPEED * (1.0 - sample.axialDist / getEffectiveRange());
-					entity.push(worldDir.x * pushSpeed, worldDir.y * pushSpeed, worldDir.z * pushSpeed);
-					if (entity instanceof ServerPlayer player)
-						player.connection.send(new ClientboundSetEntityMotionPacket(player));
-				});
-			}
-			case LAVA -> {
-				forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-					if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-					if (entity instanceof ItemEntity itemEntity) {
-						processItemEntity(itemEntity, entityProcessingType);
-						return;
-					}
-					if (entity.getRemainingFireTicks() < 100)
-						entity.setRemainingFireTicks(100);
-				});
-			}
-			case FLAMMABLE -> {
-				if (sprayIgnited) {
-					forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-						if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-						if (entity instanceof ItemEntity itemEntity) {
-							processItemEntity(itemEntity, entityProcessingType);
-							return;
-						}
-						if (entity.getRemainingFireTicks() < 100)
-							entity.setRemainingFireTicks(100);
-					});
-				}
-			}
-			case MILK -> {
-				forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-					if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-					if (entity instanceof LivingEntity living)
-						living.removeAllEffects();
-				});
-			}
-			case POTION -> {
-				boolean potionEmpty = currentPotionContents.equals(PotionContents.EMPTY);
-				if (!potionEmpty) {
-					forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-						if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-						if (entity instanceof LivingEntity living) {
-							for (var effect : currentPotionContents.getAllEffects())
-								living.addEffect(new MobEffectInstance(effect));
-						}
-					});
-				}
-			}
-			case DRAGON_BREATH -> {
-				if (level.getGameTime() % 5 != 0)
-					return;
-				forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
-					if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity)) return;
-					if (entity instanceof ItemEntity itemEntity) {
-						processItemEntity(itemEntity, entityProcessingType);
-						return;
-					}
-					if (entity instanceof LivingEntity living)
-						living.addEffect(new MobEffectInstance(MobEffects.HARM, 1, 1, false, false, false));
-				});
-			}
-		}
+		forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
+			if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity))
+				return;
+			NozzleSprayEffects.applyEntityEffect(entityLevel, entity, sample, getEffectiveRange(),
+				currentFluid, sprayIgnited, currentPotionContents, entityProcessingType, true);
+		});
 	}
 
 	private FanProcessingType getNozzleFanProcessingType() {
-		return switch (currentFluid) {
-			case WATER -> AllFanProcessingTypes.SPLASHING;
-			case LAVA -> AllFanProcessingTypes.BLASTING;
-			case FLAMMABLE -> sprayIgnited ? AllFanProcessingTypes.BLASTING : null;
-			case DRAGON_BREATH -> FanProcessingType.parse("create_dragons_plus:ending");
-			default -> null;
-		};
+		return NozzleSprayEffects.fanProcessingType(currentFluid, sprayIgnited);
 	}
 
 	private void processItemEntity(ItemEntity entity, FanProcessingType type) {
-		if (type == null || entity.isRemoved())
-			return;
-		Level itemLevel = entity.level();
-		if (!type.canProcess(entity.getItem(), itemLevel))
-			return;
-		if (decrementEntityProcessingTime(entity, type) > 0)
-			return;
-		ItemStack original = entity.getItem();
-		List<ItemStack> results = type.process(original, itemLevel);
-		if (results == null || results.isEmpty()) {
-			markEntityProcessingBlocked(entity, type);
-			return;
-		}
-		entity.setItem(results.get(0).copy());
-		for (int i = 1; i < results.size(); i++) {
-			ItemStack extra = results.get(i);
-			if (extra.isEmpty())
-				continue;
-			ItemEntity extraEntity = new ItemEntity(itemLevel, entity.getX(), entity.getY(), entity.getZ(), extra.copy());
-			extraEntity.setDeltaMovement(entity.getDeltaMovement());
-			itemLevel.addFreshEntity(extraEntity);
-		}
-	}
-
-	private int decrementEntityProcessingTime(ItemEntity entity, FanProcessingType type) {
-		CompoundTag processing = getNozzleProcessingTag(entity);
-		ResourceLocation typeId = CreateBuiltInRegistries.FAN_PROCESSING_TYPE.getKey(type);
-		String typeName = typeId == null ? "" : typeId.toString();
-		if (!typeName.equals(processing.getString("Type")) || !ItemStack.matches(entity.getItem(), readProcessingStack(processing))) {
-			processing.putString("Type", typeName);
-			processing.put("Stack", entity.getItem().saveOptional(entity.registryAccess()));
-			processing.putInt("Time", processingTimeFor(entity.getItem()));
-		}
-		int time = processing.getInt("Time");
-		if (time < 0)
-			return time;
-		time--;
-		processing.putInt("Time", time);
-		return time;
-	}
-
-	private void markEntityProcessingBlocked(ItemEntity entity, FanProcessingType type) {
-		CompoundTag processing = getNozzleProcessingTag(entity);
-		ResourceLocation typeId = CreateBuiltInRegistries.FAN_PROCESSING_TYPE.getKey(type);
-		processing.putString("Type", typeId == null ? "" : typeId.toString());
-		processing.put("Stack", entity.getItem().saveOptional(entity.registryAccess()));
-		processing.putInt("Time", -1);
-	}
-
-	private CompoundTag getNozzleProcessingTag(ItemEntity entity) {
-		CompoundTag data = entity.getPersistentData();
-		if (!data.contains("CreateFireFightingAdd"))
-			data.put("CreateFireFightingAdd", new CompoundTag());
-		CompoundTag modData = data.getCompound("CreateFireFightingAdd");
-		if (!modData.contains("NozzleProcessing"))
-			modData.put("NozzleProcessing", new CompoundTag());
-		return modData.getCompound("NozzleProcessing");
-	}
-
-	private ItemStack readProcessingStack(CompoundTag processing) {
-		if (!processing.contains("Stack"))
-			return ItemStack.EMPTY;
-		return ItemStack.parseOptional(level.registryAccess(), processing.getCompound("Stack"));
+		NozzleSprayEffects.processItemEntity(entity, type);
 	}
 
 	private void processDepotsOnCenterline(Level depotLevel, List<CenterlineSample> centerline, AABB scanArea,
@@ -2176,16 +1948,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	// Fluid behaviours
 
 	protected void waterBehavior() {
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		forEachBlockInSpray((pos, state) -> {
-			NozzleSprayInteractionRegistry.notifyHit(
+			NozzleSprayEffects.applyBlockSample(
 				sprayHitContext(pos, state, FluidBehavior.WATER, false,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
-					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))));
-			if (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-				|| SprayEffectUtils.moistenFarmland(level, pos, state))
-				return;
-			if (isExtinguishable(state))
-				extinguishBlock(pos, state);
+					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
+				FluidBehavior.WATER, false, options);
 		});
 		forEachEntityInSpray((entity, axialDist) -> {
 			Vec3 direction = getWorldSprayDirection();
@@ -2221,13 +1990,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	protected void milkBehavior() {
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		forEachBlockInSpray((pos, state) -> {
-			NozzleSprayInteractionRegistry.notifyHit(
+			NozzleSprayEffects.applyBlockSample(
 				sprayHitContext(pos, state, FluidBehavior.MILK, false,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
-					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))));
-			if (isExtinguishable(state))
-				extinguishBlock(pos, state);
+					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
+				FluidBehavior.MILK, false, options);
 		});
 		forEachEntityInSpray((entity, axialDist) -> {
 			if (entity instanceof LivingEntity living) {
@@ -2237,13 +2006,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	protected void potionBehavior() {
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		forEachBlockInSpray((pos, state) -> {
-			NozzleSprayInteractionRegistry.notifyHit(
+			NozzleSprayEffects.applyBlockSample(
 				sprayHitContext(pos, state, FluidBehavior.POTION, false,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
-					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))));
-			if (isExtinguishable(state))
-				extinguishBlock(pos, state);
+					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
+				FluidBehavior.POTION, false, options);
 		});
 
 		FluidStack fluid = tank.getPrimaryHandler().getFluidInTank(0);
@@ -2276,22 +2045,15 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		long perfStart = SprayPerformanceDebug.start();
 		int[] visited = {0};
 		int[] effects = {0};
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		forEachBlockInSpray((pos, state) -> {
 			visited[0]++;
-			NozzleSprayInteractionRegistry.notifyHit(
+			if (NozzleSprayEffects.applyBlockSample(
 				sprayHitContext(pos, state, currentFluid, sprayIgnited,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
-					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))));
-			if (currentFluid == FluidBehavior.WATER
-				&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-					|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
+				currentFluid, sprayIgnited, options))
 				effects[0]++;
-				return;
-			}
-			if (isExtinguishable(state)) {
-				extinguishBlock(pos, state);
-				effects[0]++;
-			}
 		});
 		SprayPerformanceDebug.record(level, "full_block_sweep", worldPosition, perfStart,
 			serverProjectiles.size(),
@@ -2311,23 +2073,17 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		int[] visited = {0};
 		int[] notified = {0};
 		int[] effects = {0};
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), getEffectiveRange(),
 			rays, tick, seed, 0.75,
 			(pos, state, samplePos, rayDirection, distance) -> {
 				visited[0]++;
-				NozzleSprayInteractionRegistry.notifyHit(
-					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance));
+				boolean applied = NozzleSprayEffects.applyBlockSample(
+					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance),
+					currentFluid, sprayIgnited, options);
 				notified[0]++;
-				if (currentFluid == FluidBehavior.WATER
-					&& (SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-						|| SprayEffectUtils.moistenFarmland(level, pos, state))) {
+				if (applied)
 					effects[0]++;
-					return;
-				}
-				if (isExtinguishable(state)) {
-					extinguishBlock(pos, state);
-					effects[0]++;
-				}
 			});
 		SprayPerformanceDebug.record(level, "sampled_full_sweep", worldPosition, perfStart,
 			serverProjectiles.size(),
@@ -2347,10 +2103,16 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return ((long) u << 32) | (v & 0xFFFFFFFFL);
 	}
 
-	private static boolean isExtinguishable(BlockState state) {
-		return state.getBlock() instanceof BaseFireBlock
-			|| (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT))
-			|| BurntCompat.mightHandle(state);
+	private NozzleSprayEffects.BlockEffectOptions waterLikeSprayBlockOptions() {
+		return NozzleSprayEffects.BlockEffectOptions.basic(true, this::playExtinguishSoundIfReady)
+			.withClearNearbyWildfireHeat();
+	}
+
+	private void playExtinguishSoundIfReady(Level soundLevel, BlockPos pos) {
+		if (ticksSinceLastExtinguishSound < EXTINGUISH_SOUND_COOLDOWN)
+			return;
+		soundLevel.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
+		ticksSinceLastExtinguishSound = 0;
 	}
 
 	private boolean isRayToPositionBlocked(Vec3 origin, BlockPos targetPos) {
@@ -2378,43 +2140,6 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		Vec3 normal = Vec3.atLowerCornerOf(hit.getDirection().getNormal());
 		Vec3 toTarget = Vec3.atCenterOf(targetPos).subtract(hit.getLocation());
 		return toTarget.dot(normal) >= -0.01;
-	}
-
-	private void extinguishBlock(BlockPos pos, BlockState state) {
-		if (tryTfcDouse(level, pos))
-			return;
-		if (BurntCompat.extinguishAt(level, pos, state)) {
-			if (ticksSinceLastExtinguishSound >= EXTINGUISH_SOUND_COOLDOWN) {
-				level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
-				ticksSinceLastExtinguishSound = 0;
-			}
-			return;
-		}
-		if (state.getBlock() instanceof BaseFireBlock) {
-			level.removeBlock(pos, false);
-			if (ticksSinceLastExtinguishSound >= EXTINGUISH_SOUND_COOLDOWN) {
-				level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
-				ticksSinceLastExtinguishSound = 0;
-			}
-			clearWildfireHeat(level, pos);
-			clearNearbyWildfireHeat(pos);
-			return;
-		}
-		if (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT)) {
-			level.setBlock(pos, state.setValue(CampfireBlock.LIT, false), 3);
-			if (ticksSinceLastExtinguishSound >= EXTINGUISH_SOUND_COOLDOWN) {
-				level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
-				ticksSinceLastExtinguishSound = 0;
-			}
-		}
-	}
-
-	private void clearNearbyWildfireHeat(BlockPos pos) {
-		int r = Config.heatClearRadius;
-		for (int dx = -r; dx <= r; dx++)
-			for (int dy = -r; dy <= r; dy++)
-				for (int dz = -r; dz <= r; dz++)
-					clearWildfireHeat(level, pos.offset(dx, dy, dz));
 	}
 
 	/** Checks whether a full block obstructs the straight line from spray origin to entity. */

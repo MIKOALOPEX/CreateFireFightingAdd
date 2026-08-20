@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ExtensionLadderBlock extends Block implements IBE<ExtensionLadderBlockEntity>,
@@ -38,7 +39,7 @@ public class ExtensionLadderBlock extends Block implements IBE<ExtensionLadderBl
 	@Override
 	protected VoxelShape getCollisionShape(BlockState state, BlockGetter level,
 		BlockPos pos, CollisionContext context) {
-		return SHAPE;
+		return Shapes.empty();
 	}
 
 	@Override

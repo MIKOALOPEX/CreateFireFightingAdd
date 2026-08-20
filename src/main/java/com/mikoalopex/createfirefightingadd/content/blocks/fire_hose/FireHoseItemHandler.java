@@ -16,7 +16,6 @@ package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import net.createmod.catnip.outliner.Outliner;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -81,7 +80,7 @@ public class FireHoseItemHandler {
         return true;
     }
 
-    public boolean onUse(int modifiers, int action, KeyMapping rightKey) {
+    public boolean onUse(int action) {
         if (placementCooldown > 0)
             return false;
         LocalPlayer player = Minecraft.getInstance().player;

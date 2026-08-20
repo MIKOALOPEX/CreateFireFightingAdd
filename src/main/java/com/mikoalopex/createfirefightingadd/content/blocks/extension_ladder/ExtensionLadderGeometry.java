@@ -73,16 +73,6 @@ public final class ExtensionLadderGeometry {
 				.add(normal.scale(normalOffset));
 		}
 
-		public Vec3 modelPoint(Vec3 modelLocal, double moveOffsetPixels) {
-			Vec3 local = modelLocal;
-			if (moveOffsetPixels != 0)
-				local = local.add(0, moveOffsetPixels * PIXEL, 0);
-			Vec3 delta = local.subtract(MODEL_PIVOT);
-			return anchor
-				.add(right.scale(delta.x))
-				.add(longAxis.scale(delta.y))
-				.add(normal.scale(delta.z));
-		}
 	}
 
 	public record WorldFrame(Vec3 anchor, Vec3 right, Vec3 longAxis, Vec3 normal) {
@@ -117,9 +107,5 @@ public final class ExtensionLadderGeometry {
 	}
 
 	public record Projection(double along, double width, double normal) {
-		public boolean inside(double length, double widthAllowance, double normalAllowance) {
-			return along >= 0 && along <= length && Math.abs(width) <= widthAllowance
-				&& Math.abs(normal) <= normalAllowance;
-		}
 	}
 }

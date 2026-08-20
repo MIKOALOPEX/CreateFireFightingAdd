@@ -1,7 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,16 +29,14 @@ public final class ExtensionLadderClimbingController {
 	private static final double COLLISION_SKIN = 0.01;
 	private static final double COLLISION_EPSILON = 1.0E-4;
 	private static final double SURFACE_CONTACT_DISTANCE = 0.08;
-	private static final double LOOK_DIRECTION_EPSILON = 0.2;
+	private static final double SIDE_SPEED = 0.12;
 	private static final double TOP_SUPPORT_OVERHANG = 1.0 / 16.0;
 	private static final double TOP_SUPPORT_ENTRY_MARGIN = 1.0 / 16.0;
-	private static final int LOCAL_SCAN_RADIUS = 6;
-	private static final int LOG_INTERVAL_TICKS = 20;
+	private static final int LOCAL_SCAN_RADIUS = Mth.ceil(ExtensionLadderGeometry.MAX_LENGTH) + 2;
 	private static final int INPUT_MEMORY_TICKS = 5;
 	private static final int JUMP_INPUT_MEMORY_TICKS = 5;
 	private static final int JUMP_RELEASE_TICKS = 7;
-	private static final Map<UUID, Long> LAST_LOG_TICK = new HashMap<>();
-	private static final Map<UUID, ForwardInputState> FORWARD_INPUTS = new HashMap<>();
+	private static final Map<UUID, MovementInputState> MOVEMENT_INPUTS = new HashMap<>();
 	private static final Map<UUID, Long> JUMP_REQUESTS = new HashMap<>();
 	private static final Map<PlayerSideKey, Long> JUMP_RELEASES = new HashMap<>();
 
@@ -52,15 +50,13 @@ public final class ExtensionLadderClimbingController {
 			return;
 
 		ClimbTarget target = findTarget(player);
-		if (target == null) {
-			logNoTarget(player);
+		if (target == null)
 			return;
-		}
 
-		applyClimbMotion(player, target, getForwardInput(player), consumeJumpPulse(player), true);
+		applyClimbMotion(player, target, getMovementInput(player), consumeJumpPulse(player));
 	}
 
-	public static void clientTick(Player player, int forwardInput, boolean jumpPulse) {
+	public static void clientTick(Player player, int forwardInput, int strafeInput, boolean jumpPulse) {
 		if (!player.level().isClientSide || player.isSpectator() || player.getAbilities().flying)
 			return;
 		if (isJumpReleased(player) && !jumpPulse)
@@ -68,73 +64,60 @@ public final class ExtensionLadderClimbingController {
 		ClimbTarget target = findTarget(player);
 		if (target == null)
 			return;
-		applyClimbMotion(player, target, Mth.clamp(forwardInput, -1, 1), jumpPulse, false);
+		applyClimbMotion(player, target,
+			new MovementInputState(Mth.clamp(forwardInput, -1, 1), Mth.clamp(strafeInput, -1, 1),
+				player.level().getGameTime()), jumpPulse);
 	}
 
-	private static void applyClimbMotion(Player player, ClimbTarget target, double input, boolean jumpPulse, boolean log) {
+	private static void applyClimbMotion(Player player, ClimbTarget target, MovementInputState input,
+										 boolean jumpPulse) {
 		Vec3 motion = player.getDeltaMovement();
 		if (target.mode() == ContactMode.TOP_SUPPORT) {
-			applyTopSupport(player, target, motion, jumpPulse, log);
+			applyTopSupport(player, motion, jumpPulse);
 			return;
 		}
-		if (target.mode() == ContactMode.PASSIVE_END) {
-			applyPassiveEndCollision(player, target, motion, log);
+		if (target.mode() == ContactMode.PASSIVE_END)
 			return;
-		}
 
 		CollisionCorrection correction = resolvePenetration(target, motion);
-		if (!correction.touchingSurface()) {
-			if (log)
-				logNearNoCore(player, target);
+		if (!correction.touchingSurface())
 			return;
-		}
 		if (jumpPulse) {
-			jumpFromLadder(player, target, motion);
-			if (log)
-				logJump(player, target, motion, player.getDeltaMovement());
+			jumpFromLadder(player, motion);
 			return;
 		}
 
-		double axisSpeed = climbAxisSpeed(player, target, input);
+		ClimbIntent intent = climbIntent(player, target, input);
 		if (correction.hasCorrection())
 			player.setPos(player.getX() + correction.positionDelta().x, player.getY() + correction.positionDelta().y,
 				player.getZ() + correction.positionDelta().z);
 
-		Vec3 sideMotion = target.frame().right().scale(motion.dot(target.frame().right()));
-		Vec3 ladderMotion = sideMotion.add(target.frame().longAxis().scale(axisSpeed));
+		Vec3 normalMotion = target.frame().normal().scale(Math.max(0, motion.dot(target.frame().normal())));
+		Vec3 ladderMotion = target.frame().right().scale(intent.sideSpeed())
+			.add(normalMotion)
+			.add(target.frame().longAxis().scale(intent.axisSpeed()));
 		player.setDeltaMovement(ladderMotion.x, ladderMotion.y, ladderMotion.z);
 		player.fallDistance = 0;
 		player.hasImpulse = true;
-		if (log)
-			logApplied(player, target, motion, ladderMotion, axisSpeed, correction);
 	}
 
-	private static void applyTopSupport(Player player, ClimbTarget target, Vec3 motion, boolean jumpPulse, boolean log) {
+	private static void applyTopSupport(Player player, Vec3 motion, boolean jumpPulse) {
 		if (jumpPulse) {
-			jumpFromLadder(player, target, motion);
-			if (log)
-				logJump(player, target, motion, player.getDeltaMovement());
+			jumpFromLadder(player, motion);
 			return;
 		}
 
-		Vec3 supportedMotion = motion;
-		if (motion.y < 0) {
-			supportedMotion = new Vec3(motion.x, 0, motion.z);
-			player.setDeltaMovement(supportedMotion);
-			player.setOnGround(true);
-			player.fallDistance = 0;
-			player.hasImpulse = true;
-		}
-		if (log)
-			logTopSupport(player, target, motion, supportedMotion);
+		if (motion.y >= 0)
+			return;
+
+		Vec3 supportedMotion = new Vec3(motion.x, 0, motion.z);
+		player.setDeltaMovement(supportedMotion);
+		player.setOnGround(true);
+		player.fallDistance = 0;
+		player.hasImpulse = true;
 	}
 
-	private static void applyPassiveEndCollision(Player player, ClimbTarget target, Vec3 motion, boolean log) {
-		if (log)
-			logPassiveEnd(player, target, motion, motion, CollisionCorrection.NONE);
-	}
-
-	private static void jumpFromLadder(Player player, ClimbTarget target, Vec3 previousMotion) {
+	private static void jumpFromLadder(Player player, Vec3 previousMotion) {
 		JUMP_RELEASES.put(PlayerSideKey.of(player), player.level().getGameTime() + JUMP_RELEASE_TICKS);
 		Vec3 jump = new Vec3(previousMotion.x, LADDER_JUMP_UP_SPEED, previousMotion.z);
 		player.setDeltaMovement(jump);
@@ -143,33 +126,48 @@ public final class ExtensionLadderClimbingController {
 		player.hasImpulse = true;
 	}
 
-	private static double climbAxisSpeed(Player player, ClimbTarget target, double input) {
-		if (input != 0) {
-			double viewSign = climbViewSign(player, target);
-			double speed = input > 0 ? CLIMB_SPEED : RETRACT_SPEED;
-			return Math.signum(input) * viewSign * speed;
-		}
-		return 0;
+	private static ClimbIntent climbIntent(Player player, ClimbTarget target, MovementInputState input) {
+		Vec3 direction = movementIntent(player, input);
+		if (direction.lengthSqr() < COLLISION_EPSILON)
+			return ClimbIntent.hold();
+
+		Vec3 climbDirection = horizontalClimbDirection(target);
+		if (climbDirection.lengthSqr() < COLLISION_EPSILON)
+			return ClimbIntent.hold();
+
+		double along = direction.dot(climbDirection);
+		double side = direction.dot(target.frame().right());
+
+		double axisSpeed = along == 0 ? 0 : along * (along > 0 ? CLIMB_SPEED : RETRACT_SPEED);
+		double sideSpeed = side * SIDE_SPEED;
+		return new ClimbIntent(axisSpeed, sideSpeed);
 	}
 
-	private static double climbViewSign(Player player, ClimbTarget target) {
-		Vec3 look = ExtensionLadderGeometry.normalizeHorizontal(player.getLookAngle());
-		if (look.lengthSqr() < COLLISION_EPSILON)
-			return 1;
+	private static Vec3 movementIntent(Player player, MovementInputState input) {
+		if (input.forwardInput() == 0 && input.strafeInput() == 0)
+			return Vec3.ZERO;
+		Vec3 forward = ExtensionLadderGeometry.normalizeHorizontal(player.getLookAngle());
+		if (forward.lengthSqr() < COLLISION_EPSILON)
+			return Vec3.ZERO;
+		Vec3 right = new Vec3(-forward.z, 0, forward.x);
+		Vec3 intent = forward.scale(input.forwardInput()).add(right.scale(input.strafeInput()));
+		if (intent.lengthSqr() < COLLISION_EPSILON)
+			return Vec3.ZERO;
+		return intent.normalize();
+	}
 
+	private static Vec3 horizontalClimbDirection(ClimbTarget target) {
 		Vec3 climbDirection = ExtensionLadderGeometry.normalizeHorizontal(target.frame().longAxis());
 		if (climbDirection.lengthSqr() < COLLISION_EPSILON)
 			climbDirection = ExtensionLadderGeometry.normalizeHorizontal(target.frame().normal().scale(-1));
-		if (climbDirection.lengthSqr() < COLLISION_EPSILON)
-			return 1;
-
-		double lookAlong = look.dot(climbDirection);
-		return Math.abs(lookAlong) < LOOK_DIRECTION_EPSILON ? 1 : Math.signum(lookAlong);
+		return climbDirection;
 	}
 
-	public static void setInput(Player player, int input, boolean jumpPulse) {
-		int clamped = Mth.clamp(input, -1, 1);
-		FORWARD_INPUTS.put(player.getUUID(), new ForwardInputState(clamped, player.level().getGameTime()));
+	public static void setInput(Player player, int forwardInput, int strafeInput, boolean jumpPulse) {
+		int clampedForward = Mth.clamp(forwardInput, -1, 1);
+		int clampedStrafe = Mth.clamp(strafeInput, -1, 1);
+		MOVEMENT_INPUTS.put(player.getUUID(),
+			new MovementInputState(clampedForward, clampedStrafe, player.level().getGameTime()));
 		if (jumpPulse)
 			JUMP_REQUESTS.put(player.getUUID(), player.level().getGameTime());
 	}
@@ -224,7 +222,7 @@ public final class ExtensionLadderClimbingController {
 	@Nullable
 	private static ClimbTarget match(ExtensionLadderBlockEntity ladder, AABB playerBox) {
 		ExtensionLadderGeometry.WorldFrame frame = ladder.worldPhysicsFrame(ladder.getPitch(1));
-		double climbLength = ExtensionLadderGeometry.climbLength(ladder.getMoveOffsetPixels(1));
+		double climbLength = ladder.getClimbLength();
 		CollisionContact contact = createContact(frame, playerBox, climbLength);
 		if (contact == null)
 			return null;
@@ -239,7 +237,7 @@ public final class ExtensionLadderClimbingController {
 		double alongDistance = intervalDistance(contact.alongInterval(), 0, climbLength);
 		double distance = normalDistance * normalDistance + widthDistance * widthDistance * 0.25
 			+ alongDistance * alongDistance * 0.1;
-		return new ClimbTarget(frame, distance, contact, ladder.getBlockPos(), climbLength, mode);
+		return new ClimbTarget(frame, distance, contact, climbLength, mode);
 	}
 
 	@Nullable
@@ -265,6 +263,7 @@ public final class ExtensionLadderClimbingController {
 
 	@Nullable
 	private static ContactMode contactMode(CollisionContact contact, double climbLength) {
+		// Ends are passive so the player can leave the ladder; only the climb face resolves penetration.
 		if (isTopSupportContact(contact, climbLength))
 			return ContactMode.TOP_SUPPORT;
 		if (isActiveClimbContact(contact, climbLength))
@@ -316,7 +315,7 @@ public final class ExtensionLadderClimbingController {
 			return CollisionCorrection.TOUCHING;
 
 		push += Math.signum(push) * COLLISION_SKIN;
-		return new CollisionCorrection(frame.normal().scale(push), push, true);
+		return new CollisionCorrection(frame.normal().scale(push), true);
 	}
 
 	private static boolean isTouchingClimbSurface(@Nullable ClimbTarget target) {
@@ -366,94 +365,15 @@ public final class ExtensionLadderClimbingController {
 		return 0;
 	}
 
-	private static void logNoTarget(Player player) {
-		if (!shouldLog(player))
-			return;
-		CreateFireFightingAdd.LOGGER.info("[ExtensionLadderClimb] no_intersection player={} box={}",
-			player.getName().getString(), player.getBoundingBox());
-	}
-
-	private static void logNearNoCore(Player player, ClimbTarget target) {
-		if (!shouldLog(player))
-			return;
-		ExtensionLadderGeometry.Projection projection = target.contact().centerProjection();
-		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] near_no_core player={} ladder={} along={} feetAlong={} length={} width={} normal={} boxNormal=[{},{}]",
-			player.getName().getString(), target.ladderPos(), round(projection.along()),
-			round(target.contact().feetProjection().along()), round(target.climbLength()), round(projection.width()),
-			round(projection.normal()),
-			round(target.contact().normalInterval().min()), round(target.contact().normalInterval().max()));
-	}
-
-	private static void logApplied(Player player, ClimbTarget target, Vec3 before, Vec3 after, double axisSpeed,
-								   CollisionCorrection correction) {
-		if (!shouldLog(player))
-			return;
-		ExtensionLadderGeometry.Projection projection = target.contact().centerProjection();
-		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] applied player={} ladder={} along={} feetAlong={} length={} width={} normal={} axisSpeed={} input={} collisionPush={} before={} after={}",
-			player.getName().getString(), target.ladderPos(), round(projection.along()),
-			round(target.contact().feetProjection().along()), round(target.climbLength()), round(projection.width()),
-			round(projection.normal()), round(axisSpeed), round(getForwardInput(player)),
-			round(correction.normalPush()), before, after);
-	}
-
-	private static void logJump(Player player, ClimbTarget target, Vec3 before, Vec3 after) {
-		if (!shouldLog(player))
-			return;
-		ExtensionLadderGeometry.Projection projection = target.contact().centerProjection();
-		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] jump player={} ladder={} along={} feetAlong={} length={} width={} normal={} before={} after={}",
-			player.getName().getString(), target.ladderPos(), round(projection.along()),
-			round(target.contact().feetProjection().along()), round(target.climbLength()), round(projection.width()),
-			round(projection.normal()),
-			before, after);
-	}
-
-	private static void logPassiveEnd(Player player, ClimbTarget target, Vec3 before, Vec3 after,
-									  CollisionCorrection correction) {
-		if (!shouldLog(player))
-			return;
-		ExtensionLadderGeometry.Projection projection = target.contact().centerProjection();
-		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] passive_end player={} ladder={} along={} feetAlong={} length={} width={} normal={} collisionPush={} before={} after={}",
-			player.getName().getString(), target.ladderPos(), round(projection.along()),
-			round(target.contact().feetProjection().along()), round(target.climbLength()), round(projection.width()),
-			round(projection.normal()), round(correction.normalPush()), before, after);
-	}
-
-	private static void logTopSupport(Player player, ClimbTarget target, Vec3 before, Vec3 after) {
-		if (!shouldLog(player))
-			return;
-		ExtensionLadderGeometry.Projection projection = target.contact().feetProjection();
-		CreateFireFightingAdd.LOGGER.info(
-			"[ExtensionLadderClimb] top_support player={} ladder={} feetAlong={} length={} width={} normal={} before={} after={}",
-			player.getName().getString(), target.ladderPos(), round(projection.along()), round(target.climbLength()),
-			round(projection.width()), round(projection.normal()), before, after);
-	}
-
-	private static boolean shouldLog(Player player) {
-		long now = player.level().getGameTime();
-		Long last = LAST_LOG_TICK.get(player.getUUID());
-		if (last != null && now - last < LOG_INTERVAL_TICKS)
-			return false;
-		LAST_LOG_TICK.put(player.getUUID(), now);
-		return true;
-	}
-
-	private static double round(double value) {
-		return Math.round(value * 1000.0) / 1000.0;
-	}
-
-	private static int getForwardInput(Player player) {
-		ForwardInputState state = FORWARD_INPUTS.get(player.getUUID());
+	private static MovementInputState getMovementInput(Player player) {
+		MovementInputState state = MOVEMENT_INPUTS.get(player.getUUID());
 		if (state == null)
-			return 0;
+			return MovementInputState.NONE;
 		if (player.level().getGameTime() - state.updatedAt() > INPUT_MEMORY_TICKS) {
-			FORWARD_INPUTS.remove(player.getUUID());
-			return 0;
+			MOVEMENT_INPUTS.remove(player.getUUID());
+			return MovementInputState.NONE;
 		}
-		return state.input();
+		return state;
 	}
 
 	private static boolean consumeJumpPulse(Player player) {
@@ -515,7 +435,7 @@ public final class ExtensionLadderClimbingController {
 	}
 
 	private record ClimbTarget(ExtensionLadderGeometry.WorldFrame frame, double distanceSqr, CollisionContact contact,
-							   BlockPos ladderPos, double climbLength, ContactMode mode) {
+							   double climbLength, ContactMode mode) {
 	}
 
 	private record CollisionContact(ExtensionLadderGeometry.Projection centerProjection,
@@ -523,9 +443,9 @@ public final class ExtensionLadderClimbingController {
 									AxisInterval widthInterval, AxisInterval normalInterval) {
 	}
 
-	private record CollisionCorrection(Vec3 positionDelta, double normalPush, boolean touchingSurface) {
-		private static final CollisionCorrection NONE = new CollisionCorrection(Vec3.ZERO, 0, false);
-		private static final CollisionCorrection TOUCHING = new CollisionCorrection(Vec3.ZERO, 0, true);
+	private record CollisionCorrection(Vec3 positionDelta, boolean touchingSurface) {
+		private static final CollisionCorrection NONE = new CollisionCorrection(Vec3.ZERO, false);
+		private static final CollisionCorrection TOUCHING = new CollisionCorrection(Vec3.ZERO, true);
 
 		private boolean hasCorrection() {
 			return positionDelta.lengthSqr() > COLLISION_EPSILON * COLLISION_EPSILON;
@@ -535,7 +455,14 @@ public final class ExtensionLadderClimbingController {
 	private record AxisInterval(double min, double max) {
 	}
 
-	private record ForwardInputState(int input, long updatedAt) {
+	private record MovementInputState(int forwardInput, int strafeInput, long updatedAt) {
+		private static final MovementInputState NONE = new MovementInputState(0, 0, Long.MIN_VALUE);
+	}
+
+	private record ClimbIntent(double axisSpeed, double sideSpeed) {
+		private static ClimbIntent hold() {
+			return new ClimbIntent(0, 0);
+		}
 	}
 
 	private enum ContactMode {

@@ -7,15 +7,15 @@ import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
-import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControllerBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.WaterIntakeBlockEntity;
-import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
-import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Position;
@@ -122,6 +122,8 @@ public final class SableStructureCompat {
     }
 
     public static Vec3 projectToWorld(Level level, Vec3 localPos) {
+        if (level != null && level.isClientSide)
+            return SableStructureClientCompat.projectToWorld(level, localPos);
         if (level != null && BACKEND != null)
             return BACKEND.projectToWorld(level, localPos);
         return localPos;
@@ -131,6 +133,14 @@ public final class SableStructureCompat {
         if (owner.getLevel() != null && BACKEND != null)
             return BACKEND.worldLevel(owner);
         return owner.getLevel();
+    }
+
+    public static Level worldLevel(Level level, BlockPos pos) {
+        if (level != null && level.isClientSide)
+            return SableStructureClientCompat.worldLevel(level, pos);
+        if (level != null && BACKEND != null)
+            return BACKEND.worldLevel(level, pos);
+        return level;
     }
 
     public static BlockPos worldBlockPos(BlockEntity owner) {
@@ -163,6 +173,12 @@ public final class SableStructureCompat {
         return worldNormal;
     }
 
+    public static Vec3 transformNormalToLocal(Level level, BlockPos pos, Vec3 worldNormal) {
+        if (level != null && BACKEND != null)
+            return BACKEND.transformNormalToLocal(level, pos, worldNormal);
+        return worldNormal;
+    }
+
     public static boolean isInSubLevel(BlockEntity owner) {
         if (owner.getLevel() != null && owner.getLevel().isClientSide)
             return SableStructureClientCompat.isInSubLevel(owner);
@@ -186,8 +202,19 @@ public final class SableStructureCompat {
         return Collections.emptyList();
     }
 
-    public static boolean hasFirePoleNearEntity(Level level, AABB entityBox, List<Vec3> worldSamples, double radiusSqr) {
-        return level != null && BACKEND != null && BACKEND.hasFirePoleNearEntity(level, entityBox, worldSamples, radiusSqr);
+    public static List<SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(Level level,
+                                                                                        List<Vec3> worldPositions) {
+        if (level != null && level.isClientSide)
+            return SableStructureClientCompat.projectWorldPositionsToIntersectingSubLevels(level, worldPositions);
+        if (level != null && BACKEND != null)
+            return BACKEND.projectWorldPositionsToIntersectingSubLevels(level, worldPositions);
+        return Collections.emptyList();
+    }
+
+    public static boolean hasFirePoleNearEntity(Level level, AABB entityBox, List<Vec3> worldSamples,
+                                                double radiusSqr) {
+        return level != null && BACKEND != null
+            && BACKEND.hasFirePoleNearEntity(level, entityBox, worldSamples, radiusSqr);
     }
 
     public static void notifyBlockChanged(BlockEntity owner) {
@@ -249,7 +276,8 @@ public final class SableStructureCompat {
         } catch (ClassNotFoundException ignored) {
             return null;
         } catch (Throwable e) {
-            CreateFireFightingAdd.LOGGER.warn("Sable structure compatibility is disabled because the available Sable API is not compatible.", e);
+            CreateFireFightingAdd.LOGGER.warn(
+                "Sable structure compatibility is disabled because the available Sable API is not compatible.", e);
             return null;
         }
     }
@@ -344,6 +372,8 @@ public final class SableStructureCompat {
 
         Level worldLevel(BlockEntity owner);
 
+        Level worldLevel(Level level, BlockPos pos);
+
         BlockPos worldBlockPos(BlockEntity owner);
 
         Vec3 transformPositionToWorld(BlockEntity owner, Vec3 localPos);
@@ -352,11 +382,15 @@ public final class SableStructureCompat {
 
         Vec3 transformNormalToLocal(BlockEntity owner, Vec3 worldNormal);
 
+        Vec3 transformNormalToLocal(Level level, BlockPos pos, Vec3 worldNormal);
+
         boolean isInSubLevel(BlockEntity owner);
 
         boolean hasCollisionAtWorld(BlockEntity owner, Vec3 worldPosition);
 
         List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions);
+
+        List<SubLevelProjection> projectWorldPositionsToIntersectingSubLevels(Level level, List<Vec3> worldPositions);
 
         boolean hasFirePoleNearEntity(Level level, AABB entityBox, List<Vec3> worldSamples, double radiusSqr);
 

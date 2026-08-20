@@ -761,7 +761,7 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 		@Override
 		public ValueSettingsBoard createBoard(Player player, BlockHitResult hitResult) {
 			return new ValueSettingsBoard(label, THRESHOLD_DIAL_MAX, 10,
-				ImmutableList.of(Component.literal("Value")),
+				ImmutableList.of(Component.translatable("createfirefightingadd.hydraulic_ram.threshold.value")),
 				new ValueSettingsFormatter(settings ->
 					Component.literal(Integer.toString(thresholdFromDial(settings.value())))));
 		}

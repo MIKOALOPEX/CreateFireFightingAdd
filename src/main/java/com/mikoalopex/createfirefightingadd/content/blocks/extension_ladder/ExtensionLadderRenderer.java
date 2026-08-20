@@ -59,7 +59,7 @@ public class ExtensionLadderRenderer extends SmartBlockEntityRenderer<ExtensionL
 		renderRope(tip, p1, poseStack, buffer, packedLight, packedOverlay);
 		renderRope(p1, p2, poseStack, buffer, packedLight, packedOverlay);
 		renderRope(p2, p2.add(0, -30 * ExtensionLadderGeometry.PIXEL, 0), poseStack, buffer, packedLight, packedOverlay);
-		renderClimbDebugBox(be, pitch, movePixels, poseStack, buffer);
+		renderClimbHitbox(be, pitch, movePixels, poseStack, buffer);
 	}
 
 	private static Quaternionf basisRotation(Vec3 xAxis, Vec3 yAxis, Vec3 zAxis) {
@@ -111,7 +111,7 @@ public class ExtensionLadderRenderer extends SmartBlockEntityRenderer<ExtensionL
 		poseStack.popPose();
 	}
 
-	private static void renderClimbDebugBox(ExtensionLadderBlockEntity be, float pitch, float movePixels,
+	private static void renderClimbHitbox(ExtensionLadderBlockEntity be, float pitch, float movePixels,
 		PoseStack poseStack, MultiBufferSource buffer) {
 		if (!Minecraft.getInstance().getEntityRenderDispatcher().shouldRenderHitBoxes())
 			return;
@@ -139,10 +139,10 @@ public class ExtensionLadderRenderer extends SmartBlockEntityRenderer<ExtensionL
 
 	private static void renderLine(Matrix4f matrix, VertexConsumer vc, Vec3 from, Vec3 to) {
 		vc.addVertex(matrix, (float) from.x, (float) from.y, (float) from.z)
-			.setColor(1f, 1f, 1f, 1f)
+			.setColor(1f, 1f, 0f, 1f)
 			.setNormal(0, 1, 0);
 		vc.addVertex(matrix, (float) to.x, (float) to.y, (float) to.z)
-			.setColor(1f, 1f, 1f, 1f)
+			.setColor(1f, 1f, 0f, 1f)
 			.setNormal(0, 1, 0);
 	}
 }

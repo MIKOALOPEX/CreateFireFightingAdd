@@ -8,29 +8,19 @@ import java.util.Set;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
-import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerItem;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleType;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.BaseFireBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.CampfireBlock;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -125,61 +115,26 @@ public final class HandheldNozzleSprayEffects {
 	private static void applyBlockEffects(ServerLevel level, Vec3 origin, Vec3 direction, SprayShape shape,
 			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited, long tick) {
 		int rays = Math.max(8, Math.min(28, range / 2));
+		NozzleSprayEffects.BlockEffectOptions options =
+			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND);
 		SprayEffectSampler.traceRays(level, origin, direction, shape, range, rays, tick, tick * 37L,
 			SAMPLE_STEP, (pos, state, samplePos, rayDirection, distance) -> {
 				NozzleSprayHitContext context = new NozzleSprayHitContext(level, pos, state, fluid.copy(),
 					apiType(behavior), ignited, origin, samplePos, rayDirection, distance);
-				if (!canAffect(context))
+				if (!NozzleSprayEffects.canAffectBlock(context, behavior, ignited, options))
 					return;
-				NozzleSprayInteractionRegistry.notifyHit(context);
-				applyBlockEffect(context, behavior, ignited);
+				NozzleSprayEffects.applyBlockSample(context, behavior, ignited, options);
 			});
-	}
-
-	private static boolean canAffect(NozzleSprayHitContext context) {
-		BlockState state = context.state();
-		return NozzleSprayInteractionRegistry.shouldNotify(context)
-			|| state.getBlock() instanceof BaseFireBlock
-			|| state.getBlock() instanceof CampfireBlock
-			|| SprayEffectUtils.isConcretePowder(state)
-			|| SprayEffectUtils.isDryFarmland(state)
-			|| context.isWaterLike();
-	}
-
-	private static void applyBlockEffect(NozzleSprayHitContext context,
-			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, boolean ignited) {
-		Level level = context.level();
-		BlockPos pos = context.pos();
-		BlockState state = context.state();
-		switch (behavior) {
-			case WATER -> {
-				if (!SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-					&& !SprayEffectUtils.moistenFarmland(level, pos, state))
-					SprayEffectUtils.extinguishBlock(level, pos, state);
-			}
-			case MILK, POTION -> SprayEffectUtils.extinguishBlock(level, pos, state);
-			case LAVA -> ignite(level, pos);
-			case FLAMMABLE -> {
-				if (ignited)
-					ignite(level, pos);
-			}
-			default -> {
-			}
-		}
-	}
-
-	private static void ignite(Level level, BlockPos pos) {
-		if (!level.isEmptyBlock(pos))
-			return;
-		BlockState fire = SprayEffectUtils.getFireState(level, pos);
-		if (fire.canSurvive(level, pos))
-			level.setBlock(pos, fire, 3);
 	}
 
 	private static void applyEntityEffects(ServerLevel level, Vec3 origin, Vec3 direction, SprayShape shape,
 			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited) {
 		AABB area = new AABB(origin, origin.add(direction.scale(range))).inflate(range * 0.35 + 1.5);
 		List<AbstractSprayDeviceBlockEntity.CenterlineSample> centerline = centerline(origin, direction, range);
+		var fanProcessingType = NozzleSprayEffects.fanProcessingType(behavior, ignited);
+		var processingType = fanProcessingType != null
+			&& SprayAuxiliaryScheduler.shouldProcess(level, BlockPos.containing(origin), false)
+				? fanProcessingType : null;
 		Set<Integer> processed = new HashSet<>();
 		for (Entity entity : level.getEntities(null, area)) {
 			if (!processed.add(entity.getId()))
@@ -187,37 +142,8 @@ public final class HandheldNozzleSprayEffects {
 			AbstractSprayDeviceBlockEntity.CenterlineSample sample = closestSample(entity.position(), centerline, shape, range);
 			if (sample == null)
 				continue;
-			switch (behavior) {
-				case WATER -> {
-					SprayEntityEffects.applyWaterContact(level, entity);
-					pushEntity(entity, sample, range);
-				}
-				case LAVA -> {
-					if (!(entity instanceof ItemEntity) && entity.getRemainingFireTicks() < 100)
-						entity.setRemainingFireTicks(100);
-				}
-				case FLAMMABLE -> {
-					if (ignited && !(entity instanceof ItemEntity) && entity.getRemainingFireTicks() < 100)
-						entity.setRemainingFireTicks(100);
-				}
-				case MILK -> {
-					if (entity instanceof LivingEntity living)
-						living.removeAllEffects();
-				}
-				case POTION -> {
-					PotionContents contents = fluid.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
-					if (entity instanceof LivingEntity living) {
-						for (var effect : contents.getAllEffects())
-							living.addEffect(new net.minecraft.world.effect.MobEffectInstance(effect));
-					}
-				}
-				case DRAGON_BREATH -> {
-					if (entity instanceof LivingEntity living)
-						living.hurt(level.damageSources().magic(), 2.0f);
-				}
-				default -> {
-				}
-			}
+			NozzleSprayEffects.applyEntityEffect(level, entity, sample, range,
+				behavior, ignited, fluid, processingType, true);
 		}
 	}
 
@@ -245,17 +171,6 @@ public final class HandheldNozzleSprayEffects {
 			}
 		}
 		return best;
-	}
-
-	private static void pushEntity(Entity entity, AbstractSprayDeviceBlockEntity.CenterlineSample sample, int range) {
-		if (entity.isCrouching() || entity.getPose() == Pose.SWIMMING)
-			return;
-		double pushSpeed = AbstractSprayDeviceBlockEntity.PUSH_STREAM_SPEED
-			* (1.0 - sample.axialDist() / Math.max(1, range));
-		Vec3 direction = sample.direction();
-		entity.push(direction.x * pushSpeed, direction.y * pushSpeed, direction.z * pushSpeed);
-		if (entity instanceof ServerPlayer player)
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
 	}
 
 	private static void applyRecoil(ServerPlayer player, Vec3 direction) {

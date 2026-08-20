@@ -14,16 +14,13 @@ import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
-import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
 import com.mikoalopex.createfirefightingadd.content.contraptions.ContraptionFluidAccess;
-import com.mikoalopex.createfirefightingadd.integration.burnt.BurntCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorage;
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.behaviour.MovementContext;
 import com.simibubi.create.api.registry.CreateBuiltInRegistries;
-import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
 import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.logistics.depot.storage.DepotMountedStorage;
@@ -32,21 +29,14 @@ import com.simibubi.create.infrastructure.config.AllConfigs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
@@ -54,7 +44,6 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -85,6 +74,8 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 	private static final int NOZZLE_MOVEMENT_SCAN_INTERVAL = 1;
 	private static final double EFFECT_RAY_STEP = 0.75;
 	private static final int NOZZLE_CONSUMPTION = 10;
+	private static final NozzleSprayEffects.BlockEffectOptions BLOCK_EFFECT_OPTIONS =
+		NozzleSprayEffects.BlockEffectOptions.basic(true, SprayDeviceMovementBehaviour::playExtinguishSound);
 	private static final Vector3f WATER = new Vector3f(0.3f, 0.55f, 1.0f);
 	private static final Vector3f WATER_LIGHT = new Vector3f(0.6f, 0.8f, 1.0f);
 	private static final Vector3f WHITE = new Vector3f(1.0f, 1.0f, 1.0f);
@@ -288,7 +279,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			(pos, state, samplePos, rayDirection, distance) -> {
 				NozzleSprayHitContext hitContext = sprayHitContext(level, pos, state, fluid, behavior, ignited,
 					origin, samplePos, rayDirection, distance);
-				if (canAffectBlock(hitContext, behavior, ignited, state))
+				if (canAffectBlock(hitContext, behavior, ignited))
 					applySampleEffect(hitContext, behavior, ignited);
 			});
 	}
@@ -304,7 +295,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			BlockState state = level.getBlockState(pos);
 			NozzleSprayHitContext hitContext = sprayHitContext(level, pos, state, fluid, behavior, ignited,
 				origin, Vec3.atCenterOf(pos), direction, dist);
-			if (!canAffectBlock(hitContext, behavior, ignited, state))
+			if (!canAffectBlock(hitContext, behavior, ignited))
 				return;
 			if (isRayBlocked(level, origin, pos))
 				return;
@@ -314,25 +305,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 
 	private static void applySampleEffect(NozzleSprayHitContext context,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, boolean ignited) {
-		NozzleSprayInteractionRegistry.notifyHit(context);
-		Level level = context.level();
-		BlockPos pos = context.pos();
-		BlockState state = context.state();
-		switch (behavior) {
-			case WATER -> {
-				if (!SprayEffectUtils.hydrateConcretePowder(level, pos, state)
-					&& !SprayEffectUtils.moistenFarmland(level, pos, state))
-					extinguish(level, pos, state);
-			}
-			case MILK, POTION -> extinguish(level, pos, state);
-			case LAVA -> tryIgnite(level, pos);
-			case FLAMMABLE -> {
-				if (ignited)
-					tryIgnite(level, pos);
-			}
-			default -> {
-			}
-		}
+		NozzleSprayEffects.applyBlockSample(context, behavior, ignited, BLOCK_EFFECT_OPTIONS);
 	}
 
 	private static void applyEntityAndItemEffects(Level level, Vec3 origin, Vec3 direction, SprayProfile profile,
@@ -373,67 +346,8 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			AbstractSprayDeviceBlockEntity.CenterlineSample sample, SprayProfile profile,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, boolean ignited,
 			FluidStack fluid, FanProcessingType processingType) {
-		switch (behavior) {
-			case WATER -> {
-				if (entity instanceof ItemEntity itemEntity)
-					processItemEntity(itemEntity, processingType);
-				SprayEntityEffects.applyWaterContact(level, entity);
-				pushEntity(entity, sample, profile);
-			}
-			case LAVA -> {
-				if (entity instanceof ItemEntity itemEntity) {
-					processItemEntity(itemEntity, processingType);
-					return;
-				}
-				if (entity.getRemainingFireTicks() < 100)
-					entity.setRemainingFireTicks(100);
-			}
-			case FLAMMABLE -> {
-				if (!ignited)
-					return;
-				if (entity instanceof ItemEntity itemEntity) {
-					processItemEntity(itemEntity, processingType);
-					return;
-				}
-				if (entity.getRemainingFireTicks() < 100)
-					entity.setRemainingFireTicks(100);
-			}
-			case MILK -> {
-				if (entity instanceof LivingEntity living)
-					living.removeAllEffects();
-			}
-			case POTION -> {
-				PotionContents contents = fluid.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
-				if (contents.equals(PotionContents.EMPTY))
-					return;
-				if (entity instanceof LivingEntity living) {
-					for (var effect : contents.getAllEffects())
-						living.addEffect(new MobEffectInstance(effect));
-				}
-			}
-			case DRAGON_BREATH -> {
-				if (entity instanceof ItemEntity itemEntity) {
-					processItemEntity(itemEntity, processingType);
-					return;
-				}
-				if (entity instanceof LivingEntity living)
-					living.addEffect(new MobEffectInstance(MobEffects.HARM, 1, 1, false, false, false));
-			}
-			default -> {
-			}
-		}
-	}
-
-	private static void pushEntity(Entity entity, AbstractSprayDeviceBlockEntity.CenterlineSample sample,
-			SprayProfile profile) {
-		if (entity.isCrouching() || entity.getPose() == Pose.SWIMMING)
-			return;
-		double pushSpeed = AbstractSprayDeviceBlockEntity.PUSH_STREAM_SPEED
-			* (1.0 - sample.axialDist() / Math.max(1, profile.range()));
-		Vec3 direction = sample.direction();
-		entity.push(direction.x * pushSpeed, direction.y * pushSpeed, direction.z * pushSpeed);
-		if (entity instanceof ServerPlayer player)
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
+		NozzleSprayEffects.applyEntityEffect(level, entity, sample, profile.range(),
+			behavior, ignited, fluid, processingType, true);
 	}
 
 	private static void processDepots(Level level, List<AbstractSprayDeviceBlockEntity.CenterlineSample> centerline,
@@ -707,79 +621,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 
 	private static FanProcessingType fanProcessingType(AbstractSprayDeviceBlockEntity.FluidBehavior behavior,
 			boolean ignited) {
-		return switch (behavior) {
-			case WATER -> AllFanProcessingTypes.SPLASHING;
-			case LAVA -> AllFanProcessingTypes.BLASTING;
-			case FLAMMABLE -> ignited ? AllFanProcessingTypes.BLASTING : null;
-			case DRAGON_BREATH -> FanProcessingType.parse("create_dragons_plus:ending");
-			default -> null;
-		};
-	}
-
-	private static void processItemEntity(ItemEntity entity, FanProcessingType type) {
-		if (type == null || entity.isRemoved())
-			return;
-		Level level = entity.level();
-		if (!type.canProcess(entity.getItem(), level))
-			return;
-		if (decrementEntityProcessingTime(entity, type) > 0)
-			return;
-		ItemStack original = entity.getItem();
-		List<ItemStack> results = type.process(original, level);
-		if (results == null || results.isEmpty()) {
-			markEntityProcessingBlocked(entity, type);
-			return;
-		}
-		entity.setItem(results.get(0).copy());
-		for (int i = 1; i < results.size(); i++) {
-			ItemStack extra = results.get(i);
-			if (extra.isEmpty())
-				continue;
-			ItemEntity extraEntity = new ItemEntity(level, entity.getX(), entity.getY(), entity.getZ(), extra.copy());
-			extraEntity.setDeltaMovement(entity.getDeltaMovement());
-			level.addFreshEntity(extraEntity);
-		}
-	}
-
-	private static int decrementEntityProcessingTime(ItemEntity entity, FanProcessingType type) {
-		CompoundTag processing = getNozzleProcessingTag(entity);
-		ResourceLocation typeId = CreateBuiltInRegistries.FAN_PROCESSING_TYPE.getKey(type);
-		String typeName = typeId == null ? "" : typeId.toString();
-		if (!typeName.equals(processing.getString("Type"))
-			|| !ItemStack.matches(entity.getItem(), readProcessingStack(entity, processing))) {
-			processing.putString("Type", typeName);
-			processing.put("Stack", entity.getItem().saveOptional(entity.registryAccess()));
-			processing.putInt("Time", processingTimeFor(entity.getItem()));
-		}
-		int time = processing.getInt("Time");
-		if (time < 0)
-			return time;
-		processing.putInt("Time", --time);
-		return time;
-	}
-
-	private static void markEntityProcessingBlocked(ItemEntity entity, FanProcessingType type) {
-		CompoundTag processing = getNozzleProcessingTag(entity);
-		ResourceLocation typeId = CreateBuiltInRegistries.FAN_PROCESSING_TYPE.getKey(type);
-		processing.putString("Type", typeId == null ? "" : typeId.toString());
-		processing.put("Stack", entity.getItem().saveOptional(entity.registryAccess()));
-		processing.putInt("Time", -1);
-	}
-
-	private static CompoundTag getNozzleProcessingTag(ItemEntity entity) {
-		CompoundTag data = entity.getPersistentData();
-		if (!data.contains("CreateFireFightingAdd"))
-			data.put("CreateFireFightingAdd", new CompoundTag());
-		CompoundTag modData = data.getCompound("CreateFireFightingAdd");
-		if (!modData.contains("NozzleProcessing"))
-			modData.put("NozzleProcessing", new CompoundTag());
-		return modData.getCompound("NozzleProcessing");
-	}
-
-	private static ItemStack readProcessingStack(ItemEntity entity, CompoundTag processing) {
-		if (!processing.contains("Stack"))
-			return ItemStack.EMPTY;
-		return ItemStack.parseOptional(entity.registryAccess(), processing.getCompound("Stack"));
+		return NozzleSprayEffects.fanProcessingType(behavior, ignited);
 	}
 
 	private static int decrementDepotProcessingTime(Level level, DepotKey key, ItemStack stack, FanProcessingType type) {
@@ -842,22 +684,13 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 
 	private static boolean canAffectBlock(NozzleSprayHitContext context,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior,
-			boolean ignited, BlockState state) {
-		if (NozzleSprayInteractionRegistry.shouldNotify(context))
-			return true;
-		return switch (behavior) {
-			case WATER -> state.getBlock() instanceof BaseFireBlock
-				|| (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT))
-				|| BurntCompat.mightHandle(state)
-				|| SprayEffectUtils.isConcretePowder(state)
-				|| SprayEffectUtils.isDryFarmland(state);
-			case MILK, POTION -> state.getBlock() instanceof BaseFireBlock
-				|| (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT))
-				|| BurntCompat.mightHandle(state);
-			case LAVA -> state.isAir();
-			case FLAMMABLE -> ignited && state.isAir();
-			case DRAGON_BREATH, UNSUPPORTED -> false;
-		};
+			boolean ignited) {
+		return NozzleSprayEffects.canAffectBlock(context, behavior, ignited,
+			BLOCK_EFFECT_OPTIONS);
+	}
+
+	private static void playExtinguishSound(Level level, BlockPos pos) {
+		level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6F, 1.0F);
 	}
 
 	private static NozzleSprayHitContext sprayHitContext(Level level, BlockPos pos, BlockState state,
@@ -887,35 +720,6 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			ClipContext.Fluid.NONE,
 			CollisionContext.empty()));
 		return hit.getType() != HitResult.Type.MISS && !targetPos.equals(hit.getBlockPos());
-	}
-
-	private static void extinguish(Level level, BlockPos pos, BlockState state) {
-		if (AbstractSprayDeviceBlockEntity.tryTfcDouse(level, pos))
-			return;
-		if (BurntCompat.extinguishAt(level, pos, state)) {
-			level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6F, 1.0F);
-			return;
-		}
-		if (state.getBlock() instanceof BaseFireBlock) {
-			level.removeBlock(pos, false);
-			level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6F, 1.0F);
-			AbstractSprayDeviceBlockEntity.clearWildfireHeat(level, pos);
-			return;
-		}
-		if (state.getBlock() instanceof CampfireBlock && state.getValue(CampfireBlock.LIT)) {
-			level.setBlock(pos, state.setValue(CampfireBlock.LIT, false), 3);
-			level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6F, 1.0F);
-		}
-	}
-
-	private static void tryIgnite(Level level, BlockPos pos) {
-		if (level.random.nextDouble() >= Config.nozzleIgnitionChance / 100.0)
-			return;
-		if (!level.getBlockState(pos).isAir())
-			return;
-		BlockState fire = Blocks.FIRE.defaultBlockState();
-		if (fire.canSurvive(level, pos))
-			level.setBlock(pos, fire, 3);
 	}
 
 	private static boolean hasIgnitionSource(Level level, Vec3 origin) {
