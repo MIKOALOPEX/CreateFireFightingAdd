@@ -16,6 +16,7 @@ import com.simibubi.create.infrastructure.config.AllConfigs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -93,7 +94,7 @@ final class NozzleSprayEffects {
 				|| (options.includePhaseChanges() && isColdBlock(state));
 			case FLAMMABLE -> ignited && (canIgnite(context, options)
 				|| (options.includePhaseChanges() && isColdBlock(state)));
-			case DRAGON_BREATH, UNSUPPORTED -> false;
+			case CUSTOM, DRAGON_BREATH, UNSUPPORTED -> false;
 		};
 	}
 
@@ -114,7 +115,7 @@ final class NozzleSprayEffects {
 			case MILK, POTION -> applyWaterLikeBlockEffect(context, options);
 			case LAVA -> applyHeatedBlockEffect(context, options);
 			case FLAMMABLE -> ignited && applyHeatedBlockEffect(context, options);
-			case DRAGON_BREATH, UNSUPPORTED -> false;
+			case CUSTOM, DRAGON_BREATH, UNSUPPORTED -> false;
 		};
 	}
 
@@ -167,6 +168,8 @@ final class NozzleSprayEffects {
 		if (level.random.nextDouble() >= Config.nozzleIgnitionChance / 100.0)
 			return false;
 		BlockState state = level.getBlockState(pos);
+		if (state.getBlock() instanceof BaseFireBlock)
+			return false;
 		if (replaceable) {
 			if (!state.canBeReplaced())
 				return false;
@@ -219,6 +222,8 @@ final class NozzleSprayEffects {
 
 	private static boolean canIgnite(NozzleSprayHitContext context, BlockEffectOptions options) {
 		BlockState state = context.state();
+		if (state.getBlock() instanceof BaseFireBlock)
+			return false;
 		if (options.replaceableIgnition()) {
 			if (!state.canBeReplaced())
 				return false;
@@ -247,6 +252,16 @@ final class NozzleSprayEffects {
 			case DRAGON_BREATH -> FanProcessingType.parse("create_dragons_plus:ending");
 			default -> null;
 		};
+	}
+
+	static @Nullable FanProcessingType fanProcessingType(@Nullable NozzleSprayRule rule, boolean ignited) {
+		if (rule == null || rule.fanProcessingType() == null)
+			return null;
+		try {
+			return FanProcessingType.parse(rule.fanProcessingType().toString());
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	static void applyEntityEffect(Level level, Entity entity,
@@ -304,9 +319,28 @@ final class NozzleSprayEffects {
 				if (entity instanceof LivingEntity living)
 					living.addEffect(new MobEffectInstance(MobEffects.HARM, 1, 1, false, false, false));
 			}
-			case UNSUPPORTED -> {
+			case CUSTOM, UNSUPPORTED -> {
 			}
 		}
+	}
+
+	static void applyCustomEntityEffect(Level level, Entity entity,
+			AbstractSprayDeviceBlockEntity.CenterlineSample sample, double range,
+			NozzleSprayRule rule, boolean ignited, @Nullable FanProcessingType processingType, boolean push) {
+		if (entity instanceof ItemEntity itemEntity) {
+			processItemEntity(itemEntity, processingType);
+			return;
+		}
+		if (rule.igniting() || rule.flammable() && ignited)
+			igniteEntity(entity);
+		if (entity instanceof LivingEntity living) {
+			for (ResourceLocation id : rule.effects()) {
+				BuiltInRegistries.MOB_EFFECT.getHolder(id)
+					.ifPresent(holder -> living.addEffect(new MobEffectInstance(holder, 100, 0)));
+			}
+		}
+		if (push)
+			pushEntity(entity, sample, range);
 	}
 
 	private static void igniteEntity(Entity entity) {

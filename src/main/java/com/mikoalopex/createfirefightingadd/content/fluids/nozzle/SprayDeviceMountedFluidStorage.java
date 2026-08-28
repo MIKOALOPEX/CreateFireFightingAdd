@@ -16,6 +16,7 @@ import com.simibubi.create.api.contraption.storage.fluid.WrapperMountedFluidStor
 import com.simibubi.create.content.contraptions.Contraption;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.Level;
@@ -32,23 +33,32 @@ public class SprayDeviceMountedFluidStorage extends WrapperMountedFluidStorage<S
 		ExtraCodecs.NON_NEGATIVE_INT.fieldOf("capacity").forGetter(SprayDeviceMountedFluidStorage::getCapacity),
 		FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluid")
 			.forGetter(SprayDeviceMountedFluidStorage::getFluidForEncoding),
-		Codec.BOOL.fieldOf("water_only").forGetter(SprayDeviceMountedFluidStorage::isWaterOnly)
+		Codec.BOOL.fieldOf("water_only").forGetter(SprayDeviceMountedFluidStorage::isWaterOnly),
+		CompoundTag.CODEC.optionalFieldOf(NozzleSprayRuleSet.TAG).forGetter(SprayDeviceMountedFluidStorage::getRulesForEncoding)
 	).apply(instance, SprayDeviceMountedFluidStorage::new));
 
 	private final boolean waterOnly;
+	private final CompoundTag rulesTag;
 	private boolean dirty;
 	private FluidStack lastCleanFluidState;
 
 	public SprayDeviceMountedFluidStorage(int capacity, FluidStack stack, boolean waterOnly) {
+		this(capacity, stack, waterOnly, new CompoundTag());
+	}
+
+	public SprayDeviceMountedFluidStorage(int capacity, FluidStack stack, boolean waterOnly, CompoundTag rulesTag) {
 		super(CreateFireFightingAdd.SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get(),
-			new Handler(capacity, stack, waterOnly));
+			new Handler(capacity, stack, waterOnly, rulesTag));
 		this.waterOnly = waterOnly;
+		this.rulesTag = rulesTag == null ? new CompoundTag() : rulesTag.copy();
 		this.lastCleanFluidState = syncFluidState(stack);
 		this.wrapped.onChange = this::onFluidChanged;
 	}
 
-	private SprayDeviceMountedFluidStorage(int capacity, Optional<FluidStack> stack, boolean waterOnly) {
-		this(capacity, stack.map(SafeFluidStacks::copy).orElse(FluidStack.EMPTY), waterOnly);
+	private SprayDeviceMountedFluidStorage(int capacity, Optional<FluidStack> stack, boolean waterOnly,
+			Optional<CompoundTag> rulesTag) {
+		this(capacity, stack.map(SafeFluidStacks::copy).orElse(FluidStack.EMPTY), waterOnly,
+			rulesTag.map(CompoundTag::copy).orElseGet(CompoundTag::new));
 	}
 
 	public static SprayDeviceMountedFluidStorage fromDevice(AbstractSprayDeviceBlockEntity device) {
@@ -56,13 +66,17 @@ public class SprayDeviceMountedFluidStorage extends WrapperMountedFluidStorage<S
 		return new SprayDeviceMountedFluidStorage(
 			device.getMountedFluidCapacity(),
 			device.getMountedFluidStack(),
-			bucket);
+			bucket,
+			device.getLevel() == null ? new CompoundTag()
+				: device.getCustomSprayRules().write(device.getLevel().registryAccess()));
 	}
 
 	@Override
 	public void unmount(Level level, BlockState state, BlockPos pos, @Nullable BlockEntity be) {
-		if (be instanceof AbstractSprayDeviceBlockEntity device)
+		if (be instanceof AbstractSprayDeviceBlockEntity device) {
 			device.setMountedFluidStack(getFluid());
+			device.setCustomSprayRules(getCustomSprayRules(level));
+		}
 	}
 
 	@Override
@@ -79,8 +93,11 @@ public class SprayDeviceMountedFluidStorage extends WrapperMountedFluidStorage<S
 	@Override
 	public void afterSync(Contraption contraption, BlockPos localPos) {
 		BlockEntity be = contraption.getBlockEntityClientSide(localPos);
-		if (be instanceof AbstractSprayDeviceBlockEntity device)
+		if (be instanceof AbstractSprayDeviceBlockEntity device) {
 			device.setMountedFluidStack(getFluid());
+			if (device.getLevel() != null)
+				device.setCustomSprayRules(getCustomSprayRules(device.getLevel()));
+		}
 	}
 
 	public int getCapacity() {
@@ -118,9 +135,19 @@ public class SprayDeviceMountedFluidStorage extends WrapperMountedFluidStorage<S
 		return waterOnly;
 	}
 
+	public NozzleSprayRuleSet getCustomSprayRules(Level level) {
+		if (rulesTag.isEmpty())
+			return NozzleSprayRuleSet.EMPTY;
+		return NozzleSprayRuleSet.read(level.registryAccess(), rulesTag);
+	}
+
 	private Optional<FluidStack> getFluidForEncoding() {
 		FluidStack stack = SafeFluidStacks.normalize(wrapped.getFluid());
 		return stack.isEmpty() ? Optional.empty() : Optional.of(stack);
+	}
+
+	private Optional<CompoundTag> getRulesForEncoding() {
+		return rulesTag.isEmpty() ? Optional.empty() : Optional.of(rulesTag.copy());
 	}
 
 	private void onFluidChanged() {
@@ -145,11 +172,12 @@ public class SprayDeviceMountedFluidStorage extends WrapperMountedFluidStorage<S
 		private Runnable onChange = () -> {
 		};
 
-		Handler(int capacity, FluidStack stack, boolean waterOnly) {
+		Handler(int capacity, FluidStack stack, boolean waterOnly, CompoundTag rulesTag) {
 			super(capacity);
+			boolean hasCustomRules = rulesTag != null && !rulesTag.isEmpty();
 			setValidator(resource -> waterOnly
 				? resource.getFluid().is(FluidTags.WATER)
-				: AbstractSprayDeviceBlockEntity.isFluidSupportedForSpray(null, resource));
+				: hasCustomRules || AbstractSprayDeviceBlockEntity.isFluidSupportedForSpray(null, resource));
 			setFluid(stack);
 		}
 

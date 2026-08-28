@@ -346,13 +346,15 @@ final class FireHoseMovingEndpoints {
 				: staticPartner != null ? staticPartner.getFacingDirection()
 				: endpoint.facing();
 			FireHoseDynamicRenderer.submit(endpoint.renderKey(), endpoint.worldCenter(), partnerCenter,
-				endpoint.facing(), partnerFacing, storage.isBlackHose(), context.world.getGameTime() + 2);
+				endpoint.facing(), partnerFacing, storage.getHoseAppearanceId(),
+				context.world.getGameTime() + 2);
 			return;
 		}
 
 		if (staticPartner != null && staticPartner.isController()) {
 			FireHoseDynamicRenderer.submit(endpoint.renderKey(), staticPartner.getWorldCenterVec(), endpoint.worldCenter(),
-				staticPartner.getFacingDirection(), endpoint.facing(), storage.isBlackHose(), context.world.getGameTime() + 2);
+				staticPartner.getFacingDirection(), endpoint.facing(), storage.getHoseAppearanceId(),
+				context.world.getGameTime() + 2);
 		}
 	}
 

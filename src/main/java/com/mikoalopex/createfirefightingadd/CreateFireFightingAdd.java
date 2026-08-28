@@ -48,6 +48,9 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayCli
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDebugRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMountedFluidStorageType;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMovementBehaviour;
+import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorItem;
+import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorMenu;
+import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorScreen;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.BoundBlockHighlightHandler;
 import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlockEntity;
@@ -294,6 +297,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<HandheldNozzleControllerItem> HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("handheld_nozzle_controller", () -> new HandheldNozzleControllerItem(new Item.Properties().stacksTo(1)));
 
+	public static final DeferredItem<MultifunctionConfiguratorItem> MULTIFUNCTION_CONFIGURATOR_ITEM =
+		ITEMS.register("multifunction_configurator", () -> new MultifunctionConfiguratorItem(new Item.Properties().stacksTo(1)));
+
 	public static final DeferredItem<SequencedAssemblyItem> INCOMPLETE_HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("incomplete_handheld_nozzle_controller", () -> new SequencedAssemblyItem(new Item.Properties()));
 
@@ -327,6 +333,10 @@ public class CreateFireFightingAdd {
 	public static final DeferredHolder<MenuType<?>, MenuType<FireHydrantCabinetMenu>> FIRE_HYDRANT_CABINET_MENU =
 		MENU_TYPES.register("fire_hydrant_cabinet",
 			() -> IMenuTypeExtension.create(FireHydrantCabinetMenu::new));
+
+	public static final DeferredHolder<MenuType<?>, MenuType<MultifunctionConfiguratorMenu>> MULTIFUNCTION_CONFIGURATOR_MENU =
+		MENU_TYPES.register("multifunction_configurator",
+			() -> IMenuTypeExtension.create(MultifunctionConfiguratorMenu::new));
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HighPressurePumpBlockEntity>> HIGH_PRESSURE_PUMP_BE =
 		BLOCK_ENTITY_TYPES.register("high_pressure_pump",
@@ -441,6 +451,7 @@ public class CreateFireFightingAdd {
 				output.accept(PNEUMATIC_HAMMER_ITEM.get());
 				output.accept(createFullMultipurposeBacktankStack());
 				output.accept(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
+				output.accept(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
@@ -653,6 +664,7 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(CONE_NOZZLE.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLUID_FLOW_METER.get(), RenderType.cutout());
+			ItemBlockRenderTypes.setRenderLayer(FIRE_HOSE.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
 		}
@@ -661,6 +673,7 @@ public class CreateFireFightingAdd {
 			registerCreateTooltip(PNEUMATIC_HAMMER_ITEM.get());
 			registerCreateTooltip(MULTIPURPOSE_BACKTANK_ITEM.get());
 			registerCreateTooltip(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
+			registerCreateTooltip(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
 			registerCreateTooltip(FIRE_POLE_ITEM.get());
 		}
 
@@ -671,6 +684,7 @@ public class CreateFireFightingAdd {
 		@SubscribeEvent
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
+			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
 		}
 
 		@SubscribeEvent

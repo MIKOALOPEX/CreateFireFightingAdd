@@ -3,6 +3,8 @@ package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseEndpointModel;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mojang.logging.LogUtils;
 
@@ -150,7 +152,9 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
     }
 
     private static FireHoseBlockEntity addHose(Level level, BlockPos placedPos, Direction facing) {
-        BlockState newState = FIRE_HOSE.get().defaultBlockState().setValue(FireHoseBlock.FACING, facing);
+        BlockState newState = FIRE_HOSE.get().defaultBlockState()
+            .setValue(FireHoseBlock.FACING, facing)
+            .setValue(FireHoseBlock.APPEARANCE, FireHoseEndpointModel.DEFAULT);
 
         FireHoseDebugLog.logRaw("add hose endpoint pos={} facing={} oldState={}",
                 placedPos, facing, level.getBlockState(placedPos).getBlock());
@@ -158,7 +162,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
         if (level.setBlockAndUpdate(placedPos, newState)) {
             if (level.getBlockEntity(placedPos) instanceof FireHoseBlockEntity be) {
                 be.setFireHoseConnection(true, null,
-                    SableStructureCompat.containingSubLevelId(level, placedPos), false);
+                    SableStructureCompat.containingSubLevelId(level, placedPos), FireHoseAppearances.DEFAULT);
                 FireHoseConnections.disconnect(be);
                 FireHoseDebugLog.logRaw("add hose endpoint ok pos={} beHash={}",
                         placedPos, Integer.toHexString(System.identityHashCode(be)));

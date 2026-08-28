@@ -69,17 +69,25 @@ public final class HandheldNozzleClientSprayVisuals {
 			tickExisting(player.level(), state);
 			return;
 		}
+		NozzleSprayRuleSet customRules = cabinet.getCustomSprayRules();
 		AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
-			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(player.level(), fluid);
+			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(player.level(), fluid, customRules);
 		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED) {
 			tickExisting(player.level(), state);
 			return;
+		}
+		NozzleSprayRule customRule = null;
+		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM) {
+			customRule = NozzleGlobalSprayRules.findGlobalRule(fluid).orElse(null);
+			if (customRule == null)
+				customRule = customRules.find(fluid).orElse(null);
 		}
 
 		HandheldNozzleType nozzleType = binding.nozzleType();
 		state.behavior = behavior;
 		state.fuelPath = SprayProjectileVisuals.fuelPath(fluid);
-		state.potionColor = potionColor(fluid);
+		state.potionColor = customRule == null ? potionColor(fluid) : customRule.particles().primaryVector();
+		state.particles = customRule == null ? null : customRule.particles();
 		state.trailParticles = trailParticlesPerTick(nozzleType);
 
 		if (spraying) {
@@ -87,7 +95,8 @@ public final class HandheldNozzleClientSprayVisuals {
 			Vec3 origin = player.getEyePosition().add(direction.scale(0.75)).add(0.0, -0.18, 0.0);
 			SprayShape shape = projectileShape(nozzleType);
 			boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
-				|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA;
+				|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA
+				|| customRule != null && (customRule.igniting() || customRule.flammable());
 			SprayProjectileVisuals.spawnProjectiles(state.projectiles, origin, direction, shape,
 				Config.serverProjectilesPerTick, projectileLifetime(nozzleType), projectileSpeed(nozzleType),
 				behavior, ignited, new Vec3(0.0, -projectileGravity(nozzleType), 0.0),
@@ -109,7 +118,7 @@ public final class HandheldNozzleClientSprayVisuals {
 			return;
 		}
 		SprayProjectileVisuals.tickClientProjectiles(level, state.projectiles, state.behavior,
-			state.fuelPath, state.potionColor, state.trailParticles, pos -> pos);
+			state.fuelPath, state.potionColor, state.particles, state.trailParticles, pos -> pos);
 	}
 
 	public static void clear(int entityId) {
@@ -186,6 +195,7 @@ public final class HandheldNozzleClientSprayVisuals {
 			AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
 		private String fuelPath = "";
 		private Vector3f potionColor = new Vector3f(1, 1, 1);
+		private NozzleParticlePalette particles;
 		private int trailParticles = 3;
 
 		private void clearProjectiles() {
@@ -193,6 +203,7 @@ public final class HandheldNozzleClientSprayVisuals {
 			behavior = AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED;
 			fuelPath = "";
 			potionColor = new Vector3f(1, 1, 1);
+			particles = null;
 			trailParticles = 3;
 		}
 	}

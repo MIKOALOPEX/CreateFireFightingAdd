@@ -1,0 +1,7 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "createfirefightingadd:block/fire_hose_end"
+  },
+  "elements": []
+}

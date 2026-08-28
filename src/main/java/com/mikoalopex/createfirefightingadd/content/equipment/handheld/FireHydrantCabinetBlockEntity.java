@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.AbstractSprayDeviceBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayRuleSet;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -107,16 +108,16 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		}
 	};
 
+	private UUID hydrantId = UUID.randomUUID();
+	private @Nullable UUID boundPlayer;
+	private NozzleSprayRuleSet customSprayRules = NozzleSprayRuleSet.EMPTY;
 	private final FluidTank tank = new FluidTank(FLUID_CAPACITY,
-		stack -> !stack.isEmpty() && AbstractSprayDeviceBlockEntity.isFluidSupportedForSpray(level, stack)) {
+		stack -> !stack.isEmpty() && AbstractSprayDeviceBlockEntity.isFluidSupportedForSpray(level, stack, customSprayRules)) {
 		@Override
 		protected void onContentsChanged() {
 			markFluidChanged();
 		}
 	};
-
-	private UUID hydrantId = UUID.randomUUID();
-	private @Nullable UUID boundPlayer;
 	private int openCount;
 	private boolean syncedDoorOpen;
 	private boolean fluidSyncQueued;
@@ -160,6 +161,15 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 
 	public HandheldNozzleType getNozzleType() {
 		return HandheldNozzleType.fromNozzleStack(inventory.getStackInSlot(SLOT_NOZZLE));
+	}
+
+	public NozzleSprayRuleSet getCustomSprayRules() {
+		return customSprayRules;
+	}
+
+	public void setCustomSprayRules(NozzleSprayRuleSet rules) {
+		customSprayRules = rules == null ? NozzleSprayRuleSet.EMPTY : rules;
+		markUpdated();
 	}
 
 	public boolean hasHose() {
@@ -349,6 +359,8 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		CompoundTag fluidTag = new CompoundTag();
 		tank.writeToNBT(registries, fluidTag);
 		tag.put(FLUID_TAG, fluidTag);
+		if (!customSprayRules.isEmpty())
+			tag.put(NozzleSprayRuleSet.TAG, customSprayRules.write(registries));
 		tag.putUUID(ID_TAG, hydrantId);
 		if (boundPlayer != null)
 			tag.putUUID(BOUND_PLAYER_TAG, boundPlayer);
@@ -361,6 +373,9 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 			inventory.deserializeNBT(registries, tag.getCompound(INVENTORY_TAG));
 		if (tag.contains(FLUID_TAG))
 			tank.readFromNBT(registries, tag.getCompound(FLUID_TAG));
+		customSprayRules = tag.contains(NozzleSprayRuleSet.TAG)
+			? NozzleSprayRuleSet.read(registries, tag.getCompound(NozzleSprayRuleSet.TAG))
+			: NozzleSprayRuleSet.EMPTY;
 		hydrantId = tag.hasUUID(ID_TAG) ? tag.getUUID(ID_TAG) : UUID.randomUUID();
 		boundPlayer = tag.hasUUID(BOUND_PLAYER_TAG) ? tag.getUUID(BOUND_PLAYER_TAG) : null;
 		syncedDoorOpen = tag.contains(DOOR_OPEN_TAG) ? tag.getBoolean(DOOR_OPEN_TAG) : boundPlayer != null;

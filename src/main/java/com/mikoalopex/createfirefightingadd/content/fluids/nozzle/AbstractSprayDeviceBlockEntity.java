@@ -114,7 +114,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		TagKey.create(Registries.FLUID, ResourceLocation.fromNamespaceAndPath("c", "dragon_breath"));
 
 	enum FluidBehavior {
-		WATER, LAVA, MILK, POTION, DRAGON_BREATH, FLAMMABLE, UNSUPPORTED
+		WATER, LAVA, MILK, POTION, DRAGON_BREATH, FLAMMABLE, CUSTOM, UNSUPPORTED
 	}
 
 	private static boolean tfcAvailable;
@@ -356,6 +356,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	protected FluidBehavior currentFluid = FluidBehavior.UNSUPPORTED;
 	protected Vector3f potionColor = WHITE;
 	protected PotionContents currentPotionContents = PotionContents.EMPTY;
+	protected NozzleSprayRuleSet customSprayRules = NozzleSprayRuleSet.EMPTY;
+	protected @Nullable NozzleSprayRule currentCustomRule;
 	protected double currentSprayRange;
 	private long sprayStartedAt = -1;
 	private Random projectileRandom;
@@ -505,14 +507,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
 		tank = SmartFluidTankBehaviour.single(this, getTankCapacity());
 		tank.getPrimaryHandler().setValidator(stack -> {
-			Fluid fluid = stack.getFluid();
-			return fluid.is(FluidTags.WATER)
-				|| fluid.is(FluidTags.LAVA)
-				|| fluid.is(MILK_TAG)
-				|| isDragonBreath(fluid)
-				|| (AllFluids.POTION != null && fluid.isSame(AllFluids.POTION.get()))
-				|| isCdgFlammable(fluid)
-				|| isCdgFluidByNamespace(fluid);
+			return isFluidSupportedForSpray(level, stack, customSprayRules);
 		});
 		tank.allowInsertion();
 		tank.forbidExtraction();
@@ -539,7 +534,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			double rangeRatio = currentSprayRange / Math.max(1, getMaxRange());
 			double massFactor = switch (currentFluid) {
 				case LAVA -> 3.0;
-				case MILK, POTION, WATER, DRAGON_BREATH, FLAMMABLE -> 1.0;
+				case MILK, POTION, WATER, DRAGON_BREATH, FLAMMABLE, CUSTOM -> 1.0;
 				default -> 0.0;
 			};
 			cachedThrustMagnitude = Config.nozzleThrustMultiplier
@@ -594,7 +589,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				serverProjectiles.clear();
 				SprayProjectileBudget.clearServerProjectiles(this);
 				pendingPathSweepSamples.clear();
-				if (currentFluid == FluidBehavior.FLAMMABLE && !fluid.isEmpty())
+				if (isCurrentSprayFlammable() && !fluid.isEmpty())
 					sprayedFuelPath = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getFluid()).getPath();
 				else
 					sprayedFuelPath = "";
@@ -683,14 +678,14 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		NozzleSpraySounds.tick(level, spraySoundKey(), getWorldSprayOrigin(), SoundSource.BLOCKS);
 
 		tickCounter++;
-		boolean igniteNow = currentFluid == FluidBehavior.FLAMMABLE && !sprayIgnited && scanForIgnitionSource();
+		boolean igniteNow = isCurrentSprayFlammable() && !sprayIgnited && scanForIgnitionSource();
 		spawnSprayProjectiles(fluidForProjectile);
-		if (tickCounter % getScanInterval() == 0 && usesWaterExtinguishRules(currentFluid))
+		if (tickCounter % getScanInterval() == 0 && usesWaterExtinguishRules())
 			scanProjectileSprayContacts();
 		if (igniteNow) {
 			sprayIgnited = true;
 			for (LightweightProjectile proj : serverProjectiles) {
-				if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && !proj.ignited) {
+				if (isFlammableProjectile(proj) && !proj.ignited) {
 					proj.ignited = true;
 					proj.ignitedAtAge = proj.age;
 				}
@@ -699,9 +694,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		if (sprayingNow)
 			applyEntityScan();
 		fullSweepCounter++;
-		if (sprayingNow && currentFluid != FluidBehavior.LAVA && currentFluid != FluidBehavior.FLAMMABLE
-			&& currentFluid != FluidBehavior.DRAGON_BREATH
-			&& fullSweepCounter % Config.fullSweepInterval == 0)
+		if (sprayingNow && shouldRunFullSweep() && fullSweepCounter % Config.fullSweepInterval == 0)
 			doFullSweep();
 	}
 
@@ -716,7 +709,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			if ((sprayStartedAt < 0 && sprayingNow) || fluidChanged) {
 				sprayStartedAt = level.getGameTime();
 				projectileRandom = new Random(sprayStartedAt * 31);
-				if (currentFluid == FluidBehavior.FLAMMABLE && !fluid.isEmpty())
+				if (isCurrentSprayFlammable() && !fluid.isEmpty())
 					sprayedFuelPath = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getFluid()).getPath();
 				else
 					sprayedFuelPath = "";
@@ -812,6 +805,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				if (tickCounter % getScanInterval() == 0)
 					dragonBreathBehavior();
 			}
+			case CUSTOM -> {
+				if (tickCounter % getScanInterval() == 0)
+					customBehavior();
+				fullSweepCounter++;
+				if (isSpraying() && shouldRunFullSweep() && fullSweepCounter % Config.fullSweepInterval == 0)
+					doFullSweep();
+			}
 		}
 	}
 
@@ -862,13 +862,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		if (Config.cdgIgnitionEnabled && !serverProjectiles.isEmpty()) {
 			List<LightweightProjectile> ignitedList = new ArrayList<>();
 			for (LightweightProjectile proj : serverProjectiles) {
-				if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && proj.ignited)
+				if (isFlammableProjectile(proj) && proj.ignited)
 					ignitedList.add(proj);
 			}
 			if (!ignitedList.isEmpty()) {
 				double radius = Config.flamePropagationRadius;
 				for (LightweightProjectile proj : serverProjectiles) {
-					if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && !proj.ignited) {
+					if (isFlammableProjectile(proj) && !proj.ignited) {
 						for (LightweightProjectile ignited : ignitedList) {
 							if (proj.position.distanceToSqr(ignited.position) < radius * radius) {
 								proj.ignited = true;
@@ -883,7 +883,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 		boolean anyIgnited = false;
 		for (LightweightProjectile proj : serverProjectiles) {
-			if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && proj.ignited) {
+			if (isFlammableProjectile(proj) && proj.ignited) {
 				anyIgnited = true;
 				break;
 			}
@@ -906,8 +906,48 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				+ ", fluid=" + currentFluid);
 	}
 
-	private static boolean usesWaterExtinguishRules(FluidBehavior behavior) {
-		return behavior == FluidBehavior.WATER || behavior == FluidBehavior.MILK || behavior == FluidBehavior.POTION;
+	private boolean usesWaterExtinguishRules() {
+		return currentFluid == FluidBehavior.WATER
+			|| currentFluid == FluidBehavior.MILK
+			|| currentFluid == FluidBehavior.POTION
+			|| (currentFluid == FluidBehavior.CUSTOM && customRuleExtinguishesBlocks(sprayIgnited));
+	}
+
+	private boolean shouldRunFullSweep() {
+		return usesWaterExtinguishRules();
+	}
+
+	private boolean isCurrentSprayFlammable() {
+		return currentFluid == FluidBehavior.FLAMMABLE
+			|| (currentFluid == FluidBehavior.CUSTOM
+				&& currentCustomRule != null
+				&& currentCustomRule.flammable());
+	}
+
+	private boolean isCurrentSprayIgniting() {
+		return currentFluid == FluidBehavior.LAVA
+			|| currentFluid == FluidBehavior.FLAMMABLE && sprayIgnited
+			|| (currentFluid == FluidBehavior.CUSTOM
+				&& currentCustomRule != null
+				&& (currentCustomRule.igniting() || currentCustomRule.flammable() && sprayIgnited));
+	}
+
+	private boolean isFlammableProjectile(LightweightProjectile projectile) {
+		return projectile.fluidBehavior == FluidBehavior.FLAMMABLE
+			|| projectile.fluidBehavior == FluidBehavior.CUSTOM
+				&& currentCustomRule != null
+				&& currentCustomRule.flammable();
+	}
+
+	private boolean customRuleIgnitesBlocks(boolean ignited) {
+		return currentCustomRule != null
+			&& (currentCustomRule.igniting() || currentCustomRule.flammable() && ignited);
+	}
+
+	private boolean customRuleExtinguishesBlocks(boolean ignited) {
+		return currentCustomRule != null
+			&& currentCustomRule.extinguishing()
+			&& !customRuleIgnitesBlocks(ignited);
 	}
 
 	private void scanProjectileSprayContacts() {
@@ -928,7 +968,15 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				visited[0]++;
 				NozzleSprayHitContext context =
 					sprayHitContext(pos, state, currentFluid, sprayIgnited, origin, samplePos, rayDirection, distance);
-				boolean applied = NozzleSprayEffects.applyBlockSample(context, currentFluid, sprayIgnited, options);
+				boolean applied;
+				if (currentFluid == FluidBehavior.CUSTOM && currentCustomRule != null) {
+					applied = customRuleExtinguishesBlocks(sprayIgnited)
+						&& NozzleSprayEffects.applyBlockSample(context, FluidBehavior.WATER, false, options);
+					if (customRuleIgnitesBlocks(sprayIgnited))
+						applied |= NozzleSprayEffects.applyBlockSample(context, FluidBehavior.LAVA, true, options);
+				} else {
+					applied = NozzleSprayEffects.applyBlockSample(context, currentFluid, sprayIgnited, options);
+				}
 				notified[0]++;
 				if (applied)
 					effects[0]++;
@@ -998,7 +1046,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	public boolean tryIgniteWithItem(Player player, InteractionHand hand) {
 		if (level == null || level.isClientSide) return false;
-		if (currentFluid != FluidBehavior.FLAMMABLE) return false;
+		if (!isCurrentSprayFlammable()) return false;
 		if (!isSpraying()) return false;
 		if (sprayIgnited) return false;
 
@@ -1008,7 +1056,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 		sprayIgnited = true;
 		for (LightweightProjectile proj : serverProjectiles) {
-			if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && !proj.ignited) {
+			if (isFlammableProjectile(proj) && !proj.ignited) {
 				proj.ignited = true;
 				proj.ignitedAtAge = proj.age;
 			}
@@ -1046,7 +1094,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			long key = pathSweepKey(center, proj.fluidBehavior, proj.ignited);
 			pendingPathSweepSamples.putIfAbsent(key, new PathSweepSample(sample, proj.fluidBehavior, proj.ignited));
 
-			if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && !proj.ignited && detectIgnitionSource(sample)) {
+			if (isFlammableProjectile(proj) && !proj.ignited && detectIgnitionSource(sample)) {
 				proj.ignited = true;
 				proj.ignitedAtAge = proj.age;
 			}
@@ -1127,6 +1175,15 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	private boolean canPathSweepAffect(PathSweepSample sample, BlockPos pos, BlockState state) {
 		NozzleSprayHitContext context = sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
 			sample.position(), Vec3.atCenterOf(pos), null, 0);
+		if (sample.fluidBehavior() == FluidBehavior.CUSTOM && currentCustomRule != null) {
+			if (customRuleExtinguishesBlocks(sample.ignited())
+				&& NozzleSprayEffects.canAffectBlock(context, FluidBehavior.WATER, false,
+					NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND)))
+				return true;
+			return customRuleIgnitesBlocks(sample.ignited())
+				&& NozzleSprayEffects.canAffectBlock(context, FluidBehavior.LAVA, true,
+					NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
+		}
 		return NozzleSprayEffects.canAffectBlock(context, sample.fluidBehavior(), sample.ignited(),
 			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
 	}
@@ -1134,6 +1191,15 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	private boolean applyPathSweepEffect(PathSweepSample sample, BlockPos pos, BlockState state) {
 		NozzleSprayHitContext context = sprayHitContext(pos, state, sample.fluidBehavior(), sample.ignited(),
 			sample.position(), Vec3.atCenterOf(pos), null, 0);
+		if (sample.fluidBehavior() == FluidBehavior.CUSTOM && currentCustomRule != null) {
+			boolean applied = customRuleExtinguishesBlocks(sample.ignited())
+				&& NozzleSprayEffects.applyBlockSample(context, FluidBehavior.WATER, false,
+					NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
+			if (customRuleIgnitesBlocks(sample.ignited()))
+				applied |= NozzleSprayEffects.applyBlockSample(context, FluidBehavior.LAVA, true,
+					NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
+			return applied;
+		}
 		return NozzleSprayEffects.applyBlockSample(context, sample.fluidBehavior(), sample.ignited(),
 			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
 	}
@@ -1150,6 +1216,10 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	private void applyBlockEffect(LightweightProjectile proj, BlockHitResult hit) {
 		if (level.isClientSide) return;
+		if (proj.fluidBehavior == FluidBehavior.CUSTOM) {
+			applyCustomProjectileBlockEffect(proj, hit);
+			return;
+		}
 
 		BlockPos facePos = hit.getBlockPos().relative(hit.getDirection());
 
@@ -1197,8 +1267,10 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			}
 			case LAVA, FLAMMABLE -> {
 				if (proj.fluidBehavior == FluidBehavior.FLAMMABLE && !proj.ignited) break;
+				BlockState faceState = level.getBlockState(facePos);
 				if (level.getRandom().nextDouble() < Config.nozzleIgnitionChance / 100.0
-						&& level.getBlockState(facePos).canBeReplaced()
+						&& !(faceState.getBlock() instanceof BaseFireBlock)
+						&& faceState.canBeReplaced()
 						&& level.getFluidState(facePos).isEmpty()
 						&& BaseFireBlock.canBePlacedAt(level, facePos, hit.getDirection())) {
 					level.setBlockAndUpdate(facePos, BaseFireBlock.getState(level, facePos));
@@ -1224,6 +1296,30 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 	}
 
+	private void applyCustomProjectileBlockEffect(LightweightProjectile proj, BlockHitResult hit) {
+		if (currentCustomRule == null)
+			return;
+		BlockPos impactPos = hit.getBlockPos();
+		BlockState impactState = level.getBlockState(impactPos);
+		NozzleSprayHitContext context = sprayHitContext(impactPos, impactState, FluidBehavior.CUSTOM, proj.ignited,
+			proj.prevPosition, hit.getLocation(), proj.velocity.normalize(),
+			proj.prevPosition.distanceTo(hit.getLocation()));
+		if (customRuleExtinguishesBlocks(proj.ignited)) {
+			NozzleSprayEffects.applyBlockSample(context, FluidBehavior.WATER, false,
+				NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND));
+		}
+		if (customRuleIgnitesBlocks(proj.ignited)
+			&& level.getRandom().nextDouble() < Config.nozzleIgnitionChance / 100.0) {
+			BlockPos facePos = hit.getBlockPos().relative(hit.getDirection());
+			BlockState faceState = level.getBlockState(facePos);
+			if (!(faceState.getBlock() instanceof BaseFireBlock)
+				&& faceState.canBeReplaced()
+				&& level.getFluidState(facePos).isEmpty()
+				&& BaseFireBlock.canBePlacedAt(level, facePos, hit.getDirection()))
+				level.setBlockAndUpdate(facePos, BaseFireBlock.getState(level, facePos));
+		}
+	}
+
 	// Client projectile processing
 
 	private void tickClientProjectiles() {
@@ -1239,7 +1335,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				Vec3 velocity = dir.scale(getProjectileSpeed());
 				LightweightProjectile proj = new LightweightProjectile(spawnPos, velocity, lifetime,
 					currentFluid, (float) PUSH_STREAM_SPEED, getGravityVector(), getProjectileFriction());
-				if (sprayIgnited && currentFluid == FluidBehavior.FLAMMABLE) {
+				if (sprayIgnited && isCurrentSprayFlammable()) {
 					proj.ignited = true;
 					proj.ignitedAtAge = 0;
 				}
@@ -1250,7 +1346,9 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		for (LightweightProjectile proj : clientProjectiles)
 			proj.gravity = getGravityVector();
 		SprayProjectileVisuals.tickClientProjectiles(level, clientProjectiles, currentFluid,
-			sprayedFuelPath, potionColor, getTrailParticlesPerTick(),
+			sprayedFuelPath, potionColor,
+			currentFluid == FluidBehavior.CUSTOM && currentCustomRule != null ? currentCustomRule.particles() : null,
+			getTrailParticlesPerTick(),
 			pos -> SableStructureClientCompat.renderPositionToWorld(this, pos));
 	}
 
@@ -1354,7 +1452,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 					level.addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD,
 						px, py, pz, velX * 0.2, velY * 0.2 + 0.01, velZ * 0.2);
 			} else {
-				if (currentFluid == FluidBehavior.FLAMMABLE) {
+				if (isCurrentSprayFlammable()) {
 					double particleAge = proj.age - 1 + t;
 					if (proj.ignited && proj.ignitedAtAge >= 0 && particleAge >= proj.ignitedAtAge) {
 						if (level.random.nextBoolean())
@@ -1370,7 +1468,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 					Vector3f color;
 					if (currentFluid == FluidBehavior.MILK) {
 						color = new Vector3f(1.0f, 1.0f, 1.0f);
-					} else if (currentFluid == FluidBehavior.POTION) {
+					} else if (currentFluid == FluidBehavior.POTION || currentFluid == FluidBehavior.CUSTOM) {
 						color = potionColor;
 					} else {
 						if (level.random.nextFloat() < 0.6f * progress) {
@@ -1393,6 +1491,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		@Override
 		protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 			super.write(tag, registries, clientPacket);
+			if (!customSprayRules.isEmpty())
+				tag.put(NozzleSprayRuleSet.TAG, customSprayRules.write(registries));
 			if (clientPacket) {
 				tag.putLong("SprayStartedAt", sprayStartedAt);
 				tag.putString("LastSprayFluid", lastSprayFluid.name());
@@ -1407,6 +1507,10 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		@Override
 		protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 			super.read(tag, registries, clientPacket);
+			if (tag.contains(NozzleSprayRuleSet.TAG))
+				customSprayRules = NozzleSprayRuleSet.read(registries, tag.getCompound(NozzleSprayRuleSet.TAG));
+			else if (!clientPacket)
+				customSprayRules = NozzleSprayRuleSet.EMPTY;
 			if (clientPacket) {
 				if (tag.contains("SprayStartedAt")) {
 					long newSprayStartedAt = tag.getLong("SprayStartedAt");
@@ -1430,16 +1534,51 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	// Fluid classification
 
 	protected FluidBehavior classifyFluid(FluidStack stack) {
-		FluidBehavior behavior = classifyFluidForSpray(level, stack);
+		currentCustomRule = null;
+		var global = NozzleGlobalSprayRules.findGlobalRule(stack);
+		if (global.isPresent()) {
+			currentCustomRule = global.get();
+			currentPotionContents = PotionContents.EMPTY;
+			potionColor = currentCustomRule.particles().primaryVector();
+			return FluidBehavior.CUSTOM;
+		}
+		FluidBehavior behavior = classifyBuiltInFluidForSpray(level, stack);
 		if (behavior == FluidBehavior.POTION) {
 			currentPotionContents = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
 			int rgb = currentPotionContents.getColor();
 			potionColor = new Vector3f(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
+			return behavior;
+		}
+		if (behavior != FluidBehavior.UNSUPPORTED)
+			return behavior;
+		var custom = customSprayRules.find(stack);
+		if (custom.isPresent()) {
+			currentCustomRule = custom.get();
+			currentPotionContents = PotionContents.EMPTY;
+			potionColor = currentCustomRule.particles().primaryVector();
+			return FluidBehavior.CUSTOM;
 		}
 		return behavior;
 	}
 
 	static FluidBehavior classifyFluidForSpray(Level level, FluidStack stack) {
+		return classifyFluidForSpray(level, stack, NozzleSprayRuleSet.EMPTY);
+	}
+
+	static FluidBehavior classifyFluidForSpray(Level level, FluidStack stack, NozzleSprayRuleSet rules) {
+		if (stack.isEmpty())
+			return FluidBehavior.UNSUPPORTED;
+		if (NozzleGlobalSprayRules.findGlobalRule(stack).isPresent())
+			return FluidBehavior.CUSTOM;
+		FluidBehavior builtIn = classifyBuiltInFluidForSpray(level, stack);
+		if (builtIn != FluidBehavior.UNSUPPORTED)
+			return builtIn;
+		if (rules != null && rules.find(stack).isPresent())
+			return FluidBehavior.CUSTOM;
+		return FluidBehavior.UNSUPPORTED;
+	}
+
+	static FluidBehavior classifyBuiltInFluidForSpray(Level level, FluidStack stack) {
 		if (stack.isEmpty())
 			return FluidBehavior.UNSUPPORTED;
 		Fluid fluid = stack.getFluid();
@@ -1462,6 +1601,20 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return classifyFluidForSpray(level, stack) != FluidBehavior.UNSUPPORTED;
 	}
 
+	public static boolean isFluidSupportedForSpray(Level level, FluidStack stack, NozzleSprayRuleSet rules) {
+		return classifyFluidForSpray(level, stack, rules) != FluidBehavior.UNSUPPORTED;
+	}
+
+	public NozzleSprayRuleSet getCustomSprayRules() {
+		return customSprayRules;
+	}
+
+	public void setCustomSprayRules(NozzleSprayRuleSet rules) {
+		customSprayRules = rules == null ? NozzleSprayRuleSet.EMPTY : rules;
+		if (level != null)
+			notifyUpdate();
+	}
+
 	private static NozzleSprayFluidType apiFluidType(FluidBehavior behavior) {
 		return switch (behavior) {
 			case WATER -> NozzleSprayFluidType.WATER;
@@ -1469,7 +1622,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			case MILK -> NozzleSprayFluidType.MILK;
 			case POTION -> NozzleSprayFluidType.POTION;
 			case DRAGON_BREATH -> NozzleSprayFluidType.DRAGON_BREATH;
-			case FLAMMABLE -> NozzleSprayFluidType.FLAMMABLE;
+			case FLAMMABLE, CUSTOM -> NozzleSprayFluidType.FLAMMABLE;
 			case UNSUPPORTED -> NozzleSprayFluidType.UNSUPPORTED;
 		};
 	}
@@ -1681,12 +1834,18 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		forEachEntityOnCenterline(entityLevel, scanArea, centerline, (entity, sample) -> {
 			if (checkWalls && isEntityBlockedByWall(entityLevel, origin, entity))
 				return;
-			NozzleSprayEffects.applyEntityEffect(entityLevel, entity, sample, getEffectiveRange(),
-				currentFluid, sprayIgnited, currentPotionContents, entityProcessingType, true);
+			if (currentFluid == FluidBehavior.CUSTOM && currentCustomRule != null)
+				NozzleSprayEffects.applyCustomEntityEffect(entityLevel, entity, sample, getEffectiveRange(),
+					currentCustomRule, sprayIgnited, entityProcessingType, true);
+			else
+				NozzleSprayEffects.applyEntityEffect(entityLevel, entity, sample, getEffectiveRange(),
+					currentFluid, sprayIgnited, currentPotionContents, entityProcessingType, true);
 		});
 	}
 
 	private FanProcessingType getNozzleFanProcessingType() {
+		if (currentFluid == FluidBehavior.CUSTOM)
+			return NozzleSprayEffects.fanProcessingType(currentCustomRule, sprayIgnited);
 		return NozzleSprayEffects.fanProcessingType(currentFluid, sprayIgnited);
 	}
 
@@ -2035,6 +2194,28 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		});
 	}
 
+	protected void customBehavior() {
+		if (currentCustomRule == null)
+			return;
+		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
+		forEachBlockInSpray((pos, state) -> {
+			NozzleSprayHitContext context = sprayHitContext(pos, state, FluidBehavior.CUSTOM, sprayIgnited,
+				getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
+				getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos)));
+			if (customRuleExtinguishesBlocks(sprayIgnited))
+				NozzleSprayEffects.applyBlockSample(context, FluidBehavior.WATER, false, options);
+			if (customRuleIgnitesBlocks(sprayIgnited))
+				NozzleSprayEffects.applyBlockSample(context, FluidBehavior.LAVA, true, options);
+		});
+		FanProcessingType processingType = NozzleSprayEffects.fanProcessingType(currentCustomRule, sprayIgnited);
+		forEachEntityInSpray((entity, axialDist) -> {
+			Vec3 direction = getWorldSprayDirection();
+			CenterlineSample sample = new CenterlineSample(entity.position(), direction, axialDist);
+			NozzleSprayEffects.applyCustomEntityEffect(level, entity, sample, getEffectiveRange(),
+				currentCustomRule, sprayIgnited, processingType, true);
+		});
+	}
+
 	// Area sweep
 
 	private void doFullSweep() {
@@ -2048,11 +2229,19 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
 		forEachBlockInSpray((pos, state) -> {
 			visited[0]++;
-			if (NozzleSprayEffects.applyBlockSample(
-				sprayHitContext(pos, state, currentFluid, sprayIgnited,
-					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
-					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
-				currentFluid, sprayIgnited, options))
+			NozzleSprayHitContext context = sprayHitContext(pos, state, currentFluid, sprayIgnited,
+				getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
+				getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos)));
+			boolean applied;
+			if (currentFluid == FluidBehavior.CUSTOM && currentCustomRule != null) {
+				applied = customRuleExtinguishesBlocks(sprayIgnited)
+					&& NozzleSprayEffects.applyBlockSample(context, FluidBehavior.WATER, false, options);
+				if (customRuleIgnitesBlocks(sprayIgnited))
+					applied |= NozzleSprayEffects.applyBlockSample(context, FluidBehavior.LAVA, true, options);
+			} else {
+				applied = NozzleSprayEffects.applyBlockSample(context, currentFluid, sprayIgnited, options);
+			}
+			if (applied)
 				effects[0]++;
 		});
 		SprayPerformanceDebug.record(level, "full_block_sweep", worldPosition, perfStart,
@@ -2183,6 +2372,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			}
 			case MILK -> WHITE;
 			case POTION -> potionColor;
+			case CUSTOM -> currentCustomRule == null ? potionColor : currentCustomRule.particles().pickVector(random);
 			case DRAGON_BREATH -> pickDragonBreathColor(random);
 			case FLAMMABLE -> {
 				Vector3f[] colors = getFuelColorsByPath(sprayedFuelPath);
@@ -2203,6 +2393,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			}
 			case MILK -> WHITE;
 			case POTION -> potionColor;
+			case CUSTOM -> currentCustomRule == null ? potionColor : currentCustomRule.particles().pickVector(random);
 			case DRAGON_BREATH -> pickDragonBreathColor(random);
 			case FLAMMABLE -> {
 				Vector3f[] colors = getFuelColorsByPath(sprayedFuelPath);

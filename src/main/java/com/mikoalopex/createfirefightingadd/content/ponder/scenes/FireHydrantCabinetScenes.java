@@ -96,7 +96,7 @@ public class FireHydrantCabinetScenes {
 			.colored(PonderPalette.BLUE)
 			.placeNearTarget()
 			.pointAt(util.vector().centerOf(cabinet))
-			.text("Sneak-right-click the cabinet with an empty controller to bind it.");
+			.text("Sneak-use the cabinet with an empty controller to bind it.");
 		scene.idle(85);
 
 		createBoundControllerEntity(scene, controllerPoint, boundController);

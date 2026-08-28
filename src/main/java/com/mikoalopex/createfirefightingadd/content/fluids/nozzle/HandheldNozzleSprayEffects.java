@@ -62,10 +62,17 @@ public final class HandheldNozzleSprayEffects {
 		FluidStack fluid = cabinet.drainForHandheldSpray(CONSUMPTION_PER_TICK, FluidAction.SIMULATE);
 		if (fluid.isEmpty())
 			return false;
+		NozzleSprayRuleSet customRules = cabinet.getCustomSprayRules();
 		AbstractSprayDeviceBlockEntity.FluidBehavior behavior =
-			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(level, fluid);
+			AbstractSprayDeviceBlockEntity.classifyFluidForSpray(level, fluid, customRules);
 		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED)
 			return false;
+		NozzleSprayRule customRule = null;
+		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM) {
+			customRule = NozzleGlobalSprayRules.findGlobalRule(fluid).orElse(null);
+			if (customRule == null)
+				customRule = customRules.find(fluid).orElse(null);
+		}
 
 		fluid = cabinet.drainForHandheldSpray(CONSUMPTION_PER_TICK, FluidAction.EXECUTE);
 		if (fluid.isEmpty())
@@ -78,11 +85,12 @@ public final class HandheldNozzleSprayEffects {
 		int range = rangeFor(nozzleType);
 		long tick = level.getGameTime();
 		boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA
-			|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE;
+			|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
+			|| customRule != null && (customRule.igniting() || customRule.flammable());
 
 		long perfStart = SprayPerformanceDebug.start();
-		applyBlockEffects(level, origin, direction, shape, range, behavior, fluid, ignited, tick);
-		applyEntityEffects(level, origin, direction, shape, range, behavior, fluid, ignited);
+		applyBlockEffects(level, origin, direction, shape, range, behavior, fluid, ignited, tick, customRule);
+		applyEntityEffects(level, origin, direction, shape, range, behavior, fluid, ignited, customRule);
 		applyRecoil(player, direction);
 		SprayPerformanceDebug.record(level, "handheld_spray", player.blockPosition(), perfStart, -1,
 			() -> "player=" + player.getGameProfile().getName()
@@ -113,7 +121,8 @@ public final class HandheldNozzleSprayEffects {
 	}
 
 	private static void applyBlockEffects(ServerLevel level, Vec3 origin, Vec3 direction, SprayShape shape,
-			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited, long tick) {
+			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited, long tick,
+			@org.jetbrains.annotations.Nullable NozzleSprayRule customRule) {
 		int rays = Math.max(8, Math.min(28, range / 2));
 		NozzleSprayEffects.BlockEffectOptions options =
 			NozzleSprayEffects.BlockEffectOptions.projectilePath(NozzleSprayEffects.NO_EXTINGUISH_SOUND);
@@ -121,6 +130,15 @@ public final class HandheldNozzleSprayEffects {
 			SAMPLE_STEP, (pos, state, samplePos, rayDirection, distance) -> {
 				NozzleSprayHitContext context = new NozzleSprayHitContext(level, pos, state, fluid.copy(),
 					apiType(behavior), ignited, origin, samplePos, rayDirection, distance);
+				if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM && customRule != null) {
+					if (customRuleExtinguishesBlocks(customRule, ignited))
+						NozzleSprayEffects.applyBlockSample(context,
+							AbstractSprayDeviceBlockEntity.FluidBehavior.WATER, false, options);
+					if (customRuleIgnitesBlocks(customRule, ignited))
+						NozzleSprayEffects.applyBlockSample(context,
+							AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA, true, options);
+					return;
+				}
 				if (!NozzleSprayEffects.canAffectBlock(context, behavior, ignited, options))
 					return;
 				NozzleSprayEffects.applyBlockSample(context, behavior, ignited, options);
@@ -128,10 +146,13 @@ public final class HandheldNozzleSprayEffects {
 	}
 
 	private static void applyEntityEffects(ServerLevel level, Vec3 origin, Vec3 direction, SprayShape shape,
-			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited) {
+			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited,
+			@org.jetbrains.annotations.Nullable NozzleSprayRule customRule) {
 		AABB area = new AABB(origin, origin.add(direction.scale(range))).inflate(range * 0.35 + 1.5);
 		List<AbstractSprayDeviceBlockEntity.CenterlineSample> centerline = centerline(origin, direction, range);
-		var fanProcessingType = NozzleSprayEffects.fanProcessingType(behavior, ignited);
+		var fanProcessingType = customRule == null
+			? NozzleSprayEffects.fanProcessingType(behavior, ignited)
+			: NozzleSprayEffects.fanProcessingType(customRule, ignited);
 		var processingType = fanProcessingType != null
 			&& SprayAuxiliaryScheduler.shouldProcess(level, BlockPos.containing(origin), false)
 				? fanProcessingType : null;
@@ -142,9 +163,21 @@ public final class HandheldNozzleSprayEffects {
 			AbstractSprayDeviceBlockEntity.CenterlineSample sample = closestSample(entity.position(), centerline, shape, range);
 			if (sample == null)
 				continue;
-			NozzleSprayEffects.applyEntityEffect(level, entity, sample, range,
-				behavior, ignited, fluid, processingType, true);
+			if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM && customRule != null)
+				NozzleSprayEffects.applyCustomEntityEffect(level, entity, sample, range,
+					customRule, ignited, processingType, true);
+			else
+				NozzleSprayEffects.applyEntityEffect(level, entity, sample, range,
+					behavior, ignited, fluid, processingType, true);
 		}
+	}
+
+	private static boolean customRuleIgnitesBlocks(NozzleSprayRule rule, boolean ignited) {
+		return rule.igniting() || rule.flammable() && ignited;
+	}
+
+	private static boolean customRuleExtinguishesBlocks(NozzleSprayRule rule, boolean ignited) {
+		return rule.extinguishing() && !customRuleIgnitesBlocks(rule, ignited);
 	}
 
 	private static List<AbstractSprayDeviceBlockEntity.CenterlineSample> centerline(Vec3 origin, Vec3 direction, int range) {
@@ -190,7 +223,7 @@ public final class HandheldNozzleSprayEffects {
 			case MILK -> NozzleSprayFluidType.MILK;
 			case POTION -> NozzleSprayFluidType.POTION;
 			case DRAGON_BREATH -> NozzleSprayFluidType.DRAGON_BREATH;
-			case FLAMMABLE -> NozzleSprayFluidType.FLAMMABLE;
+			case FLAMMABLE, CUSTOM -> NozzleSprayFluidType.FLAMMABLE;
 			case UNSUPPORTED -> NozzleSprayFluidType.UNSUPPORTED;
 		};
 	}

@@ -15,11 +15,13 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.mikoalopex.createfirefightingadd.Config;
-import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseEndpointModel;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.FireHoseRenderTransform;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Minecraft;
@@ -40,7 +42,9 @@ import org.joml.Quaterniondc;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -53,14 +57,122 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
     private static final float TEXTURE_WIDTH = 16.0f;
     private static final Vector3d ZERO = new Vector3d();
     private static final Vector3d UP = new Vector3d(0, 1, 0);
+    private static final Vector3d DOWN = new Vector3d(0, -1, 0);
+    private static final Vector3d NORTH = new Vector3d(0, 0, -1);
+    private static final Vector3d SOUTH = new Vector3d(0, 0, 1);
+    private static final Vector3d EAST = new Vector3d(1, 0, 0);
+    private static final Vector3d WEST = new Vector3d(-1, 0, 0);
 
-    private static final RenderType WHITE_HOSE_RENDER_TYPE = createHoseRenderType("fire_hose_tube",
-            CreateFireFightingAdd.path("textures/block/fire_hose.png"));
-    private static final RenderType BLACK_HOSE_RENDER_TYPE = createHoseRenderType("fire_hose_tube_black",
-            CreateFireFightingAdd.path("textures/block/fire_hose_black.png"));
+    private static final Map<ResourceLocation, RenderType> HOSE_RENDER_TYPES = new HashMap<>();
+    private static final Map<ResourceLocation, RenderType> ENDPOINT_RENDER_TYPES = new HashMap<>();
+    private static final RenderType DEFAULT_HOSE_RENDER_TYPE = createHoseRenderType(
+            FireHoseAppearances.get(FireHoseAppearances.DEFAULT).hoseTexture());
+    private static final RenderType BLACK_HOSE_RENDER_TYPE = createHoseRenderType(
+            FireHoseAppearances.get(FireHoseAppearances.BLACK).hoseTexture());
 
-    private static RenderType createHoseRenderType(String name, ResourceLocation texture) {
+    private static RenderType createHoseRenderType(ResourceLocation texture) {
         return RenderType.entityCutoutNoCull(texture);
+    }
+
+    private static RenderType hoseRenderType(FireHoseAppearances.Entry appearance) {
+        ResourceLocation texture = appearance.hoseTexture();
+        if (texture == null)
+            return null;
+        if (FireHoseAppearances.DEFAULT.equals(appearance.id()))
+            return DEFAULT_HOSE_RENDER_TYPE;
+        if (FireHoseAppearances.BLACK.equals(appearance.id()))
+            return BLACK_HOSE_RENDER_TYPE;
+        return HOSE_RENDER_TYPES.computeIfAbsent(texture, FireHoseRenderer::createHoseRenderType);
+    }
+
+    private static RenderType endpointRenderType(ResourceLocation texture) {
+        return ENDPOINT_RENDER_TYPES.computeIfAbsent(texture,
+            key -> RenderType.entityCutoutNoCull(key));
+    }
+
+    private void renderCustomEndpoint(FireHoseBlockEntity be, PoseStack poseStack,
+            MultiBufferSource bufferSource, int light, FireHoseAppearances.Entry appearance) {
+        BlockState state = be.getBlockState();
+        if (!state.hasProperty(FireHoseBlock.APPEARANCE)
+            || state.getValue(FireHoseBlock.APPEARANCE) != FireHoseEndpointModel.CUSTOM)
+            return;
+
+        // Built-in endpoint models are baked from blockstates; external textures use this fallback cuboid.
+        VertexConsumer buffer = bufferSource.getBuffer(endpointRenderType(appearance.endpointTexture()));
+        poseStack.pushPose();
+        rotateEndpointModel(poseStack, state.getValue(FireHoseBlock.FACING));
+        renderEndpointCuboid(poseStack, buffer, light);
+        poseStack.popPose();
+    }
+
+    private static void rotateEndpointModel(PoseStack poseStack, Direction facing) {
+        poseStack.translate(0.5f, 0.5f, 0.5f);
+        switch (facing) {
+            case DOWN -> poseStack.mulPose(Axis.XP.rotationDegrees(180.0f));
+            case EAST -> {
+                poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+                poseStack.mulPose(Axis.YP.rotationDegrees(90.0f));
+            }
+            case NORTH -> poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+            case SOUTH -> {
+                poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+                poseStack.mulPose(Axis.YP.rotationDegrees(180.0f));
+            }
+            case WEST -> {
+                poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+                poseStack.mulPose(Axis.YP.rotationDegrees(270.0f));
+            }
+            case UP -> {
+            }
+        }
+        poseStack.translate(-0.5f, -0.5f, -0.5f);
+    }
+
+    private void renderEndpointCuboid(PoseStack poseStack, VertexConsumer buffer, int light) {
+        double x0 = 3.0 / 16.0;
+        double y0 = 0.0;
+        double z0 = 3.0 / 16.0;
+        double x1 = 13.0 / 16.0;
+        double y1 = 4.0 / 16.0;
+        double z1 = 13.0 / 16.0;
+
+        float u0 = 0.0f;
+        float v0 = 0.0f;
+        float uSide = 5.0f / 16.0f;
+        float vSide = 2.0f / 16.0f;
+        float uFace0 = 5.0f / 16.0f;
+        float uFace1 = 10.0f / 16.0f;
+        float vDown0 = 0.0f;
+        float vDown1 = 5.0f / 16.0f;
+        float vUp0 = 5.0f / 16.0f;
+        float vUp1 = 10.0f / 16.0f;
+
+        endpointQuad(poseStack, buffer, light, NORTH,
+            new Vector3d(x1, y0, z0), new Vector3d(x1, y1, z0),
+            new Vector3d(x0, y1, z0), new Vector3d(x0, y0, z0), u0, v0, uSide, vSide);
+        endpointQuad(poseStack, buffer, light, SOUTH,
+            new Vector3d(x0, y0, z1), new Vector3d(x0, y1, z1),
+            new Vector3d(x1, y1, z1), new Vector3d(x1, y0, z1), u0, v0, uSide, vSide);
+        endpointQuad(poseStack, buffer, light, EAST,
+            new Vector3d(x1, y0, z1), new Vector3d(x1, y1, z1),
+            new Vector3d(x1, y1, z0), new Vector3d(x1, y0, z0), u0, v0, uSide, vSide);
+        endpointQuad(poseStack, buffer, light, WEST,
+            new Vector3d(x0, y0, z0), new Vector3d(x0, y1, z0),
+            new Vector3d(x0, y1, z1), new Vector3d(x0, y0, z1), u0, v0, uSide, vSide);
+        endpointQuad(poseStack, buffer, light, UP,
+            new Vector3d(x0, y1, z1), new Vector3d(x0, y1, z0),
+            new Vector3d(x1, y1, z0), new Vector3d(x1, y1, z1), uFace0, vUp0, uFace1, vUp1);
+        endpointQuad(poseStack, buffer, light, DOWN,
+            new Vector3d(x0, y0, z0), new Vector3d(x0, y0, z1),
+            new Vector3d(x1, y0, z1), new Vector3d(x1, y0, z0), uFace0, vDown0, uFace1, vDown1);
+    }
+
+    private void endpointQuad(PoseStack poseStack, VertexConsumer buffer, int light, Vector3dc normal,
+            Vector3dc a, Vector3dc b, Vector3dc c, Vector3dc d, float u0, float v0, float u1, float v1) {
+        vert(poseStack, buffer, a, 0xFFFFFFFF, u0, v0, normal, light);
+        vert(poseStack, buffer, b, 0xFFFFFFFF, u0, v1, normal, light);
+        vert(poseStack, buffer, c, 0xFFFFFFFF, u1, v1, normal, light);
+        vert(poseStack, buffer, d, 0xFFFFFFFF, u1, v0, normal, light);
     }
 
     private final Vector3d controlPointA = new Vector3d();
@@ -121,17 +233,21 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
     protected void renderSafe(FireHoseBlockEntity be, float partialTicks, PoseStack ps,
                                MultiBufferSource bufferSource, int light, int overlay) {
         super.renderSafe(be, partialTicks, ps, bufferSource, light, overlay);
-        if (!be.isController()) {
+        FireHoseAppearances.Entry appearance = be.getHoseAppearance();
+        renderCustomEndpoint(be, ps, bufferSource, light, appearance);
+
+        if (!be.isController())
             return;
-        }
 
         FireHoseBlockEntity other = be.getPairedHose();
-        if (other == null) {
+        if (other == null)
             return;
-        }
 
-        Minecraft minecraft = Minecraft.getInstance();
-        VertexConsumer buffer = bufferSource.getBuffer(be.isBlackHose() ? BLACK_HOSE_RENDER_TYPE : WHITE_HOSE_RENDER_TYPE);
+        RenderType renderType = hoseRenderType(appearance);
+        if (renderType == null)
+            return;
+
+        VertexConsumer buffer = bufferSource.getBuffer(renderType);
 
         ps.pushPose();
 

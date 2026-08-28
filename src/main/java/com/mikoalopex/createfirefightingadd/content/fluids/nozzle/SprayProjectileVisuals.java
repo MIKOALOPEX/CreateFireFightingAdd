@@ -21,6 +21,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 
 import net.neoforged.neoforge.fluids.FluidStack;
 
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 final class SprayProjectileVisuals {
@@ -82,7 +83,8 @@ final class SprayProjectileVisuals {
 			Vec3 dir = shape.randomSprayDirection(baseDirection, random);
 			LightweightProjectile proj = new LightweightProjectile(origin, dir.scale(speed), lifetime,
 				behavior, (float) AbstractSprayDeviceBlockEntity.PUSH_STREAM_SPEED, gravity, friction);
-			if (ignited && behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE) {
+			if (ignited && (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
+				|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM)) {
 				proj.ignited = true;
 				proj.ignitedAtAge = 0;
 			}
@@ -92,7 +94,8 @@ final class SprayProjectileVisuals {
 
 	static void tickClientProjectiles(Level level, List<LightweightProjectile> projectiles,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, String fuelPath, Vector3f potionColor,
-			int trailParticlesPerTick, Function<Vec3, Vec3> renderPositionMapper) {
+			@Nullable NozzleParticlePalette customPalette, int trailParticlesPerTick,
+			Function<Vec3, Vec3> renderPositionMapper) {
 		projectiles.removeIf(proj -> {
 			proj.tick();
 
@@ -110,7 +113,7 @@ final class SprayProjectileVisuals {
 				return true;
 			}
 
-			spawnTrailParticles(level, proj, behavior, fuelPath, potionColor, trailParticlesPerTick,
+			spawnTrailParticles(level, proj, behavior, fuelPath, potionColor, customPalette, trailParticlesPerTick,
 				renderPositionMapper);
 			return proj.isExpired();
 		});
@@ -131,7 +134,8 @@ final class SprayProjectileVisuals {
 
 	private static void spawnTrailParticles(Level level, LightweightProjectile proj,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, String fuelPath, Vector3f potionColor,
-			int trailParticlesPerTick, Function<Vec3, Vec3> renderPositionMapper) {
+			@Nullable NozzleParticlePalette customPalette, int trailParticlesPerTick,
+			Function<Vec3, Vec3> renderPositionMapper) {
 		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.UNSUPPORTED || behavior == null)
 			return;
 
@@ -168,7 +172,8 @@ final class SprayProjectileVisuals {
 				+ (level.random.nextDouble() - 0.5) * 0.02 * mistFactor;
 			double velZ = proj.velocity.z * 0.1 * streamWeight + (level.random.nextDouble() - 0.5) * 0.04 * mistFactor;
 
-			spawnColoredParticle(level, behavior, proj, fuelPath, potionColor, size, particlePos, velX, velY, velZ, t);
+			spawnColoredParticle(level, behavior, proj, fuelPath, potionColor, customPalette,
+				size, particlePos, velX, velY, velZ, t);
 		}
 	}
 
@@ -204,7 +209,8 @@ final class SprayProjectileVisuals {
 	}
 
 	private static void spawnColoredParticle(Level level, AbstractSprayDeviceBlockEntity.FluidBehavior behavior,
-			LightweightProjectile proj, String fuelPath, Vector3f potionColor, float size, Vec3 pos,
+			LightweightProjectile proj, String fuelPath, Vector3f potionColor,
+			@Nullable NozzleParticlePalette customPalette, float size, Vec3 pos,
 			double velX, double velY, double velZ, double partialAge) {
 		switch (behavior) {
 			case LAVA -> {
@@ -233,6 +239,10 @@ final class SprayProjectileVisuals {
 			}
 			case MILK -> level.addParticle(new DustParticleOptions(WHITE, size), pos.x, pos.y, pos.z, velX, velY, velZ);
 			case POTION -> level.addParticle(new DustParticleOptions(potionColor, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+			case CUSTOM -> {
+				Vector3f color = customPalette == null ? potionColor : customPalette.pickVector(level.random);
+				level.addParticle(new DustParticleOptions(color, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+			}
 			default -> {
 				Vector3f color;
 				double progress = (double) proj.age / proj.maxLifetime;

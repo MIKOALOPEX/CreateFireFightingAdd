@@ -1,5 +1,9 @@
 package com.mikoalopex.createfirefightingadd;
 
+import java.util.List;
+
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleGlobalSprayRules;
+
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -60,6 +64,7 @@ public class Config {
 	private static final ModConfigSpec.IntValue NOZZLE_SPRAY_BUILDUP_TICKS;
 	private static final ModConfigSpec.BooleanValue NOZZLE_THRUST_ENABLED;
 	private static final ModConfigSpec.DoubleValue NOZZLE_THRUST_MULTIPLIER;
+	private static final ModConfigSpec.ConfigValue<List<? extends String>> NOZZLE_GLOBAL_FLUID_RULES;
 	private static final ModConfigSpec.DoubleValue MIST_SPREAD_RADIUS;
 	private static final ModConfigSpec.DoubleValue MIST_TRANSITION_START;
 	private static final ModConfigSpec.IntValue SERVER_PROJECTILES_PER_TICK;
@@ -266,6 +271,13 @@ public class Config {
 		NOZZLE_THRUST_MULTIPLIER = BUILDER
 			.comment("Global recoil thrust multiplier for nozzle spray (0.0-500.0). At 10.0, a flat nozzle at full range with water produces ~10N of thrust")
 			.defineInRange("nozzleThrustMultiplier", 10.0, 0.0, 500.0);
+		NOZZLE_GLOBAL_FLUID_RULES = BUILDER
+			.comment(
+				"Global locked nozzle fluid rules. Players can view these rules but cannot edit them with the configurator.",
+				"Format: one JSON object per list entry.",
+				"Example: {\"fluid\":\"modid:fluid\",\"colors\":[{\"rgb\":\"#4D8CFF\",\"weight\":60},{\"rgb\":\"#8FCBFF\",\"weight\":25},{\"rgb\":\"#245EBF\",\"weight\":15}],\"flammable\":false,\"extinguishing\":true,\"igniting\":false,\"effects\":[\"minecraft:speed\"],\"fan_processing\":\"create:splashing\"}",
+				"Supported fields: fluid, colors[3].rgb, colors[3].weight, flammable, extinguishing, igniting, effects, fan_processing.")
+			.defineListAllowEmpty("globalFluidRules", List.of(), () -> "", value -> value instanceof String);
 		BUILDER.pop();
 
 		BUILDER.push("CDGCompat");
@@ -336,6 +348,7 @@ public class Config {
 	public static int nozzleIgnitionChance;
 	public static boolean nozzleThrustEnabled;
 	public static double nozzleThrustMultiplier;
+	public static List<? extends String> nozzleGlobalFluidRules = List.of();
 	public static boolean cdgIgnitionEnabled;
 	public static double flamePropagationRadius;
 
@@ -400,6 +413,8 @@ public class Config {
 		nozzleIgnitionChance = NOZZLE_IGNITION_CHANCE.get();
 		nozzleThrustEnabled = NOZZLE_THRUST_ENABLED.get();
 		nozzleThrustMultiplier = NOZZLE_THRUST_MULTIPLIER.get();
+		nozzleGlobalFluidRules = List.copyOf(NOZZLE_GLOBAL_FLUID_RULES.get());
+		NozzleGlobalSprayRules.reloadFromConfig(nozzleGlobalFluidRules);
 		cdgIgnitionEnabled = CDG_IGNITION_ENABLED.get();
 		flamePropagationRadius = FLAME_PROPAGATION_RADIUS.get();
 

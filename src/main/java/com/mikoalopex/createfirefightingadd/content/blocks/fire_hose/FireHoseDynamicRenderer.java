@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.mikoalopex.createfirefightingadd.Config;
-import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
@@ -38,18 +38,19 @@ public final class FireHoseDynamicRenderer {
 	private static final float TUBE_WIDTH = 8.0f;
 	private static final float TEXTURE_WIDTH = 16.0f;
 	private static final Vector3d UP = new Vector3d(0, 1, 0);
-	private static final RenderType WHITE_HOSE_RENDER_TYPE = createHoseRenderType("moving_fire_hose_tube",
-		CreateFireFightingAdd.path("textures/block/fire_hose.png"));
-	private static final RenderType BLACK_HOSE_RENDER_TYPE = createHoseRenderType("moving_fire_hose_tube_black",
-		CreateFireFightingAdd.path("textures/block/fire_hose_black.png"));
 	private static final Map<Integer, DynamicHose> DYNAMIC_HOSES = new HashMap<>();
+	private static final Map<ResourceLocation, RenderType> HOSE_RENDER_TYPES = new HashMap<>();
+	private static final RenderType DEFAULT_HOSE_RENDER_TYPE = createHoseRenderType(
+		FireHoseAppearances.get(FireHoseAppearances.DEFAULT).hoseTexture());
+	private static final RenderType BLACK_HOSE_RENDER_TYPE = createHoseRenderType(
+		FireHoseAppearances.get(FireHoseAppearances.BLACK).hoseTexture());
 
 	private FireHoseDynamicRenderer() {
 	}
 
 	public static void submit(int key, Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
-			boolean black, long expiresAt) {
-		DYNAMIC_HOSES.put(key, new DynamicHose(start, end, startFacing, endFacing, black, expiresAt));
+			ResourceLocation appearance, long expiresAt) {
+		DYNAMIC_HOSES.put(key, new DynamicHose(start, end, startFacing, endFacing, appearance, expiresAt));
 	}
 
 	public static void render(RenderLevelStageEvent event) {
@@ -72,16 +73,32 @@ public final class FireHoseDynamicRenderer {
 		poseStack.pushPose();
 		poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 		for (DynamicHose hose : DYNAMIC_HOSES.values()) {
-			VertexConsumer buffer = bufferSource.getBuffer(hose.black() ? BLACK_HOSE_RENDER_TYPE : WHITE_HOSE_RENDER_TYPE);
+			RenderType renderType = hoseRenderType(FireHoseAppearances.get(hose.appearance()));
+			if (renderType == null)
+				continue;
+			VertexConsumer buffer = bufferSource.getBuffer(renderType);
 			renderHose(poseStack, buffer, hose, sampleLight(minecraft.level, hose));
 		}
 		poseStack.popPose();
-		bufferSource.endBatch(WHITE_HOSE_RENDER_TYPE);
+		bufferSource.endBatch(DEFAULT_HOSE_RENDER_TYPE);
 		bufferSource.endBatch(BLACK_HOSE_RENDER_TYPE);
+		for (RenderType renderType : HOSE_RENDER_TYPES.values())
+			bufferSource.endBatch(renderType);
 	}
 
-	private static RenderType createHoseRenderType(String name, ResourceLocation texture) {
+	private static RenderType createHoseRenderType(ResourceLocation texture) {
 		return RenderType.entityCutoutNoCull(texture);
+	}
+
+	private static RenderType hoseRenderType(FireHoseAppearances.Entry appearance) {
+		ResourceLocation texture = appearance.hoseTexture();
+		if (texture == null)
+			return null;
+		if (FireHoseAppearances.DEFAULT.equals(appearance.id()))
+			return DEFAULT_HOSE_RENDER_TYPE;
+		if (FireHoseAppearances.BLACK.equals(appearance.id()))
+			return BLACK_HOSE_RENDER_TYPE;
+		return HOSE_RENDER_TYPES.computeIfAbsent(texture, FireHoseDynamicRenderer::createHoseRenderType);
 	}
 
 	private static int sampleLight(Level level, DynamicHose hose) {
@@ -356,7 +373,7 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	private record DynamicHose(Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
-			boolean black, long expiresAt) {
+			ResourceLocation appearance, long expiresAt) {
 	}
 
 	private record SplinePoint(Vector3dc point, Vector3dc normal) {

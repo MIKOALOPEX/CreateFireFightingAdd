@@ -145,7 +145,7 @@ final class FireHoseBlueprintMapper implements InvocationHandler {
 			partnerSubLevel,
 			partnerEndpointId,
 			partnerMoving,
-			hose.isFireHoseBlack());
+			hose.getFireHoseAppearance());
 	}
 
 	private UUID mappedPartnerSubLevel(Object context, CompoundTag blueprint, BlockRef partnerRef)

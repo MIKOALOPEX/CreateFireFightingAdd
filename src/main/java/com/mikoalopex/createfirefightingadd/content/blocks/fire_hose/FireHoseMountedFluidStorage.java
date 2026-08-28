@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
 import com.mikoalopex.createfirefightingadd.content.fluids.SafeFluidStacks;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mojang.serialization.Codec;
@@ -19,6 +20,7 @@ import com.simibubi.create.content.contraptions.Contraption;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -45,7 +47,9 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 		UUID_CODEC.optionalFieldOf("endpoint_id").forGetter(FireHoseMountedFluidStorage::getEndpointIdForEncoding),
 		Direction.CODEC.fieldOf("facing").forGetter(FireHoseMountedFluidStorage::getFacing),
 		Codec.BOOL.fieldOf("controller").forGetter(FireHoseMountedFluidStorage::isController),
-		Codec.BOOL.fieldOf("black").forGetter(FireHoseMountedFluidStorage::isBlackHose),
+		ResourceLocation.CODEC.optionalFieldOf("appearance").forGetter(FireHoseMountedFluidStorage::getAppearanceForEncoding),
+		Codec.BOOL.optionalFieldOf("black", false).forGetter(FireHoseMountedFluidStorage::isBlackHose),
+		Codec.BOOL.optionalFieldOf("transparent", false).forGetter(FireHoseMountedFluidStorage::isTransparentHose),
 		BlockPos.CODEC.optionalFieldOf("partner").forGetter(FireHoseMountedFluidStorage::getPartnerForEncoding),
 		UUID_CODEC.optionalFieldOf("partner_sublevel").forGetter(FireHoseMountedFluidStorage::getPartnerSubLevelForEncoding),
 		Codec.BOOL.optionalFieldOf("partner_moving", false).forGetter(FireHoseMountedFluidStorage::isPartnerMoving),
@@ -56,7 +60,7 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 	private final UUID endpointId;
 	private final Direction facing;
 	private boolean controller;
-	private boolean blackHose;
+	private ResourceLocation hoseAppearance;
 	@Nullable
 	private BlockPos partnerPos;
 	@Nullable
@@ -72,14 +76,14 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 	private int partnerConflictTicks;
 
 	public FireHoseMountedFluidStorage(int capacity, FluidStack stack, BlockPos originPos, Direction facing,
-			UUID endpointId, boolean controller, boolean blackHose, @Nullable BlockPos partnerPos,
+			UUID endpointId, boolean controller, ResourceLocation hoseAppearance, @Nullable BlockPos partnerPos,
 			@Nullable UUID partnerSubLevel, boolean partnerMoving, @Nullable UUID partnerEndpointId) {
 		super(CreateFireFightingAdd.FIRE_HOSE_MOUNTED_FLUID_STORAGE.get(), new Handler(capacity, stack));
 		this.originPos = originPos;
 		this.endpointId = endpointId == null ? UUID.randomUUID() : endpointId;
 		this.facing = facing;
 		this.controller = controller;
-		this.blackHose = blackHose;
+		this.hoseAppearance = FireHoseAppearances.get(hoseAppearance).id();
 		this.partnerPos = partnerPos;
 		this.partnerSubLevel = partnerPos == null ? null : partnerSubLevel;
 		this.partnerMoving = partnerPos != null && partnerMoving;
@@ -89,11 +93,12 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 	}
 
 	private FireHoseMountedFluidStorage(int capacity, Optional<FluidStack> stack, BlockPos originPos,
-			Optional<UUID> endpointId, Direction facing, boolean controller, boolean blackHose,
-			Optional<BlockPos> partnerPos, Optional<UUID> partnerSubLevel,
+			Optional<UUID> endpointId, Direction facing, boolean controller, Optional<ResourceLocation> hoseAppearance,
+			boolean blackHose, boolean transparentHose, Optional<BlockPos> partnerPos, Optional<UUID> partnerSubLevel,
 			boolean partnerMoving, Optional<UUID> partnerEndpointId) {
 		this(capacity, stack.map(SafeFluidStacks::copy).orElse(FluidStack.EMPTY), originPos,
-			facing, endpointId.orElseGet(UUID::randomUUID), controller, blackHose,
+			facing, endpointId.orElseGet(UUID::randomUUID), controller,
+			hoseAppearance.orElseGet(() -> FireHoseAppearances.fromLegacy(blackHose, transparentHose)),
 			partnerPos.orElse(null), partnerSubLevel.orElse(null), partnerMoving, partnerEndpointId.orElse(null));
 	}
 
@@ -106,7 +111,7 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 			hose.getFacingDirection(),
 			hose.getFireHoseEndpointId(),
 			hose.isController(),
-			hose.isBlackHose(),
+			hose.getHoseAppearanceId(),
 			hose.getFireHosePartnerPos(),
 			hose.getFireHosePartnerSubLevel(),
 			hose.isFireHosePartnerMoving(),
@@ -137,7 +142,7 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 		hose.setFireHoseEndpointId(endpointId);
 		hose.setMountedFluidStack(getFluid());
 		hose.setFireHoseConnection(controller, restoredPartnerPos, restoredPartnerSubLevel,
-			partnerEndpointId, partnerMoving, blackHose);
+			partnerEndpointId, partnerMoving, hoseAppearance);
 		if (restoredPartnerPos != null)
 			FireHoseMovingEndpoints.replaceMovingEndpoint(level, this, pos,
 				SableStructureCompat.containingSubLevelId(level, pos));
@@ -161,7 +166,7 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 			hose.setFireHoseEndpointId(endpointId);
 			hose.setMountedFluidStack(getFluid());
 			hose.setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId,
-				partnerMoving, blackHose);
+				partnerMoving, hoseAppearance);
 		}
 	}
 
@@ -213,7 +218,15 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 	}
 
 	public boolean isBlackHose() {
-		return blackHose;
+		return FireHoseAppearances.isBlack(hoseAppearance);
+	}
+
+	public boolean isTransparentHose() {
+		return FireHoseAppearances.isTransparent(hoseAppearance);
+	}
+
+	public ResourceLocation getHoseAppearanceId() {
+		return hoseAppearance;
 	}
 
 	@Nullable
@@ -250,6 +263,10 @@ public class FireHoseMountedFluidStorage extends WrapperMountedFluidStorage<Fire
 
 	public Optional<UUID> getEndpointIdForEncoding() {
 		return Optional.of(endpointId);
+	}
+
+	public Optional<ResourceLocation> getAppearanceForEncoding() {
+		return Optional.of(hoseAppearance);
 	}
 
 	public Optional<UUID> getPartnerSubLevelForEncoding() {

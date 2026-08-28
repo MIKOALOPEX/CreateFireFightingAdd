@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.mikoalopex.createfirefightingadd.Config;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseEndpointModel;
 import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseConnectionAccess;
 import com.mikoalopex.createfirefightingadd.content.fluids.SafeFluidStacks;
 import com.mikoalopex.createfirefightingadd.content.kinetics.pump.FireFightingPumpPressureProvider;
@@ -37,6 +39,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
@@ -67,7 +70,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     private static final double TIME_TO_SNAP = 3.0;
     private static final String TAG_CONTROLLER = "Controller";
+    private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_BLACK_HOSE = "BlackHose";
+    private static final String TAG_TRANSPARENT_HOSE = "TransparentHose";
     private static final String TAG_ENDPOINT_ID = "EndpointId";
     private static final String TAG_PARTNER_POS = "PartnerPos";
     private static final String TAG_PARTNER_SUB_LEVEL = "PartnerSubLevel";
@@ -91,7 +96,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     @Nullable
     private UUID movingPartnerRuntimeId;
     private long movingPartnerLeaseExpiresAt;
-    private boolean blackHose;
+    private ResourceLocation hoseAppearance = FireHoseAppearances.DEFAULT;
     private float ticksWithoutPartner;
     private double snappingTime;
 
@@ -1229,7 +1234,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         ticksWithoutPartner = 0;
         snappingTime = 0;
         markPressureDirty();
-        syncBlackBlockState();
+        syncHoseBlockState();
         if (partnerPos != null && partnerEndpointId != null)
             FireHoseConnectorBlockEntity.refreshAdjacentTo(this);
         notifyUpdate();
@@ -1424,31 +1429,73 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     @Override
     public boolean isFireHoseBlack() {
-        return blackHose;
+        return FireHoseAppearances.isBlack(hoseAppearance);
+    }
+
+    @Override
+    public ResourceLocation getFireHoseAppearance() {
+        return hoseAppearance;
+    }
+
+    @Override
+    public boolean isFireHoseTransparent() {
+        return FireHoseAppearances.isTransparent(hoseAppearance);
     }
 
     @Override
     public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
             @Nullable UUID partnerSubLevel, boolean blackHose) {
-        setFireHoseConnection(controller, partnerPos, partnerSubLevel, null, blackHose);
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, null, false,
+            FireHoseAppearances.fromLegacy(blackHose, false));
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, boolean blackHose, boolean transparentHose) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, null, false,
+            FireHoseAppearances.fromLegacy(blackHose, transparentHose));
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, ResourceLocation appearance) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, null, false, appearance);
     }
 
     @Override
     public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
             @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId, boolean blackHose) {
-        setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId, false, blackHose);
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId, false,
+            FireHoseAppearances.fromLegacy(blackHose, false));
     }
 
     @Override
     public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
             @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId,
             boolean partnerMoving, boolean blackHose) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId,
+            partnerMoving, FireHoseAppearances.fromLegacy(blackHose, false));
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId,
+            boolean partnerMoving, boolean blackHose, boolean transparentHose) {
+        setFireHoseConnection(controller, partnerPos, partnerSubLevel, partnerEndpointId,
+            partnerMoving, FireHoseAppearances.fromLegacy(blackHose, transparentHose));
+    }
+
+    @Override
+    public void setFireHoseConnection(boolean controller, @Nullable BlockPos partnerPos,
+            @Nullable UUID partnerSubLevel, @Nullable UUID partnerEndpointId,
+            boolean partnerMoving, ResourceLocation appearance) {
+        ResourceLocation normalized = FireHoseAppearances.normalize(appearance);
         this.isController = controller;
         this.partnerPos = partnerPos;
         this.partnerSubLevel = partnerPos == null ? null : partnerSubLevel;
         this.partnerEndpointId = partnerPos == null ? null : partnerEndpointId;
         this.partnerMoving = partnerPos != null && partnerMoving;
-        this.blackHose = blackHose;
+        this.hoseAppearance = normalized;
         onFireHoseConnectionChanged();
     }
 
@@ -1457,20 +1504,46 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     public boolean isBlackHose() {
-        return blackHose;
+        return isFireHoseBlack();
+    }
+
+    public boolean isTransparentHose() {
+        return isFireHoseTransparent();
+    }
+
+    public ResourceLocation getHoseAppearanceId() {
+        hoseAppearance = FireHoseAppearances.normalize(hoseAppearance);
+        return hoseAppearance;
+    }
+
+    public FireHoseAppearances.Entry getHoseAppearance() {
+        return FireHoseAppearances.get(getHoseAppearanceId());
     }
 
     public boolean setBlackHose(boolean black) {
-        boolean changed = blackHose != black;
+        return setHoseAppearance(FireHoseAppearances.fromLegacy(black, false));
+    }
+
+    public boolean setTransparentHose(boolean transparent) {
+        return setHoseAppearance(FireHoseAppearances.fromLegacy(false, transparent));
+    }
+
+    public boolean setHoseAppearance(boolean black, boolean transparent) {
+        return setHoseAppearance(FireHoseAppearances.fromLegacy(black, transparent));
+    }
+
+    public boolean setHoseAppearance(ResourceLocation appearance) {
+        ResourceLocation normalized = FireHoseAppearances.normalize(appearance);
+        boolean changed = !hoseAppearance.equals(normalized);
         if (changed) {
-            blackHose = black;
-            syncBlackBlockState();
+            hoseAppearance = normalized;
+            syncHoseBlockState();
             notifyUpdate();
         }
         FireHoseBlockEntity partner = getPairedHose();
-        if (partner != null && partner.blackHose != black) {
-            partner.blackHose = black;
-            partner.syncBlackBlockState();
+        if (partner != null && !partner.hoseAppearance.equals(normalized)) {
+            partner.hoseAppearance = normalized;
+            partner.syncHoseBlockState();
             partner.notifyUpdate();
             changed = true;
         }
@@ -1488,19 +1561,23 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     @Override
     public void lazyTick() {
         super.lazyTick();
-        syncBlackBlockState();
+        syncHoseBlockState();
         invalidateRenderBoundingBox();
     }
 
-    private void syncBlackBlockState() {
+    private void syncHoseBlockState() {
         if (level == null || level.isClientSide)
             return;
 
         BlockState state = getBlockState();
-        if (!state.hasProperty(FireHoseBlock.BLACK) || state.getValue(FireHoseBlock.BLACK) == blackHose)
+        if (!state.hasProperty(FireHoseBlock.APPEARANCE))
             return;
 
-        level.setBlock(worldPosition, state.setValue(FireHoseBlock.BLACK, blackHose), Block.UPDATE_CLIENTS);
+        FireHoseEndpointModel model = FireHoseAppearances.endpointModel(getHoseAppearanceId());
+        if (state.getValue(FireHoseBlock.APPEARANCE) == model)
+            return;
+
+        level.setBlock(worldPosition, state.setValue(FireHoseBlock.APPEARANCE, model), Block.UPDATE_CLIENTS);
     }
 
     @Nullable
@@ -1896,7 +1973,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     private void writeFireHoseConnectionFields(CompoundTag tag) {
         tag.putBoolean(TAG_CONTROLLER, isController);
-        tag.putBoolean(TAG_BLACK_HOSE, blackHose);
+        tag.putString(TAG_APPEARANCE, getHoseAppearanceId().toString());
         tag.putUUID(TAG_ENDPOINT_ID, getFireHoseEndpointId());
 
         if (partnerPos == null)
@@ -1912,7 +1989,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     private void readFireHoseConnectionFields(CompoundTag tag) {
         isController = tag.getBoolean(TAG_CONTROLLER);
-        blackHose = tag.getBoolean(TAG_BLACK_HOSE);
+        hoseAppearance = readHoseAppearance(tag);
         endpointId = tag.hasUUID(TAG_ENDPOINT_ID) ? tag.getUUID(TAG_ENDPOINT_ID) : UUID.randomUUID();
         partnerPos = null;
         partnerSubLevel = null;
@@ -1928,6 +2005,18 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (partnerPos != null && tag.hasUUID(TAG_PARTNER_ENDPOINT_ID))
             partnerEndpointId = tag.getUUID(TAG_PARTNER_ENDPOINT_ID);
         partnerMoving = partnerPos != null && tag.getBoolean(TAG_PARTNER_MOVING);
+    }
+
+    private static ResourceLocation readHoseAppearance(CompoundTag tag) {
+        if (tag.contains(TAG_APPEARANCE, Tag.TAG_STRING)) {
+            ResourceLocation id = ResourceLocation.tryParse(tag.getString(TAG_APPEARANCE));
+            if (id != null)
+                return FireHoseAppearances.get(id).id();
+        }
+        // Worlds saved before appearance ids only know the black/transparent flags.
+        return FireHoseAppearances.fromLegacy(
+            tag.getBoolean(TAG_BLACK_HOSE),
+            tag.getBoolean(TAG_TRANSPARENT_HOSE));
     }
 
     @Override

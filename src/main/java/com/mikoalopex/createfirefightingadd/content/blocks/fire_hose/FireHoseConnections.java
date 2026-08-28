@@ -7,10 +7,12 @@ import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.Config;
+import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.content.fluids.FluidPropagator;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
@@ -61,17 +63,18 @@ public final class FireHoseConnections {
 
 		FireHoseBlockEntity controller = first.isController() || !second.isController() ? first : second;
 		FireHoseBlockEntity partner = controller == first ? second : first;
-		boolean black = first.isBlackHose() || second.isBlackHose();
+		ResourceLocation appearance = FireHoseAppearances.selectForConnection(
+			first.getHoseAppearanceId(), second.getHoseAppearanceId());
 
 		disconnect(first);
 		disconnect(second);
 
 		controller.setFireHoseConnection(true, partner.getBlockPos(),
 			SableStructureCompat.containingSubLevelId(partner.getLevel(), partner.getBlockPos()),
-			partner.getFireHoseEndpointId(), black);
+			partner.getFireHoseEndpointId(), false, appearance);
 		partner.setFireHoseConnection(false, controller.getBlockPos(),
 			SableStructureCompat.containingSubLevelId(controller.getLevel(), controller.getBlockPos()),
-			controller.getFireHoseEndpointId(), black);
+			controller.getFireHoseEndpointId(), false, appearance);
 		markConnectionChanged(controller);
 		markConnectionChanged(partner);
 		return Result.SUCCESS;

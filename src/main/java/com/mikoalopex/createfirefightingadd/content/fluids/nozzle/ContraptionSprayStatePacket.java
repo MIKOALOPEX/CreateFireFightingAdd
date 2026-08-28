@@ -3,6 +3,7 @@ package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -21,7 +22,8 @@ public record ContraptionSprayStatePacket(
 	String fuelPath,
 	float potionR,
 	float potionG,
-	float potionB
+	float potionB,
+	NozzleParticlePalette particles
 ) implements CustomPacketPayload {
 	public static final Type<ContraptionSprayStatePacket> TYPE =
 		new Type<>(CreateFireFightingAdd.path("contraption_spray_state"));
@@ -38,18 +40,32 @@ public record ContraptionSprayStatePacket(
 		buf.writeFloat(packet.potionR);
 		buf.writeFloat(packet.potionG);
 		buf.writeFloat(packet.potionB);
+		buf.writeNbt(packet.particles == null ? new CompoundTag() : packet.particles.write());
 	}
 
 	private static ContraptionSprayStatePacket read(RegistryFriendlyByteBuf buf) {
+		int entityId = buf.readVarInt();
+		BlockPos localPos = BlockPos.STREAM_CODEC.decode(buf);
+		int behaviorOrdinal = buf.readVarInt();
+		boolean ignited = buf.readBoolean();
+		String fuelPath = buf.readUtf(256);
+		float potionR = buf.readFloat();
+		float potionG = buf.readFloat();
+		float potionB = buf.readFloat();
+		CompoundTag particlesTag = buf.readNbt();
+		int fallback = rgb(potionR, potionG, potionB);
+		NozzleParticlePalette particles = particlesTag == null || particlesTag.isEmpty()
+			? null
+			: NozzleParticlePalette.read(particlesTag, fallback);
 		return new ContraptionSprayStatePacket(
-			buf.readVarInt(),
-			BlockPos.STREAM_CODEC.decode(buf),
-			buf.readVarInt(),
-			buf.readBoolean(),
-			buf.readUtf(256),
-			buf.readFloat(),
-			buf.readFloat(),
-			buf.readFloat());
+			entityId, localPos, behaviorOrdinal, ignited, fuelPath, potionR, potionG, potionB, particles);
+	}
+
+	private static int rgb(float r, float g, float b) {
+		int red = Math.clamp((int) (r * 255), 0, 255);
+		int green = Math.clamp((int) (g * 255), 0, 255);
+		int blue = Math.clamp((int) (b * 255), 0, 255);
+		return (red << 16) | (green << 8) | blue;
 	}
 
 	@SubscribeEvent
