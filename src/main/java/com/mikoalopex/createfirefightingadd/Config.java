@@ -77,6 +77,7 @@ public class Config {
 	private static final ModConfigSpec.IntValue NOZZLE_IGNITION_CHANCE;
 	private static final ModConfigSpec.BooleanValue CDG_IGNITION_ENABLED;
 	private static final ModConfigSpec.DoubleValue FLAME_PROPAGATION_RADIUS;
+	private static final ModConfigSpec.BooleanValue FIREFIGHTER_EXTINGUISH_RECORDS_ENABLED;
 
 	static {
 		BUILDER.push("ConeNozzle");
@@ -288,6 +289,12 @@ public class Config {
 			.comment("Maximum distance (blocks) between projectiles for flame propagation along the spray stream. Ignited projectiles ignite nearby unignited flammable projectiles within this radius")
 			.defineInRange("flamePropagationRadius", 3.0, 0.5, 16.0);
 		BUILDER.pop();
+
+		BUILDER.push("FirefighterHandbook");
+		FIREFIGHTER_EXTINGUISH_RECORDS_ENABLED = BUILDER
+			.comment("Whether the server keeps authoritative firefighter extinguish records for the Firefighter Handbook.")
+			.define("extinguishRecordsEnabled", true);
+		BUILDER.pop();
 	}
 
 	static final ModConfigSpec SPEC = BUILDER.build();
@@ -351,6 +358,7 @@ public class Config {
 	public static List<? extends String> nozzleGlobalFluidRules = List.of();
 	public static boolean cdgIgnitionEnabled;
 	public static double flamePropagationRadius;
+	public static boolean firefighterExtinguishRecordsEnabled;
 
 	@SubscribeEvent
 	static void onLoad(final ModConfigEvent event) {
@@ -417,6 +425,7 @@ public class Config {
 		NozzleGlobalSprayRules.reloadFromConfig(nozzleGlobalFluidRules);
 		cdgIgnitionEnabled = CDG_IGNITION_ENABLED.get();
 		flamePropagationRadius = FLAME_PROPAGATION_RADIUS.get();
+		firefighterExtinguishRecordsEnabled = FIREFIGHTER_EXTINGUISH_RECORDS_ENABLED.get();
 
 		// Physics clamping: cap MaxDistance at floor(speed / (1 - friction))
 		coneNozzleMaxDistance = clampToPhysics(coneNozzleMaxDistance, coneNozzleSpeed, coneNozzleFriction, "ConeNozzle");

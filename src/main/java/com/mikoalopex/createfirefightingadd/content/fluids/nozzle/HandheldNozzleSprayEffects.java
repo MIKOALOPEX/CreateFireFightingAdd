@@ -11,6 +11,7 @@ import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.FireHydrantCabinetBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleControllerItem;
 import com.mikoalopex.createfirefightingadd.content.equipment.handheld.HandheldNozzleType;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterRecordStore;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
@@ -89,7 +90,7 @@ public final class HandheldNozzleSprayEffects {
 			|| customRule != null && (customRule.igniting() || customRule.flammable());
 
 		long perfStart = SprayPerformanceDebug.start();
-		applyBlockEffects(level, origin, direction, shape, range, behavior, fluid, ignited, tick, customRule);
+		applyBlockEffects(level, binding.pos(), origin, direction, shape, range, behavior, fluid, ignited, tick, customRule);
 		applyEntityEffects(level, origin, direction, shape, range, behavior, fluid, ignited, customRule);
 		applyRecoil(player, direction);
 		SprayPerformanceDebug.record(level, "handheld_spray", player.blockPosition(), perfStart, -1,
@@ -120,7 +121,7 @@ public final class HandheldNozzleSprayEffects {
 		};
 	}
 
-	private static void applyBlockEffects(ServerLevel level, Vec3 origin, Vec3 direction, SprayShape shape,
+	private static void applyBlockEffects(ServerLevel level, BlockPos sourcePos, Vec3 origin, Vec3 direction, SprayShape shape,
 			int range, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, FluidStack fluid, boolean ignited, long tick,
 			@org.jetbrains.annotations.Nullable NozzleSprayRule customRule) {
 		int rays = Math.max(8, Math.min(28, range / 2));
@@ -129,7 +130,8 @@ public final class HandheldNozzleSprayEffects {
 		SprayEffectSampler.traceRays(level, origin, direction, shape, range, rays, tick, tick * 37L,
 			SAMPLE_STEP, (pos, state, samplePos, rayDirection, distance) -> {
 				NozzleSprayHitContext context = new NozzleSprayHitContext(level, pos, state, fluid.copy(),
-					apiType(behavior), ignited, origin, samplePos, rayDirection, distance);
+					apiType(behavior), ignited, origin, samplePos, rayDirection, distance,
+					FirefighterRecordStore.activeOwners(level, sourcePos));
 				if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM && customRule != null) {
 					if (customRuleExtinguishesBlocks(customRule, ignited))
 						NozzleSprayEffects.applyBlockSample(context,

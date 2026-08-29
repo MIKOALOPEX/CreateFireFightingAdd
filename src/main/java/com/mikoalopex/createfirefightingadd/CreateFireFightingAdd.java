@@ -51,6 +51,9 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMov
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorItem;
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorMenu;
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorScreen;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterHandbookItem;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterHandbookMenu;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterHandbookScreen;
 import com.mikoalopex.createfirefightingadd.content.fluids.water_intake.BoundBlockHighlightHandler;
 import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlockEntity;
@@ -300,6 +303,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<MultifunctionConfiguratorItem> MULTIFUNCTION_CONFIGURATOR_ITEM =
 		ITEMS.register("multifunction_configurator", () -> new MultifunctionConfiguratorItem(new Item.Properties().stacksTo(1)));
 
+	public static final DeferredItem<FirefighterHandbookItem> FIREFIGHTER_HANDBOOK_ITEM =
+		ITEMS.register("fire_handbook", () -> new FirefighterHandbookItem(new Item.Properties().stacksTo(1)));
+
 	public static final DeferredItem<SequencedAssemblyItem> INCOMPLETE_HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("incomplete_handheld_nozzle_controller", () -> new SequencedAssemblyItem(new Item.Properties()));
 
@@ -337,6 +343,10 @@ public class CreateFireFightingAdd {
 	public static final DeferredHolder<MenuType<?>, MenuType<MultifunctionConfiguratorMenu>> MULTIFUNCTION_CONFIGURATOR_MENU =
 		MENU_TYPES.register("multifunction_configurator",
 			() -> IMenuTypeExtension.create(MultifunctionConfiguratorMenu::new));
+
+	public static final DeferredHolder<MenuType<?>, MenuType<FirefighterHandbookMenu>> FIREFIGHTER_HANDBOOK_MENU =
+		MENU_TYPES.register("fire_handbook",
+			() -> IMenuTypeExtension.create(FirefighterHandbookMenu::new));
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HighPressurePumpBlockEntity>> HIGH_PRESSURE_PUMP_BE =
 		BLOCK_ENTITY_TYPES.register("high_pressure_pump",
@@ -452,6 +462,7 @@ public class CreateFireFightingAdd {
 				output.accept(createFullMultipurposeBacktankStack());
 				output.accept(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 				output.accept(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
+				output.accept(FIREFIGHTER_HANDBOOK_ITEM.get());
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
@@ -578,6 +589,14 @@ public class CreateFireFightingAdd {
 	public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
 		if (event.getLevel().isClientSide()) return;
 		var be = event.getLevel().getBlockEntity(event.getPos());
+		var stack = event.getItemStack();
+		if (be instanceof AbstractSprayDeviceBlockEntity
+			&& stack.getItem() instanceof FirefighterHandbookItem handbook) {
+			event.setCancellationResult(handbook.tryBindToSpraySource(stack, event.getLevel(), event.getEntity(), event.getPos())
+				.result());
+			event.setCanceled(true);
+			return;
+		}
 		if (be instanceof AbstractSprayDeviceBlockEntity nozzle
 			&& nozzle.tryIgniteWithItem(event.getEntity(), event.getHand())) {
 			event.setCanceled(true);
@@ -674,6 +693,7 @@ public class CreateFireFightingAdd {
 			registerCreateTooltip(MULTIPURPOSE_BACKTANK_ITEM.get());
 			registerCreateTooltip(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 			registerCreateTooltip(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
+			registerCreateTooltip(FIREFIGHTER_HANDBOOK_ITEM.get());
 			registerCreateTooltip(FIRE_POLE_ITEM.get());
 		}
 
@@ -685,6 +705,7 @@ public class CreateFireFightingAdd {
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
 			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
+			event.register(FIREFIGHTER_HANDBOOK_MENU.get(), FirefighterHandbookScreen::new);
 		}
 
 		@SubscribeEvent

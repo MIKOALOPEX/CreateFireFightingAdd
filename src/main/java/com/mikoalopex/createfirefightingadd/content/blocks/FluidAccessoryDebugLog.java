@@ -12,8 +12,8 @@ import org.slf4j.Logger;
 /**
  * Disabled-by-default diagnostics for pipe-derived utility blocks.
  *
- * <p>The call sites remain available for field testing without adding temporary
- * logging back into the fluid transfer path.</p>
+ * <p>The call sites stay in place so fluid transfer issues can be inspected
+ * without reintroducing ad-hoc logging.</p>
  */
 public final class FluidAccessoryDebugLog {
 	public static final boolean ENABLED = false;

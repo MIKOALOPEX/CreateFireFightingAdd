@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterRecordStore;
 import com.mikoalopex.createfirefightingadd.integration.burnt.BurntCompat;
 import com.simibubi.create.api.registry.CreateBuiltInRegistries;
 import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
@@ -121,8 +122,10 @@ final class NozzleSprayEffects {
 
 	private static boolean applyWaterLikeBlockEffect(NozzleSprayHitContext context, BlockEffectOptions options) {
 		if (extinguishBlock(context.level(), context.pos(), context.state(),
-			options.clearNearbyWildfireHeat(), options.extinguishSound()))
+			options.clearNearbyWildfireHeat(), options.extinguishSound())) {
+			FirefighterRecordStore.recordExtinguish(context.level(), context.firefighterOwners(), 1);
 			return true;
+		}
 		return options.includePhaseChanges()
 			&& meltSnow(context.level(), context.pos(), context.state());
 	}

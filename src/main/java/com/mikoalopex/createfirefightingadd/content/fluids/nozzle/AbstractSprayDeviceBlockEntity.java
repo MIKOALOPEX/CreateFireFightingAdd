@@ -18,6 +18,7 @@ import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
 import com.mikoalopex.createfirefightingadd.content.fluids.SafeFluidStacks;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterRecordStore;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.simibubi.create.api.registry.CreateBuiltInRegistries;
@@ -1635,7 +1636,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			boolean ignited, @Nullable Vec3 origin, @Nullable Vec3 hitLocation,
 			@Nullable Vec3 direction, double distance) {
 		return new NozzleSprayHitContext(level, pos, state, currentSprayFluidStack(),
-			apiFluidType(behavior), ignited, origin, hitLocation, direction, distance);
+			apiFluidType(behavior), ignited, origin, hitLocation, direction, distance,
+			FirefighterRecordStore.activeOwners(level, worldPosition));
 	}
 
 	private static boolean isDragonBreath(Fluid fluid) {

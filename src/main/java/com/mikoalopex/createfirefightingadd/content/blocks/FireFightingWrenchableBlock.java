@@ -7,8 +7,8 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Provides Create's sneak-wrench removal behavior for blocks that do not need a
- * normal wrench action.
+ * Keeps Create's sneak-wrench pickup behaviour for blocks that do not provide
+ * a custom wrench action.
  */
 public interface FireFightingWrenchableBlock extends IWrenchable {
 	@Override

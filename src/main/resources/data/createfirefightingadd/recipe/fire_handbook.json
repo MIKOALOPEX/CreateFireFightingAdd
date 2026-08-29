@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BH ",
+    "   ",
+    "   "
+  ],
+  "key": {
+    "B": { "item": "minecraft:writable_book" },
+    "H": { "item": "createfirefightingadd:fire_hose" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_handbook",
+    "count": 1
+  }
+}

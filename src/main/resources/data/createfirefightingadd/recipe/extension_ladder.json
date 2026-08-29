@@ -1,13 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "IRI",
-    "IRI",
-    " S "
+    "ILI",
+    "ILI",
+    "ISI"
   ],
   "key": {
     "I": { "item": "create:iron_sheet" },
-    "R": { "item": "minecraft:iron_bars" },
+    "L": { "item": "create:andesite_ladder" },
     "S": { "item": "create:andesite_alloy" }
   },
   "result": {

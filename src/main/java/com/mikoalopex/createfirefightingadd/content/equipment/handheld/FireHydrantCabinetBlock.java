@@ -3,6 +3,7 @@ package com.mikoalopex.createfirefightingadd.content.equipment.handheld;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorItem;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterHandbookItem;
 import com.simibubi.create.foundation.block.IBE;
 
 import net.minecraft.core.BlockPos;
@@ -62,6 +63,9 @@ public class FireHydrantCabinetBlock extends Block
 	@Override
 	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
 			Player player, InteractionHand hand, BlockHitResult hitResult) {
+		if (stack.getItem() instanceof FirefighterHandbookItem handbook)
+			return handbook.tryBindToSpraySource(stack, level, player, pos);
+
 		if (stack.getItem() instanceof MultifunctionConfiguratorItem configurator
 			&& level.getBlockEntity(pos) instanceof FireHydrantCabinetBlockEntity cabinet)
 			return configurator.tryApplyToCabinet(stack, level, player, cabinet);

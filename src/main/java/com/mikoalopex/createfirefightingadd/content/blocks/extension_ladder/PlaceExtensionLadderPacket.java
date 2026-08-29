@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterRecordStore;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
 import net.minecraft.ChatFormatting;
@@ -11,6 +12,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -83,7 +85,9 @@ public record PlaceExtensionLadderPacket(InteractionHand hand, BlockPos support)
 		}
 
 		Vec3 anchorPoint = new Vec3(anchor.getX() + 0.5, anchor.getY(), anchor.getZ() + 0.5);
-		ladder.initialize(anchorPoint, fallDirection, support);
+		boolean acceleratedPlacementAnimation = player.level() instanceof ServerLevel serverLevel
+			&& FirefighterRecordStore.hasTeamPairNear(serverLevel, anchor);
+		ladder.initialize(anchorPoint, fallDirection, support, acceleratedPlacementAnimation);
 		PacketDistributor.sendToPlayer(player, new ExtensionLadderPlacementFeedbackPacket(support, true));
 		if (!player.getAbilities().instabuild)
 			held.shrink(1);

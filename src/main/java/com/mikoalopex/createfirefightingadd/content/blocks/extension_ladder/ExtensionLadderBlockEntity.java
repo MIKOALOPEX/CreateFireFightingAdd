@@ -32,6 +32,9 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private static final double ANCHOR_CLEARANCE = 0.26;
 	private static final String TAG_MOVE_OFFSET = "MoveOffset";
 	private static final String TAG_CREATED_GAME_TIME = "CreatedGameTime";
+	private static final String TAG_ACCELERATED_PLACEMENT_ANIMATION = "AcceleratedPlacementAnimation";
+	private static final String TAG_LEGACY_SKIP_EXTEND_ANIMATION = "SkipExtendAnimation";
+	private static final int TEAM_PLACEMENT_ANIMATION_STEP = 2;
 
 	private Vec3 anchorOffset = new Vec3(0.5, 0, 0.5);
 	private Vec3 fallDirection = new Vec3(0, 0, 1);
@@ -53,6 +56,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private long createdGameTime = Long.MIN_VALUE;
 	private long clientAnimatedCreatedGameTime = Long.MIN_VALUE;
 	private long lastAdjustTick;
+	private boolean acceleratedPlacementAnimation;
 
 	public ExtensionLadderBlockEntity(BlockPos pos, BlockState state) {
 		super(CreateFireFightingAdd.EXTENSION_LADDER_BE.get(), pos, state);
@@ -63,6 +67,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	public void initialize(Vec3 anchor, Vec3 fallDirection, BlockPos anchorSupport) {
+		initialize(anchor, fallDirection, anchorSupport, false);
+	}
+
+	public void initialize(Vec3 anchor, Vec3 fallDirection, BlockPos anchorSupport, boolean acceleratedPlacementAnimation) {
 		this.anchorOffset = anchor.subtract(Vec3.atLowerCornerOf(worldPosition));
 		this.fallDirection = ExtensionLadderGeometry.normalizeHorizontal(fallDirection);
 		if (this.fallDirection.lengthSqr() < 1.0E-6)
@@ -81,6 +89,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		this.supportCheckTimer = 0;
 		this.createdGameTime = level == null ? Long.MIN_VALUE : level.getGameTime();
 		this.lastAdjustTick = 0;
+		this.acceleratedPlacementAnimation = acceleratedPlacementAnimation;
 		this.searchTask.restart(0);
 		markDirtyAndSync();
 	}
@@ -116,7 +125,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	private void tickTimedPhase(int duration, Phase nextPhase) {
-		animationTick++;
+		animationTick += placementAnimationStep();
 		if (animationTick >= duration) {
 			animationTick = 0;
 			previousAnimationTick = 0;
@@ -130,10 +139,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private void tickClientPlacementAnimation() {
 		if (clientPlacementTick >= CLIENT_PLACEMENT_TICKS)
 			return;
-		// Let the client play drop and extend immediately, then wait for the server's support-search result before tilting.
+		// The placement preview waits after extension until the server sends the tilt target.
 		if (clientPlacementTick >= DROP_TICKS + EXTEND_TICKS && phase == Phase.SEARCHING)
 			return;
-		clientPlacementTick++;
+		clientPlacementTick += placementAnimationStep();
 	}
 
 	private void tickSearch() {
@@ -160,7 +169,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	private void tickTilt() {
-		animationTick++;
+		animationTick += placementAnimationStep();
 		if (animationTick >= TILT_TICKS) {
 			currentPitch = targetPitch;
 			phase = support == null ? Phase.FALLEN : Phase.SUPPORTED;
@@ -176,7 +185,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		if (level != null && level.getGameTime() - lastAdjustTick <= ADJUST_TIMEOUT_TICKS)
 			return;
 
-		// Releasing right click ends the capture; the ladder searches again from upright with the chosen yaw and length.
+		// Releasing the use input ends adjustment; the ladder searches again with the chosen yaw and length.
 		support = null;
 		phase = Phase.SEARCHING;
 		animationTick = 0;
@@ -419,6 +428,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		return Mth.lerp(partialTick, previousClientPlacementTick, clientPlacementTick);
 	}
 
+	private int placementAnimationStep() {
+		return acceleratedPlacementAnimation ? TEAM_PLACEMENT_ANIMATION_STEP : 1;
+	}
+
 	private float clientPlacementTargetPitch() {
 		if (phase == Phase.TILTING)
 			return targetPitch;
@@ -465,6 +478,7 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		tag.putFloat("TargetPitch", targetPitch);
 		tag.putFloat(TAG_MOVE_OFFSET, targetMoveOffsetPixels);
 		tag.putLong(TAG_CREATED_GAME_TIME, createdGameTime);
+		tag.putBoolean(TAG_ACCELERATED_PLACEMENT_ANIMATION, acceleratedPlacementAnimation);
 		tag.putFloat("SearchPitch", searchTask.nextPitch());
 		if (support != null)
 			support.write(tag, "Support");
@@ -490,6 +504,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 			? Mth.clamp(tag.getFloat(TAG_MOVE_OFFSET), 0, ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS)
 			: ExtensionLadderGeometry.MAX_MOVE_OFFSET_PIXELS;
 		createdGameTime = tag.contains(TAG_CREATED_GAME_TIME) ? tag.getLong(TAG_CREATED_GAME_TIME) : Long.MIN_VALUE;
+		acceleratedPlacementAnimation = tag.getBoolean(TAG_ACCELERATED_PLACEMENT_ANIMATION)
+			|| tag.getBoolean(TAG_LEGACY_SKIP_EXTEND_ANIMATION);
 		lastAdjustTick = 0;
 		searchTask.setNextPitch(tag.contains("SearchPitch") ? tag.getFloat("SearchPitch") : currentPitch);
 		support = ExtensionLadderSupportRef.read(tag, "Support");

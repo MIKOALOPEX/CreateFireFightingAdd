@@ -19,8 +19,8 @@ import java.util.UUID;
 /**
  * Disabled-by-default diagnostics for fire hose pressure and transfer behaviour.
  *
- * <p>The call sites remain available for field testing without scattering
- * temporary logger calls throughout the transfer path.</p>
+ * <p>The call sites stay in place so hose transfer issues can be inspected
+ * without reintroducing ad-hoc logging.</p>
  */
 public final class FireHoseDebugLog {
 

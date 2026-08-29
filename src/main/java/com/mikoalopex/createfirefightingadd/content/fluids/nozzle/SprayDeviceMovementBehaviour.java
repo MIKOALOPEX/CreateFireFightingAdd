@@ -773,7 +773,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			FluidStack fluid, AbstractSprayDeviceBlockEntity.FluidBehavior behavior, boolean ignited,
 			@Nullable Vec3 origin, @Nullable Vec3 hitLocation, @Nullable Vec3 direction, double distance) {
 		return new NozzleSprayHitContext(level, pos, state, fluid.copy(),
-			apiFluidType(behavior), ignited, origin, hitLocation, direction, distance);
+			apiFluidType(behavior), ignited, origin, hitLocation, direction, distance, List.of());
 	}
 
 	private static NozzleSprayFluidType apiFluidType(AbstractSprayDeviceBlockEntity.FluidBehavior behavior) {
