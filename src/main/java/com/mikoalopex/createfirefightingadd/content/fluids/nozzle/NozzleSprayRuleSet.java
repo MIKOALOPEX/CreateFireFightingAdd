@@ -36,6 +36,25 @@ public record NozzleSprayRuleSet(List<NozzleSprayRule> rules) {
 		return Optional.empty();
 	}
 
+	public Optional<NozzleSprayRule> findForSpray(FluidStack stack) {
+		Optional<NozzleSprayRule> exact = find(stack);
+		if (exact.isPresent())
+			return exact;
+		if (stack == null || stack.isEmpty())
+			return Optional.empty();
+		for (NozzleSprayRule rule : rules) {
+			if (!rule.locked() && sameFluid(rule.target(), stack))
+				return Optional.of(rule);
+		}
+		return Optional.empty();
+	}
+
+	private static boolean sameFluid(FluidStack ruleTarget, FluidStack stack) {
+		return ruleTarget != null && !ruleTarget.isEmpty()
+			&& stack != null && !stack.isEmpty()
+			&& ruleTarget.getFluid().isSame(stack.getFluid());
+	}
+
 	public NozzleSprayRuleSet withRule(NozzleSprayRule rule) {
 		if (rule == null || rule.target().isEmpty())
 			return this;

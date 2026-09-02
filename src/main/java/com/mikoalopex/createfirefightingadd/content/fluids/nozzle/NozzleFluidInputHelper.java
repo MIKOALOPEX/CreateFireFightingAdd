@@ -4,6 +4,8 @@ import java.util.Optional;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.equipment.extinguisher.FireExtinguisherItem;
 import com.simibubi.create.AllFluids;
 
 import net.minecraft.core.component.DataComponents;
@@ -48,6 +50,11 @@ public final class NozzleFluidInputHelper {
 		Optional<FluidStack> potion = potionFluid(stack);
 		if (potion.isPresent())
 			return potion;
+		if (stack.is(CreateFireFightingAdd.FIRE_EXTINGUISHER_ITEM.get())) {
+			FluidStack stored = FireExtinguisherItem.getFluid(stack);
+			if (!stored.isEmpty())
+				return Optional.of(stored.copyWithAmount(1));
+		}
 
 		ItemStack probe = stack.copyWithCount(1);
 		IFluidHandlerItem handler = probe.getCapability(Capabilities.FluidHandler.ITEM);

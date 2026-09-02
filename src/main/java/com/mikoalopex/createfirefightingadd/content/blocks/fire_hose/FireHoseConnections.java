@@ -86,7 +86,12 @@ public final class FireHoseConnections {
 	 * when Sable is present. Moving contraption endpoints are handled separately.
 	 */
 	public static ConnectionAttempt tryConnectFirstFreeEndpoint(FireHoseBlockEntity origin) {
-		FireHoseBlockEntity endpoint = findFirstFreeEndpoint(origin);
+		return tryConnectFirstFreeEndpoint(origin, null);
+	}
+
+	public static ConnectionAttempt tryConnectFirstFreeEndpoint(FireHoseBlockEntity origin,
+			@Nullable FireHoseConnectorBlockEntity requester) {
+		FireHoseBlockEntity endpoint = findFirstFreeEndpoint(origin, requester);
 		if (endpoint == null)
 			return new ConnectionAttempt(Result.MISSING_ENDPOINT, null);
 		Result result = tryConnect(origin, endpoint);
@@ -95,15 +100,28 @@ public final class FireHoseConnections {
 
 	@Nullable
 	public static FireHoseBlockEntity findFirstFreeEndpoint(FireHoseBlockEntity origin) {
-		return findFirstFreeEndpoint(origin, (int) Math.ceil(Config.hoseMaxLength + 1));
+		return findFirstFreeEndpoint(origin, null);
+	}
+
+	@Nullable
+	public static FireHoseBlockEntity findFirstFreeEndpoint(FireHoseBlockEntity origin,
+			@Nullable FireHoseConnectorBlockEntity requester) {
+		return findFirstFreeEndpoint(origin, (int) Math.ceil(Config.hoseMaxLength + 1), requester);
 	}
 
 	/**
 	 * Returns the first free endpoint found by expanding out from {@code origin}.
-	 * This is the reusable search used by the Fire Hose Connector free mode.
+	 * Free-mode connector searches prefer unmanaged endpoints, then fall back
+	 * to endpoints currently claimed by another connector.
 	 */
 	@Nullable
 	public static FireHoseBlockEntity findFirstFreeEndpoint(FireHoseBlockEntity origin, int range) {
+		return findFirstFreeEndpoint(origin, range, null);
+	}
+
+	@Nullable
+	public static FireHoseBlockEntity findFirstFreeEndpoint(FireHoseBlockEntity origin, int range,
+			@Nullable FireHoseConnectorBlockEntity requester) {
 		if (origin == null || origin.getLevel() == null)
 			return null;
 		Level worldLevel = SableStructureCompat.worldLevel(origin);
@@ -113,18 +131,24 @@ public final class FireHoseConnections {
 		int searchRange = Math.max(1, range);
 		Vec3 center = worldCenter(origin);
 		BlockPos centerPos = BlockPos.containing(center);
+		FireHoseBlockEntity claimedFallback = null;
 		for (int radius = 0; radius <= searchRange; radius++) {
 			ArrayList<Vec3> shellCenters = new ArrayList<>();
-			FireHoseBlockEntity worldEndpoint = findFreeEndpointInWorldShell(
-				worldLevel, origin, center, centerPos, radius, searchRange, shellCenters);
-			if (worldEndpoint != null)
-				return worldEndpoint;
+			EndpointSearchResult worldEndpoint = findFreeEndpointInWorldShell(
+				worldLevel, origin, center, centerPos, radius, searchRange, shellCenters, requester);
+			if (worldEndpoint.preferred() != null)
+				return worldEndpoint.preferred();
+			if (claimedFallback == null && worldEndpoint.claimedFallback() != null)
+				claimedFallback = worldEndpoint.claimedFallback();
 
-			FireHoseBlockEntity subLevelEndpoint = findFreeEndpointInSubLevels(origin, worldLevel, shellCenters);
-			if (subLevelEndpoint != null)
-				return subLevelEndpoint;
+			EndpointSearchResult subLevelEndpoint =
+				findFreeEndpointInSubLevels(origin, worldLevel, shellCenters, requester);
+			if (subLevelEndpoint.preferred() != null)
+				return subLevelEndpoint.preferred();
+			if (claimedFallback == null && subLevelEndpoint.claimedFallback() != null)
+				claimedFallback = subLevelEndpoint.claimedFallback();
 		}
-		return null;
+		return claimedFallback;
 	}
 
 	public static void disconnect(FireHoseBlockEntity hose) {
@@ -182,10 +206,11 @@ public final class FireHoseConnections {
 		return be instanceof FireHoseBlockEntity hose ? hose : null;
 	}
 
-	@Nullable
-	private static FireHoseBlockEntity findFreeEndpointInWorldShell(Level worldLevel, FireHoseBlockEntity origin,
-			Vec3 center, BlockPos centerPos, int radius, int range, ArrayList<Vec3> shellCenters) {
+	private static EndpointSearchResult findFreeEndpointInWorldShell(Level worldLevel, FireHoseBlockEntity origin,
+			Vec3 center, BlockPos centerPos, int radius, int range, ArrayList<Vec3> shellCenters,
+			@Nullable FireHoseConnectorBlockEntity requester) {
 		double maxDistance = (double) range * range;
+		FireHoseBlockEntity claimedFallback = null;
 		for (int x = -radius; x <= radius; x++) {
 			for (int y = -radius; y <= radius; y++) {
 				for (int z = -radius; z <= radius; z++) {
@@ -197,20 +222,24 @@ public final class FireHoseConnections {
 						continue;
 					shellCenters.add(posCenter);
 					BlockEntity be = worldLevel.getBlockEntity(pos);
-					if (be instanceof FireHoseBlockEntity hose && isConnectableFreeEndpoint(origin, hose))
-						return hose;
+					if (!(be instanceof FireHoseBlockEntity hose) || !isConnectableFreeEndpoint(origin, hose))
+						continue;
+					if (!hose.isManagedByOtherConnector(requester))
+						return new EndpointSearchResult(hose, claimedFallback);
+					if (claimedFallback == null)
+						claimedFallback = hose;
 				}
 			}
 		}
-		return null;
+		return new EndpointSearchResult(null, claimedFallback);
 	}
 
-	@Nullable
-	private static FireHoseBlockEntity findFreeEndpointInSubLevels(FireHoseBlockEntity origin, Level worldLevel,
-			ArrayList<Vec3> worldCenters) {
+	private static EndpointSearchResult findFreeEndpointInSubLevels(FireHoseBlockEntity origin, Level worldLevel,
+			ArrayList<Vec3> worldCenters, @Nullable FireHoseConnectorBlockEntity requester) {
 		if (worldCenters.isEmpty())
-			return null;
+			return EndpointSearchResult.NONE;
 
+		FireHoseBlockEntity claimedFallback = null;
 		for (SableStructureCompat.SubLevelProjection projection :
 				SableStructureCompat.projectWorldPositionsToSubLevels(worldLevel, worldCenters)) {
 			Set<Long> seen = new HashSet<>();
@@ -219,11 +248,15 @@ public final class FireHoseConnections {
 				if (!seen.add(localPos.asLong()))
 					continue;
 				BlockEntity be = projection.level().getBlockEntity(localPos);
-				if (be instanceof FireHoseBlockEntity hose && isConnectableFreeEndpoint(origin, hose))
-					return hose;
+				if (!(be instanceof FireHoseBlockEntity hose) || !isConnectableFreeEndpoint(origin, hose))
+					continue;
+				if (!hose.isManagedByOtherConnector(requester))
+					return new EndpointSearchResult(hose, claimedFallback);
+				if (claimedFallback == null)
+					claimedFallback = hose;
 			}
 		}
-		return null;
+		return new EndpointSearchResult(null, claimedFallback);
 	}
 
 	private static boolean isConnectableFreeEndpoint(FireHoseBlockEntity origin, FireHoseBlockEntity candidate) {
@@ -243,5 +276,12 @@ public final class FireHoseConnections {
 		FluidPropagator.propagateChangedPipe(level, pos, level.getBlockState(pos));
 		BlockPos backPos = pos.relative(hose.getBack());
 		FluidPropagator.propagateChangedPipe(level, backPos, level.getBlockState(backPos));
+	}
+
+	private record EndpointSearchResult(
+		@Nullable FireHoseBlockEntity preferred,
+		@Nullable FireHoseBlockEntity claimedFallback
+	) {
+		private static final EndpointSearchResult NONE = new EndpointSearchResult(null, null);
 	}
 }

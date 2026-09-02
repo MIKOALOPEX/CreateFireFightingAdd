@@ -139,7 +139,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 				return;
 			}
 			NozzleSprayRule clientRule = NozzleGlobalSprayRules.findGlobalRule(clientFluid)
-				.or(() -> clientRules.find(clientFluid)).orElse(null);
+				.or(() -> clientRules.findForSpray(clientFluid)).orElse(null);
 			if (profile.mode() == ParticleMode.BUCKET)
 				spawnBucketParticles(context.world, origin, direction, profile,
 					clientBehavior, clientFluid,
@@ -177,7 +177,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		}
 
 		NozzleSprayRule customRule = NozzleGlobalSprayRules.findGlobalRule(fluid)
-			.or(() -> rules.find(fluid)).orElse(null);
+			.or(() -> rules.findForSpray(fluid)).orElse(null);
 		boolean flammable = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
 			|| behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM
 				&& customRule != null && customRule.flammable();

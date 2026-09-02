@@ -29,6 +29,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -46,19 +47,22 @@ public class FireHoseBlock extends WrenchableDirectionalBlock
 
 	public static final EnumProperty<FireHoseEndpointModel> APPEARANCE =
 		EnumProperty.create("appearance", FireHoseEndpointModel.class);
+	public static final BooleanProperty CONNECTED = BooleanProperty.create("connected");
 
 	private static final VoxelShaper SHAPE = VoxelShaper.forDirectional(
 		Block.box(3, 0, 3, 13, 4, 13), Direction.UP);
 
 	public FireHoseBlock(Properties properties) {
 		super(properties);
-		registerDefaultState(defaultBlockState().setValue(APPEARANCE, FireHoseEndpointModel.DEFAULT));
+		registerDefaultState(defaultBlockState()
+			.setValue(APPEARANCE, FireHoseEndpointModel.DEFAULT)
+			.setValue(CONNECTED, false));
 	}
 
 	@Override
 	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
 		super.createBlockStateDefinition(builder);
-		builder.add(APPEARANCE);
+		builder.add(APPEARANCE, CONNECTED);
 	}
 
 	@Override

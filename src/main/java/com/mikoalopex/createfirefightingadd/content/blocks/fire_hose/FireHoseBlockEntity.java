@@ -1,6 +1,5 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -78,6 +77,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private static final String TAG_PARTNER_SUB_LEVEL = "PartnerSubLevel";
     private static final String TAG_PARTNER_ENDPOINT_ID = "PartnerEndpointId";
     private static final String TAG_PARTNER_MOVING = "PartnerMoving";
+    private static final String TAG_MANAGED_BY_CONNECTOR_POS = "ManagedByConnectorPos";
+    private static final String TAG_MANAGED_BY_CONNECTOR_SUB_LEVEL = "ManagedByConnectorSubLevel";
+    private static final String TAG_MANAGED_BY_CONNECTOR_ID = "ManagedByConnectorId";
     private static final int MOVING_PARTNER_LEASE_TICKS = 8;
 
     // Rendering state
@@ -96,6 +98,12 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     @Nullable
     private UUID movingPartnerRuntimeId;
     private long movingPartnerLeaseExpiresAt;
+    @Nullable
+    private BlockPos managedByConnectorPos;
+    @Nullable
+    private UUID managedByConnectorSubLevel;
+    @Nullable
+    private UUID managedByConnectorId;
     private ResourceLocation hoseAppearance = FireHoseAppearances.DEFAULT;
     private float ticksWithoutPartner;
     private double snappingTime;
@@ -1216,7 +1224,6 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
                 else
                     FireHoseMovingEndpoints.disconnect(level, wasPartner, worldPosition);
             }
-            Block.popResource(level, worldPosition, new ItemStack(FIRE_HOSE_ITEM.get()));
         }
     }
 
@@ -1411,6 +1418,60 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         this.endpointId = endpointId == null ? UUID.randomUUID() : endpointId;
     }
 
+    void claimManagedByConnector(BlockPos connectorPos, @Nullable UUID connectorSubLevel, UUID connectorId) {
+        if (connectorPos == null || connectorId == null)
+            return;
+        if (connectorPos.equals(managedByConnectorPos)
+            && connectorId.equals(managedByConnectorId)
+            && java.util.Objects.equals(connectorSubLevel, managedByConnectorSubLevel))
+            return;
+        managedByConnectorPos = connectorPos;
+        managedByConnectorSubLevel = connectorSubLevel;
+        managedByConnectorId = connectorId;
+        setChanged();
+    }
+
+    void releaseManagedByConnector(BlockPos connectorPos, UUID connectorId) {
+        if (connectorPos == null || connectorId == null)
+            return;
+        if (!connectorPos.equals(managedByConnectorPos) || !connectorId.equals(managedByConnectorId))
+            return;
+        clearManagedByConnector();
+    }
+
+    boolean isManagedByOtherConnector(@Nullable FireHoseConnectorBlockEntity requester) {
+        if (managedByConnectorPos == null || managedByConnectorId == null)
+            return false;
+        if (requester != null
+            && managedByConnectorPos.equals(requester.getBlockPos())
+            && managedByConnectorId.equals(requester.getConnectorId()))
+            return false;
+        if (!hasValidConnectorClaim()) {
+            clearManagedByConnector();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean hasValidConnectorClaim() {
+        if (level == null || managedByConnectorPos == null || managedByConnectorId == null)
+            return false;
+        if (managedByConnectorSubLevel != null
+            && !managedByConnectorSubLevel.equals(SableStructureCompat.containingSubLevelId(level, managedByConnectorPos)))
+            return false;
+        BlockEntity be = level.getBlockEntity(managedByConnectorPos);
+        return be instanceof FireHoseConnectorBlockEntity connector
+            && managedByConnectorId.equals(connector.getConnectorId())
+            && connector.isManagingEndpoint(this);
+    }
+
+    private void clearManagedByConnector() {
+        managedByConnectorPos = null;
+        managedByConnectorSubLevel = null;
+        managedByConnectorId = null;
+        setChanged();
+    }
+
     @Override
     @Nullable
     public UUID getFireHosePartnerEndpointId() {
@@ -1570,14 +1631,18 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             return;
 
         BlockState state = getBlockState();
-        if (!state.hasProperty(FireHoseBlock.APPEARANCE))
+        if (!state.hasProperty(FireHoseBlock.APPEARANCE) || !state.hasProperty(FireHoseBlock.CONNECTED))
             return;
 
         FireHoseEndpointModel model = FireHoseAppearances.endpointModel(getHoseAppearanceId());
-        if (state.getValue(FireHoseBlock.APPEARANCE) == model)
+        boolean connected = partnerPos != null;
+        if (state.getValue(FireHoseBlock.APPEARANCE) == model
+            && state.getValue(FireHoseBlock.CONNECTED) == connected)
             return;
 
-        level.setBlock(worldPosition, state.setValue(FireHoseBlock.APPEARANCE, model), Block.UPDATE_CLIENTS);
+        level.setBlock(worldPosition, state
+            .setValue(FireHoseBlock.APPEARANCE, model)
+            .setValue(FireHoseBlock.CONNECTED, connected), Block.UPDATE_CLIENTS);
     }
 
     @Nullable
@@ -1976,15 +2041,19 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         tag.putString(TAG_APPEARANCE, getHoseAppearanceId().toString());
         tag.putUUID(TAG_ENDPOINT_ID, getFireHoseEndpointId());
 
-        if (partnerPos == null)
-            return;
-
-        SableStructureCompat.writeLinkedBlock(tag, TAG_PARTNER_POS, TAG_PARTNER_SUB_LEVEL,
+        if (partnerPos != null) {
+            SableStructureCompat.writeLinkedBlock(tag, TAG_PARTNER_POS, TAG_PARTNER_SUB_LEVEL,
                 partnerPos, partnerSubLevel);
-        if (partnerEndpointId != null)
-            tag.putUUID(TAG_PARTNER_ENDPOINT_ID, partnerEndpointId);
-        if (partnerMoving)
-            tag.putBoolean(TAG_PARTNER_MOVING, true);
+            if (partnerEndpointId != null)
+                tag.putUUID(TAG_PARTNER_ENDPOINT_ID, partnerEndpointId);
+            if (partnerMoving)
+                tag.putBoolean(TAG_PARTNER_MOVING, true);
+        }
+        if (managedByConnectorPos != null && managedByConnectorId != null) {
+            SableStructureCompat.writeLinkedBlock(tag, TAG_MANAGED_BY_CONNECTOR_POS,
+                TAG_MANAGED_BY_CONNECTOR_SUB_LEVEL, managedByConnectorPos, managedByConnectorSubLevel);
+            tag.putUUID(TAG_MANAGED_BY_CONNECTOR_ID, managedByConnectorId);
+        }
     }
 
     private void readFireHoseConnectionFields(CompoundTag tag) {
@@ -1997,6 +2066,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         partnerMoving = false;
         movingPartnerRuntimeId = null;
         movingPartnerLeaseExpiresAt = 0;
+        managedByConnectorPos = null;
+        managedByConnectorSubLevel = null;
+        managedByConnectorId = null;
 
         SableStructureCompat.LinkedBlockRef ref = SableStructureCompat.readLinkedBlock(
                 tag, TAG_PARTNER_POS, TAG_PARTNER_SUB_LEVEL);
@@ -2005,6 +2077,14 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (partnerPos != null && tag.hasUUID(TAG_PARTNER_ENDPOINT_ID))
             partnerEndpointId = tag.getUUID(TAG_PARTNER_ENDPOINT_ID);
         partnerMoving = partnerPos != null && tag.getBoolean(TAG_PARTNER_MOVING);
+
+        if (tag.hasUUID(TAG_MANAGED_BY_CONNECTOR_ID)) {
+            SableStructureCompat.LinkedBlockRef connector = SableStructureCompat.readLinkedBlock(
+                tag, TAG_MANAGED_BY_CONNECTOR_POS, TAG_MANAGED_BY_CONNECTOR_SUB_LEVEL);
+            managedByConnectorPos = connector.pos();
+            managedByConnectorSubLevel = connector.subLevelId();
+            managedByConnectorId = managedByConnectorPos == null ? null : tag.getUUID(TAG_MANAGED_BY_CONNECTOR_ID);
+        }
     }
 
     private static ResourceLocation readHoseAppearance(CompoundTag tag) {

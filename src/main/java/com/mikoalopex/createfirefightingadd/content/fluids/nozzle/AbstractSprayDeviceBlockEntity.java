@@ -1552,7 +1552,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		}
 		if (behavior != FluidBehavior.UNSUPPORTED)
 			return behavior;
-		var custom = customSprayRules.find(stack);
+		var custom = customSprayRules.findForSpray(stack);
 		if (custom.isPresent()) {
 			currentCustomRule = custom.get();
 			currentPotionContents = PotionContents.EMPTY;
@@ -1574,7 +1574,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		FluidBehavior builtIn = classifyBuiltInFluidForSpray(level, stack);
 		if (builtIn != FluidBehavior.UNSUPPORTED)
 			return builtIn;
-		if (rules != null && rules.find(stack).isPresent())
+		if (rules != null && rules.findForSpray(stack).isPresent())
 			return FluidBehavior.CUSTOM;
 		return FluidBehavior.UNSUPPORTED;
 	}

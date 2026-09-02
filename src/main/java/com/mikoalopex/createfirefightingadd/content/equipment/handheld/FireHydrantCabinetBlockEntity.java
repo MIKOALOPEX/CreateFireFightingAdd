@@ -28,8 +28,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.createmod.catnip.animation.LerpedFloat;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -54,7 +56,8 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 				case SLOT_HOSE -> stack.is(CreateFireFightingAdd.FIRE_HOSE_ITEM.get());
 				case SLOT_NOZZLE -> stack.is(CreateFireFightingAdd.CONE_NOZZLE_ITEM.get())
 					|| stack.is(CreateFireFightingAdd.FLAT_NOZZLE_ITEM.get());
-				case SLOT_BUCKET -> stack.is(Items.BUCKET);
+				case SLOT_BUCKET -> stack.is(Items.BUCKET)
+					|| stack.is(CreateFireFightingAdd.FIRE_EXTINGUISHER_ITEM.get());
 				default -> false;
 			};
 		}
@@ -273,13 +276,17 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 		if (stack.is(CreateFireFightingAdd.CONE_NOZZLE_ITEM.get())
 			|| stack.is(CreateFireFightingAdd.FLAT_NOZZLE_ITEM.get()))
 			return SLOT_NOZZLE;
-		if (stack.is(Items.BUCKET))
+		if (stack.is(Items.BUCKET) || stack.is(CreateFireFightingAdd.FIRE_EXTINGUISHER_ITEM.get()))
 			return SLOT_BUCKET;
 		return -1;
 	}
 
 	private void fillBucketFromTank() {
 		ItemStack bucketSlot = inventory.getStackInSlot(SLOT_BUCKET);
+		if (bucketSlot.is(CreateFireFightingAdd.FIRE_EXTINGUISHER_ITEM.get())) {
+			fillExtinguisherFromTank(bucketSlot);
+			return;
+		}
 		if (!bucketSlot.is(Items.BUCKET) || tank.getFluidAmount() < 1000)
 			return;
 
@@ -289,6 +296,21 @@ public class FireHydrantCabinetBlockEntity extends BlockEntity implements MenuPr
 
 		tank.drain(1000, FluidAction.EXECUTE);
 		inventory.setStackInSlot(SLOT_BUCKET, new ItemStack(bucketItem));
+	}
+
+	private void fillExtinguisherFromTank(ItemStack extinguisher) {
+		if (tank.isEmpty())
+			return;
+		IFluidHandlerItem handler = extinguisher.getCapability(Capabilities.FluidHandler.ITEM);
+		if (handler == null)
+			return;
+		FluidStack offered = tank.getFluid().copyWithAmount(Math.min(50, tank.getFluidAmount()));
+		int accepted = handler.fill(offered, FluidAction.SIMULATE);
+		if (accepted <= 0)
+			return;
+		tank.drain(accepted, FluidAction.EXECUTE);
+		handler.fill(offered.copyWithAmount(accepted), FluidAction.EXECUTE);
+		inventory.setStackInSlot(SLOT_BUCKET, handler.getContainer());
 	}
 
 	private void markUpdated() {

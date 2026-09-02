@@ -5,6 +5,7 @@
     "createfirefightingadd:hydraulic_ram",
     "createfirefightingadd:pipeline_turbine",
     "createfirefightingadd:fluid_flow_meter",
-    "createfirefightingadd:flow_meter"
+    "createfirefightingadd:flow_meter",
+    "createfirefightingadd:fire_extinguisher"
   ]
 }

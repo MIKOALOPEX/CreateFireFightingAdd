@@ -42,8 +42,8 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
  * A standard straight pipe with optional fire-hose endpoint automation.
  *
  * <p>Fluid transport is always delegated to Create's straight-pipe behaviour.
- * Redstone only triggers endpoint lookup, highlighting, or reconnection; it
- * never gates or redirects fluid flow.</p>
+ * Redstone only triggers endpoint lookup, highlighting, connection changes, or
+ * disconnection; it never gates or redirects fluid flow.</p>
  */
 public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_ATTACHED_POS = "AttachedPos";
@@ -52,7 +52,10 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_CACHED_POS = "CachedPos";
 	private static final String TAG_CACHED_SUB_LEVEL = "CachedSubLevel";
 	private static final String TAG_CACHED_ENDPOINT_ID = "CachedEndpointId";
+	private static final String TAG_CONNECTOR_ID = "ConnectorId";
+	private static final String TAG_ACTION_COOLDOWN_UNTIL = "ActionCooldownUntil";
 	private static final String TAG_POWERED = "Powered";
+	private static final int ACTION_COOLDOWN_TICKS = 100;
 
 	// Endpoint currently adjacent to the connector's pipe axis.
 	@Nullable
@@ -69,6 +72,8 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private UUID cachedSubLevel;
 	@Nullable
 	private UUID cachedEndpointId;
+	private UUID connectorId = UUID.randomUUID();
+	private long actionCooldownUntil;
 	private boolean powered;
 	private ScrollOptionBehaviour<FireHoseConnectorMode> mode;
 
@@ -106,6 +111,7 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	public void refreshAttachedEndpoint() {
 		FireHoseBlockEntity attached = findAttachedEndpoint();
 		if (attached == null) {
+			releaseAttachedEndpointClaim();
 			attachedPos = null;
 			attachedSubLevel = null;
 			attachedEndpointId = null;
@@ -115,9 +121,13 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		boolean changedEndpoint = attachedPos == null
 			|| !attachedPos.equals(attached.getBlockPos())
 			|| !attached.getFireHoseEndpointId().equals(attachedEndpointId);
+		if (changedEndpoint)
+			releaseAttachedEndpointClaim();
 		attachedPos = attached.getBlockPos();
 		attachedSubLevel = SableStructureCompat.containingSubLevelId(level, attached.getBlockPos());
 		attachedEndpointId = attached.getFireHoseEndpointId();
+		attached.claimManagedByConnector(worldPosition,
+			SableStructureCompat.containingSubLevelId(level, worldPosition), getConnectorId());
 		if (changedEndpoint)
 			rememberPartner(attached);
 		else if (attached.getFireHosePartnerPos() != null
@@ -144,8 +154,16 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		FireHoseBlockEntity attached = findAttachedEndpoint();
 		if (attached == null)
 			return;
+		if (isActionCoolingDown())
+			return;
 
 		rememberPartner(attached);
+		if (attached.getFireHosePartnerPos() != null) {
+			FireHoseConnections.disconnect(attached);
+			startActionCooldown();
+			return;
+		}
+
 		if (connectorMode == FireHoseConnectorMode.IDLE) {
 			highlightCachedOrClear();
 			return;
@@ -183,6 +201,7 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 			!= FireHoseConnections.Result.SUCCESS)
 			return false;
 		highlight(cached, 0x70FF33);
+		startActionCooldown();
 		return true;
 	}
 
@@ -190,11 +209,44 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		if (level == null)
 			return;
 		FireHoseConnections.ConnectionAttempt attempt =
-			FireHoseConnections.tryConnectFirstFreeEndpoint(attached);
+			FireHoseConnections.tryConnectFirstFreeEndpoint(attached, this);
 		if (attempt.successful()) {
 			remember(attempt.endpoint());
 			highlight(attempt.endpoint(), 0x70FF33);
+			startActionCooldown();
 		}
+	}
+
+	private boolean isActionCoolingDown() {
+		return level != null && level.getGameTime() < actionCooldownUntil;
+	}
+
+	private void startActionCooldown() {
+		if (level != null)
+			actionCooldownUntil = level.getGameTime() + ACTION_COOLDOWN_TICKS;
+		setChanged();
+	}
+
+	UUID getConnectorId() {
+		if (connectorId == null)
+			connectorId = UUID.randomUUID();
+		return connectorId;
+	}
+
+	boolean isManagingEndpoint(FireHoseBlockEntity hose) {
+		return hose != null
+			&& attachedPos != null
+			&& attachedEndpointId != null
+			&& attachedPos.equals(hose.getBlockPos())
+			&& attachedEndpointId.equals(hose.getFireHoseEndpointId());
+	}
+
+	private void releaseAttachedEndpointClaim() {
+		if (level == null || attachedPos == null || attachedEndpointId == null)
+			return;
+		FireHoseBlockEntity attached = findEndpoint(attachedPos, attachedEndpointId);
+		if (attached != null)
+			attached.releaseManagedByConnector(worldPosition, getConnectorId());
 	}
 
 	private FireHoseConnectorMode getMode() {
@@ -313,6 +365,13 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	}
 
 	@Override
+	public void remove() {
+		if (level != null && !level.isClientSide)
+			releaseAttachedEndpointClaim();
+		super.remove();
+	}
+
+	@Override
 	protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 		super.write(tag, registries, clientPacket);
 		writeLink(tag, TAG_ATTACHED_POS, TAG_ATTACHED_SUB_LEVEL, attachedPos, attachedSubLevel);
@@ -321,6 +380,8 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		writeLink(tag, TAG_CACHED_POS, TAG_CACHED_SUB_LEVEL, cachedPos, cachedSubLevel);
 		if (cachedEndpointId != null)
 			tag.putUUID(TAG_CACHED_ENDPOINT_ID, cachedEndpointId);
+		tag.putUUID(TAG_CONNECTOR_ID, getConnectorId());
+		tag.putLong(TAG_ACTION_COOLDOWN_UNTIL, actionCooldownUntil);
 		tag.putBoolean(TAG_POWERED, powered);
 	}
 
@@ -338,6 +399,8 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		cachedPos = cached.pos();
 		cachedSubLevel = cached.subLevelId();
 		cachedEndpointId = tag.hasUUID(TAG_CACHED_ENDPOINT_ID) ? tag.getUUID(TAG_CACHED_ENDPOINT_ID) : null;
+		connectorId = tag.hasUUID(TAG_CONNECTOR_ID) ? tag.getUUID(TAG_CONNECTOR_ID) : UUID.randomUUID();
+		actionCooldownUntil = tag.getLong(TAG_ACTION_COOLDOWN_UNTIL);
 		powered = tag.getBoolean(TAG_POWERED);
 	}
 

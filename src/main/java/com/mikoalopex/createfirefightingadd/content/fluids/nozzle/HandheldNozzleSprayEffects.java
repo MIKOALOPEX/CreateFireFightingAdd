@@ -72,7 +72,7 @@ public final class HandheldNozzleSprayEffects {
 		if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM) {
 			customRule = NozzleGlobalSprayRules.findGlobalRule(fluid).orElse(null);
 			if (customRule == null)
-				customRule = customRules.find(fluid).orElse(null);
+				customRule = customRules.findForSpray(fluid).orElse(null);
 		}
 
 		fluid = cabinet.drainForHandheldSpray(CONSUMPTION_PER_TICK, FluidAction.EXECUTE);
