@@ -2,6 +2,7 @@ package com.mikoalopex.createfirefightingadd.integration.sable;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
@@ -21,6 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class SableStructureCallbacks {
+    private static final AtomicBoolean REPORTED_LADDER_MOVE_FAILURE = new AtomicBoolean();
 
     private SableStructureCallbacks() {
     }
@@ -76,7 +78,13 @@ public final class SableStructureCallbacks {
                 SableStructureCompat.notifyBlockChanged(newLevel, newPos, state);
             }
         } catch (Throwable e) {
-            CreateFireFightingAdd.LOGGER.warn("Failed to reinitialize extension ladder after Sable assembly move.", e);
+            if (REPORTED_LADDER_MOVE_FAILURE.compareAndSet(false, true)) {
+                CreateFireFightingAdd.LOGGER.warn(
+                    "An extension ladder could not be restored after a Sable structure moved it; "
+                        + "further matching errors are suppressed: {}",
+                    e.toString());
+                CreateFireFightingAdd.LOGGER.debug("Extension ladder Sable move failure", e);
+            }
         }
     }
 }

@@ -20,11 +20,13 @@ import java.util.UUID;
  * Disabled-by-default diagnostics for fire hose pressure and transfer behaviour.
  *
  * <p>The call sites stay in place so hose transfer issues can be inspected
- * without reintroducing ad-hoc logging.</p>
+ * without reintroducing ad-hoc logging. Enable with the
+ * {@code createfirefightingadd.fireHoseDebug.enabled} system property.</p>
  */
 public final class FireHoseDebugLog {
 
-    static final boolean ENABLED = false;
+    static final boolean ENABLED =
+        Boolean.getBoolean("createfirefightingadd.fireHoseDebug.enabled");
     static final String TAG = "[FH_DBG]";
     private static final Logger LOGGER = LogUtils.getLogger();
 

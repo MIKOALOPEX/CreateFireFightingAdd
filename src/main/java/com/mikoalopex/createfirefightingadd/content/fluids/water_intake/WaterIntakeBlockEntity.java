@@ -92,8 +92,7 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity {
 		if (level == null || level.isClientSide())
 			return;
 
-		Direction facing = getBlockState().getValue(WaterIntakeBlock.FACING);
-		if (!level.hasSignal(worldPosition.relative(facing), facing))
+		if (!isRedstonePowered())
 			return;
 
 		if (getSpeed() == 0)
@@ -478,5 +477,10 @@ public class WaterIntakeBlockEntity extends KineticBlockEntity {
 		SableStructureCompat.LinkedBlockRef ref = SableStructureCompat.readLinkedBlock(
 			tag, TAG_BOUND_BUCKET_POS, TAG_BOUND_BUCKET_SUB_LEVEL);
 		boundBucketPos = ref.pos();
+	}
+
+	private boolean isRedstonePowered() {
+		return getBlockState().hasProperty(WaterIntakeBlock.POWERED)
+			&& getBlockState().getValue(WaterIntakeBlock.POWERED);
 	}
 }

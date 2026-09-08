@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ClientNozzleParticleColorSampler;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleFluidInputHelper;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleParticlePalette;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayRule;
@@ -190,6 +191,7 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	}
 
 	private void addRule(NozzleSprayRule rule) {
+		rule = ClientNozzleParticleColorSampler.withSuggestedPalette(rule);
 		nozzleDraft = nozzleDraft.withRule(rule);
 		selectedNozzleRule = indexOf(rule.target());
 		entryScroll = Math.max(0, selectedNozzleRule - ROWS + 1);
@@ -358,8 +360,10 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 			drawCentered(graphics, Component.translatable("createfirefightingadd.configurator.nozzle.read_short"),
 				READ_BUTTON_X - 5, READ_BUTTON_Y + (READ_BUTTON_HEIGHT - font.lineHeight) / 2 + 1, READ_BUTTON_WIDTH,
 				0xFFFFFFFF, true);
-			if (hasSelection())
+			if (hasSelection()) {
+				renderLockedRulePrompt(graphics);
 				renderPageButton(graphics);
+			}
 			renderNozzleEntries(graphics, mouseX, mouseY);
 			if (hasSelection())
 				renderNozzlePage(graphics);
@@ -373,6 +377,17 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 		drawCentered(graphics, Component.literal("<"), PAGE_BUTTON_X, PAGE_BUTTON_Y + 2, PAGE_BUTTON_WIDTH / 2, 0xFFFFFFFF);
 		drawCentered(graphics, Component.literal(">"), PAGE_BUTTON_X + PAGE_BUTTON_WIDTH / 2, PAGE_BUTTON_Y + 2,
 			PAGE_BUTTON_WIDTH / 2, 0xFFFFFFFF);
+	}
+
+	private void renderLockedRulePrompt(GuiGraphics graphics) {
+		if (!selectedRule().locked())
+			return;
+		Component label = Component.translatable("createfirefightingadd.configurator.nozzle.locked");
+		int maxWidth = PAGE_BUTTON_X - EDIT_X - 6;
+		label = fitted(label, maxWidth);
+		int x = PAGE_BUTTON_X - 6 - font.width(label);
+		int y = PAGE_BUTTON_Y + (PAGE_BUTTON_HEIGHT - font.lineHeight) / 2;
+		graphics.drawString(font, label, x, y, 0xFF9D2F2F, false);
 	}
 
 	private void renderFeatureList(GuiGraphics graphics) {
@@ -483,9 +498,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 		if (!hasSelection())
 			return;
 		NozzleSprayRule rule = selectedRule();
-		if (rule.locked())
-			graphics.drawString(font, fitted(Component.translatable("createfirefightingadd.configurator.nozzle.locked"), EDIT_WIDTH),
-				EDIT_X, EDIT_Y, 0xFF9D2F2F, false);
 		if (nozzlePage == NozzlePage.TARGET) {
 			renderParticleRows(graphics, rule);
 		} else if (nozzlePage == NozzlePage.FLAGS) {

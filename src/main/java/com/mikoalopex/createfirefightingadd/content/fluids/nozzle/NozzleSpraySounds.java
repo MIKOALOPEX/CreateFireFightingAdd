@@ -14,6 +14,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 final class NozzleSpraySounds {
+	static final SprayLoopSound DEFAULT_LOOP_SOUND = SprayLoopSound.NOZZLE;
+
 	private static final int KEEP_ALIVE_INTERVAL_TICKS = 5;
 	private static final int STALE_TICKS = 12;
 	private static final double SOUND_RADIUS = 64.0;
@@ -36,8 +38,14 @@ final class NozzleSpraySounds {
 	}
 
 	static void tick(Level level, String key, Vec3 pos, SoundSource source) {
+		tick(level, key, pos, source, DEFAULT_LOOP_SOUND);
+	}
+
+	static void tick(Level level, String key, Vec3 pos, SoundSource source, SprayLoopSound loopSound) {
 		if (!(level instanceof ServerLevel serverLevel) || key == null || pos == null)
 			return;
+		if (loopSound == null)
+			loopSound = DEFAULT_LOOP_SOUND;
 
 		long gameTime = level.getGameTime();
 		Map<String, ActiveSound> sounds = sounds(level);
@@ -51,9 +59,12 @@ final class NozzleSpraySounds {
 		}
 
 		boolean sourceChanged = sound.source != source;
+		boolean loopSoundChanged = sound.loopSound != loopSound;
 		boolean moved = sound.lastSentPos == null || sound.lastSentPos.distanceToSqr(pos) > POSITION_RESEND_DISTANCE_SQR;
-		if (firstSync || sourceChanged || moved || gameTime - sound.lastSentTick >= KEEP_ALIVE_INTERVAL_TICKS) {
-			send(serverLevel, new NozzleSpraySoundPacket(key, true, source.ordinal(), pos.x, pos.y, pos.z), pos);
+		if (firstSync || sourceChanged || loopSoundChanged || moved
+				|| gameTime - sound.lastSentTick >= KEEP_ALIVE_INTERVAL_TICKS) {
+			send(serverLevel, new NozzleSpraySoundPacket(key, true, source.ordinal(), loopSound.ordinal(),
+				pos.x, pos.y, pos.z), pos);
 			sound.lastSentTick = gameTime;
 			sound.lastSentPos = pos;
 		}
@@ -61,6 +72,7 @@ final class NozzleSpraySounds {
 		sound.lastSeenTick = gameTime;
 		sound.lastPos = pos;
 		sound.source = source;
+		sound.loopSound = loopSound;
 	}
 
 	static void stop(Level level, String key, Vec3 fallbackPos, SoundSource source) {
@@ -71,8 +83,11 @@ final class NozzleSpraySounds {
 		ActiveSound sound = sounds == null ? null : sounds.remove(key);
 		Vec3 pos = sound != null && sound.lastPos != null ? sound.lastPos : fallbackPos;
 		SoundSource soundSource = sound != null && sound.source != null ? sound.source : source;
+		SprayLoopSound loopSound =
+			sound != null && sound.loopSound != null ? sound.loopSound : DEFAULT_LOOP_SOUND;
 		if (pos != null)
-			send(serverLevel, new NozzleSpraySoundPacket(key, false, soundSource.ordinal(), pos.x, pos.y, pos.z), pos);
+			send(serverLevel, new NozzleSpraySoundPacket(key, false, soundSource.ordinal(), loopSound.ordinal(),
+				pos.x, pos.y, pos.z), pos);
 	}
 
 	private static Map<String, ActiveSound> sounds(Level level) {
@@ -88,6 +103,7 @@ final class NozzleSpraySounds {
 				return false;
 			if (sound.lastPos != null)
 				send(level, new NozzleSpraySoundPacket(entry.getKey(), false, sound.source.ordinal(),
+					sound.loopSound.ordinal(),
 					sound.lastPos.x, sound.lastPos.y, sound.lastPos.z), sound.lastPos);
 			return true;
 		});
@@ -107,12 +123,14 @@ final class NozzleSpraySounds {
 		private Vec3 lastSentPos;
 		private Vec3 lastPos;
 		private SoundSource source;
+		private SprayLoopSound loopSound;
 
 		private ActiveSound(long lastSeenTick, long lastSentTick, Vec3 lastPos, SoundSource source) {
 			this.lastSeenTick = lastSeenTick;
 			this.lastSentTick = lastSentTick;
 			this.lastPos = lastPos;
 			this.source = source;
+			this.loopSound = DEFAULT_LOOP_SOUND;
 		}
 	}
 }

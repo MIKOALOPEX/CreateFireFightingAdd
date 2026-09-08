@@ -25,6 +25,7 @@ public class PartialModels {
 	public static final PartialModel FIRE_HYDRANT_CABINET_HOSE = block("fire_hydrant_cabinet/hose");
 	public static final PartialModel FIRE_HYDRANT_CABINET_CONE = block("fire_hydrant_cabinet/cone");
 	public static final PartialModel FIRE_HYDRANT_CABINET_FLAT = block("fire_hydrant_cabinet/flat");
+	public static final PartialModel TRAFFIC_CONE = block("traffic_cone");
 	public static final PartialModel HANDHELD_NOZZLE_BASE = item("handheld_nozzle_controller/base");
 	public static final PartialModel HANDHELD_NOZZLE_HANDLE = item("handheld_nozzle_controller/handle");
 	public static final PartialModel HANDHELD_NOZZLE_COG = item("handheld_nozzle_controller/cog");
@@ -59,6 +60,7 @@ public class PartialModels {
 		event.register(ModelResourceLocation.standalone(FIRE_HYDRANT_CABINET_HOSE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(FIRE_HYDRANT_CABINET_CONE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(FIRE_HYDRANT_CABINET_FLAT.modelLocation()));
+		event.register(ModelResourceLocation.standalone(TRAFFIC_CONE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HANDHELD_NOZZLE_BASE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HANDHELD_NOZZLE_HANDLE.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HANDHELD_NOZZLE_COG.modelLocation()));

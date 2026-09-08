@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "   ",
+    " C ",
+    "CDC"
+  ],
+  "key": {
+    "C": { "item": "create:cardboard" },
+    "D": { "item": "minecraft:orange_dye" }
+  },
+  "result": {
+    "id": "createfirefightingadd:traffic_cone",
+    "count": 1
+  }
+}

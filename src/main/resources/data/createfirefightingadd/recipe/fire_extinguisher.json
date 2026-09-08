@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " V ",
+    " I ",
+    " W "
+  ],
+  "key": {
+    "V": { "item": "create:fluid_valve" },
+    "I": { "item": "create:iron_sheet" },
+    "W": { "item": "minecraft:bucket" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fire_extinguisher",
+    "count": 1
+  }
+}

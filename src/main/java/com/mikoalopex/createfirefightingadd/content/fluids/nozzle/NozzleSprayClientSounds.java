@@ -1,16 +1,26 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
+import javax.sound.sampled.AudioFormat;
 
 import com.mikoalopex.createfirefightingadd.ClientConfig;
-import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.sounds.AudioStream;
+import net.minecraft.client.sounds.FiniteAudioStream;
+import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -26,21 +36,29 @@ public final class NozzleSprayClientSounds {
 	}
 
 	public static void keepAlive(String key, Vec3 pos, SoundSource source) {
+		keepAlive(key, pos, source, SprayLoopSound.NOZZLE);
+	}
+
+	public static void keepAlive(String key, Vec3 pos, SoundSource source, SprayLoopSound loopSound) {
 		if (key == null || key.isBlank() || pos == null)
 			return;
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft.level == null)
 			return;
+		if (loopSound == null)
+			loopSound = SprayLoopSound.NOZZLE;
 
 		FadingSpraySound sound = SOUNDS.get(key);
 		if (sound == null || sound.isStopped()) {
-			sound = new FadingSpraySound(pos, source);
+			sound = new FadingSpraySound(pos, source, loopSound);
 			SOUNDS.put(key, sound);
 			playIfAudible(minecraft, sound);
 		} else if (sound.soundSource() != source) {
-			sound = restart(minecraft, key, sound, source);
+			sound = restart(minecraft, key, sound, source, loopSound);
+		} else if (sound.loopSound() != loopSound) {
+			sound = restart(minecraft, key, sound, source, loopSound);
 		} else if (!minecraft.getSoundManager().isActive(sound) && isAudible(minecraft, sound.soundSource())) {
-			sound = restart(minecraft, key, sound, sound.soundSource());
+			sound = restart(minecraft, key, sound, sound.soundSource(), sound.loopSound());
 		}
 		sound.keepAlive(pos);
 		rememberVolume(minecraft, source);
@@ -78,7 +96,7 @@ public final class NozzleSprayClientSounds {
 				iterator.remove();
 			else if ((masterRestored || Boolean.TRUE.equals(restoredSources.get(sound.soundSource())))
 				&& sound.isRecentlyAlive())
-				entry.setValue(restart(minecraft, entry.getKey(), sound, sound.soundSource()));
+				entry.setValue(restart(minecraft, entry.getKey(), sound, sound.soundSource(), sound.loopSound()));
 		}
 	}
 
@@ -99,11 +117,11 @@ public final class NozzleSprayClientSounds {
 	}
 
 	private static FadingSpraySound restart(Minecraft minecraft, String key, FadingSpraySound previous,
-		SoundSource source) {
+		SoundSource source, SprayLoopSound loopSound) {
 		minecraft.getSoundManager().stop(previous);
 		previous.stopNow();
 
-		FadingSpraySound replacement = new FadingSpraySound(previous.position(), source);
+		FadingSpraySound replacement = new FadingSpraySound(previous.position(), source, loopSound);
 		replacement.copyStateFrom(previous);
 		SOUNDS.put(key, replacement);
 		playIfAudible(minecraft, replacement);
@@ -129,13 +147,15 @@ public final class NozzleSprayClientSounds {
 
 	private static final class FadingSpraySound extends AbstractTickableSoundInstance {
 		private final SoundSource soundSource;
+		private final SprayLoopSound loopSound;
 		private int fade;
 		private int ticksSinceKeepAlive;
 		private boolean active;
 
-		private FadingSpraySound(Vec3 pos, SoundSource source) {
-			super(CreateFireFightingAdd.NOZZLE_SPRAY_SOUND.get(), source, SoundInstance.createUnseededRandom());
+		private FadingSpraySound(Vec3 pos, SoundSource source, SprayLoopSound loopSound) {
+			super(loopSound.soundEvent(), source, SoundInstance.createUnseededRandom());
 			this.soundSource = source;
+			this.loopSound = loopSound;
 			this.looping = true;
 			this.delay = 0;
 			this.volume = 0.0f;
@@ -168,6 +188,32 @@ public final class NozzleSprayClientSounds {
 			return true;
 		}
 
+		@Override
+		public CompletableFuture<AudioStream> getStream(SoundBufferLibrary soundBuffers, Sound sound, boolean looping) {
+			if (!looping || loopSound.loopTrimStartSeconds() <= 0.0 && loopSound.loopTrimEndSeconds() <= 0.0)
+				return soundBuffers.getStream(sound.getPath(), looping);
+
+			// Loop only the steady section; runtime volume controls the audible fade-in and fade-out.
+			return soundBuffers.getStream(sound.getPath(), false)
+				.thenApply(stream -> {
+					try {
+						if (!(stream instanceof FiniteAudioStream finite))
+							return stream;
+						AudioFormat format = stream.getFormat();
+						ByteBuffer pcm = finite.readAll();
+						stream.close();
+						return new TrimmedPcmLoopStream(format, pcm,
+							loopSound.loopTrimStartSeconds(), loopSound.loopTrimEndSeconds());
+					} catch (IOException e) {
+						try {
+							stream.close();
+						} catch (IOException ignored) {
+						}
+						throw new CompletionException(e);
+					}
+				});
+		}
+
 		private void keepAlive(Vec3 pos) {
 			moveTo(pos);
 			active = true;
@@ -193,6 +239,10 @@ public final class NozzleSprayClientSounds {
 			return soundSource;
 		}
 
+		private SprayLoopSound loopSound() {
+			return loopSound;
+		}
+
 		private Vec3 position() {
 			return new Vec3(x, y, z);
 		}
@@ -206,6 +256,59 @@ public final class NozzleSprayClientSounds {
 			ticksSinceKeepAlive = previous.ticksSinceKeepAlive;
 			active = previous.active;
 			volume = previous.volume;
+		}
+	}
+
+	private static final class TrimmedPcmLoopStream implements AudioStream {
+		private final AudioFormat format;
+		private final byte[] loopBytes;
+		private int cursor;
+		private boolean closed;
+
+		private TrimmedPcmLoopStream(AudioFormat format, ByteBuffer pcm, double trimStartSeconds,
+				double trimEndSeconds) {
+			this.format = format;
+			byte[] bytes = new byte[pcm.remaining()];
+			pcm.get(bytes);
+
+			int frameSize = Math.max(1, format.getFrameSize());
+			int start = alignedBytes(trimStartSeconds, format, frameSize);
+			int end = bytes.length - alignedBytes(trimEndSeconds, format, frameSize);
+			if (end <= start + frameSize)
+				this.loopBytes = bytes;
+			else
+				this.loopBytes = Arrays.copyOfRange(bytes, start, end);
+		}
+
+		@Override
+		public AudioFormat getFormat() {
+			return format;
+		}
+
+		@Override
+		public ByteBuffer read(int capacity) {
+			if (closed || loopBytes.length == 0 || capacity <= 0)
+				return ByteBuffer.allocate(0);
+
+			ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+			while (buffer.hasRemaining()) {
+				int length = Math.min(buffer.remaining(), loopBytes.length - cursor);
+				buffer.put(loopBytes, cursor, length);
+				cursor = (cursor + length) % loopBytes.length;
+			}
+			buffer.flip();
+			return buffer;
+		}
+
+		@Override
+		public void close() {
+			closed = true;
+		}
+
+		private static int alignedBytes(double seconds, AudioFormat format, int frameSize) {
+			int bytes = (int) Math.round(seconds * format.getFrameRate()) * frameSize;
+			bytes = Math.max(0, bytes);
+			return bytes - bytes % frameSize;
 		}
 	}
 }

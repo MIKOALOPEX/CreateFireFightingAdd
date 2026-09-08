@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -21,7 +22,11 @@ final class SprayPerformanceDebug {
 		Long.getLong("createfirefightingadd.sprayPerf.sourceWarnNanos", 5_000_000L);
 	private static final long TICK_WARN_NANOS =
 		Long.getLong("createfirefightingadd.sprayPerf.tickWarnNanos", 20_000_000L);
+	private static final long WARN_INTERVAL_TICKS =
+		Math.max(1L, Long.getLong("createfirefightingadd.sprayPerf.warnIntervalTicks", 100L));
 	private static final Map<Level, TickStats> TICK_STATS =
+		Collections.synchronizedMap(new WeakHashMap<>());
+	private static final Map<Level, Map<String, Long>> LAST_WARNING_TICKS =
 		Collections.synchronizedMap(new WeakHashMap<>());
 
 	private SprayPerformanceDebug() {
@@ -64,19 +69,32 @@ final class SprayPerformanceDebug {
 				stats.add(source, pos, elapsed, activeProjectiles, detail);
 				if (!stats.logged && stats.totalNanos >= TICK_WARN_NANOS) {
 					stats.logged = true;
-					CreateFireFightingAdd.LOGGER.warn(
-						"[SprayPerf] tick={} level={} total={}ms calls={} slowest={}ms source={} pos={} projectiles={} detail={}",
-						tick, level.dimension().location(), millis(stats.totalNanos), stats.calls,
-						millis(stats.slowestNanos), stats.slowestSource, stats.slowestPos,
-						stats.slowestProjectiles, stats.slowestDetail);
+					if (shouldWarn(level, "tick", tick)) {
+						CreateFireFightingAdd.LOGGER.warn(
+							"[SprayPerf] tick={} level={} total={}ms calls={} slowest={}ms source={} pos={} projectiles={} detail={}",
+							tick, level.dimension().location(), millis(stats.totalNanos), stats.calls,
+							millis(stats.slowestNanos), stats.slowestSource, stats.slowestPos,
+							stats.slowestProjectiles, stats.slowestDetail);
+					}
 				}
 			}
 		}
 
-		if (elapsed >= SOURCE_WARN_NANOS) {
+		if (elapsed >= SOURCE_WARN_NANOS && shouldWarn(level, "source:" + source, tick)) {
 			CreateFireFightingAdd.LOGGER.warn(
 				"[SprayPerf] slow source tick={} level={} source={} pos={} elapsed={}ms projectiles={} detail={}",
 				tick, level.dimension().location(), source, pos, millis(elapsed), activeProjectiles, detail);
+		}
+	}
+
+	private static boolean shouldWarn(Level level, String key, long tick) {
+		synchronized (LAST_WARNING_TICKS) {
+			Map<String, Long> warnings = LAST_WARNING_TICKS.computeIfAbsent(level, ignored -> new HashMap<>());
+			Long previous = warnings.get(key);
+			if (previous != null && tick - previous < WARN_INTERVAL_TICKS)
+				return false;
+			warnings.put(key, tick);
+			return true;
 		}
 	}
 

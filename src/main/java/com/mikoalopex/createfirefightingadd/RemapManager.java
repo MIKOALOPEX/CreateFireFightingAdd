@@ -49,7 +49,8 @@ public class RemapManager {
 			RemapManager.class.getResourceAsStream(CONFIG_PATH))) {
 			root = new Gson().fromJson(reader, JsonObject.class);
 		} catch (Exception e) {
-			LOGGER.warn("[CreateFireFightingAdd] block_remap.json not found; no block migrations loaded.");
+			LOGGER.warn("block_remap.json is missing or unreadable. Reinstall the mod before loading worlds that use renamed blocks.");
+			LOGGER.debug("Block remap data load failure", e);
 			return;
 		}
 
@@ -80,7 +81,7 @@ public class RemapManager {
 			allLegacyItems.add(legacyItem);
 			blocksByReplacement.computeIfAbsent(newName, k -> new ArrayList<>()).add(legacyBlock);
 
-			LOGGER.info("[CreateFireFightingAdd] Registered legacy alias: '{}' -> '{}'{}",
+			LOGGER.debug("[CreateFireFightingAdd] Registered legacy alias: '{}' -> '{}'{}",
 				oldName, newName, note.isEmpty() ? "" : " (" + note + ")");
 		}
 	}

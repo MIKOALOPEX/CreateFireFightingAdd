@@ -16,8 +16,8 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour;
 
-import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.data.Couple;
+import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -54,7 +54,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_CACHED_ENDPOINT_ID = "CachedEndpointId";
 	private static final String TAG_CONNECTOR_ID = "ConnectorId";
 	private static final String TAG_ACTION_COOLDOWN_UNTIL = "ActionCooldownUntil";
-	private static final String TAG_POWERED = "Powered";
 	private static final int ACTION_COOLDOWN_TICKS = 100;
 
 	// Endpoint currently adjacent to the connector's pipe axis.
@@ -74,7 +73,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private UUID cachedEndpointId;
 	private UUID connectorId = UUID.randomUUID();
 	private long actionCooldownUntil;
-	private boolean powered;
 	private ScrollOptionBehaviour<FireHoseConnectorMode> mode;
 
 	public FireHoseConnectorBlockEntity(BlockPos pos, BlockState state) {
@@ -96,13 +94,12 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		behaviours.add(mode);
 	}
 
-	public void onNeighborChanged() {
+	public void onNeighborChanged(boolean wasPowered, boolean nowPowered) {
 		refreshAttachedEndpoint();
-		boolean nowPowered = hasRedstoneSignal();
-		if (nowPowered && !powered)
+		if (nowPowered && !wasPowered)
 			executeMode();
-		powered = nowPowered;
 		setChanged();
+		sendData();
 	}
 
 	/**
@@ -262,18 +259,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		tellNearby(Component.translatable("createfirefightingadd.fire_hose_connector.cached_missing"));
 	}
 
-	private boolean hasRedstoneSignal() {
-		if (level == null)
-			return false;
-		for (Direction direction : Iterate.directions) {
-			if (direction.getAxis() != FireHoseConnectorBlock.redstoneAxis(getBlockState()))
-				continue;
-			if (level.hasSignal(worldPosition.relative(direction), direction))
-				return true;
-		}
-		return false;
-	}
-
 	@Nullable
 	private FireHoseBlockEntity findAttachedEndpoint() {
 		if (level == null)
@@ -382,7 +367,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 			tag.putUUID(TAG_CACHED_ENDPOINT_ID, cachedEndpointId);
 		tag.putUUID(TAG_CONNECTOR_ID, getConnectorId());
 		tag.putLong(TAG_ACTION_COOLDOWN_UNTIL, actionCooldownUntil);
-		tag.putBoolean(TAG_POWERED, powered);
 	}
 
 	@Override
@@ -401,7 +385,6 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 		cachedEndpointId = tag.hasUUID(TAG_CACHED_ENDPOINT_ID) ? tag.getUUID(TAG_CACHED_ENDPOINT_ID) : null;
 		connectorId = tag.hasUUID(TAG_CONNECTOR_ID) ? tag.getUUID(TAG_CONNECTOR_ID) : UUID.randomUUID();
 		actionCooldownUntil = tag.getLong(TAG_ACTION_COOLDOWN_UNTIL);
-		powered = tag.getBoolean(TAG_POWERED);
 	}
 
 	private static void writeLink(CompoundTag tag, String posTag, String subLevelTag,

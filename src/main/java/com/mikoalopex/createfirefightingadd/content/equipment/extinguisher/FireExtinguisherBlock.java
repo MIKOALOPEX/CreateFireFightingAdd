@@ -2,10 +2,12 @@ package com.mikoalopex.createfirefightingadd.content.equipment.extinguisher;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayRuleSet;
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorItem;
 import com.simibubi.create.foundation.block.IBE;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -94,17 +96,16 @@ public class FireExtinguisherBlock extends Block
 			Level level, Player player, FireExtinguisherBlockEntity be, int index) {
 		if (level.isClientSide)
 			return true;
-		var rules = com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayRuleSet
-			.fromStack(stack, player.registryAccess());
+		NozzleSprayRuleSet rules = NozzleSprayRuleSet.fromStack(stack, player.registryAccess());
 		if (rules.isEmpty()) {
 			player.displayClientMessage(
-				net.minecraft.network.chat.Component.translatable("createfirefightingadd.configurator.nozzle.no_rules"),
+				Component.translatable("createfirefightingadd.configurator.nozzle.no_rules"),
 				true);
 			return true;
 		}
 		if (be.applyRules(index, rules, player.registryAccess())) {
 			player.displayClientMessage(
-				net.minecraft.network.chat.Component.translatable("createfirefightingadd.configurator.nozzle.applied"),
+				Component.translatable("createfirefightingadd.configurator.nozzle.applied"),
 				true);
 			return true;
 		}

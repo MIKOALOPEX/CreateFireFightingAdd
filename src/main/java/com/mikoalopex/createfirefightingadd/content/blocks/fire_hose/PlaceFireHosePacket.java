@@ -2,6 +2,8 @@ package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
 import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseEndpointModel;
@@ -42,6 +44,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
     private static final int PLACE_AND_CONNECT_FREE = 1;
     private static final int PLACE_AND_CONNECT_CONSUME = 2;
     private static final int CONNECT_EXISTING = 3;
+    private static final AtomicBoolean REPORTED_UNKNOWN_ACTION = new AtomicBoolean();
 
     public static final Type<PlaceFireHosePacket> TYPE =
             new Type<>(CreateFireFightingAdd.path("place_fire_hose"));
@@ -89,7 +92,8 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
         Level level = player.level();
         ItemStack hose = player.getItemInHand(packet.hand());
         if (!(hose.getItem() instanceof FireHoseItem)) {
-            LOGGER.warn("[FireHosePacket] rejected action {}: player is not holding a fire hose", packet.action());
+            FireHoseDebugLog.logRawEvery("packet_missing_hose", 100,
+                "rejected action {}: player is not holding a fire hose", packet.action());
             return;
         }
 
@@ -100,7 +104,11 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
             case PLACE_AND_CONNECT_CONSUME ->
                 placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing(), true);
             case CONNECT_EXISTING -> connectExisting(level, player, packet.firstPos(), packet.targetPos());
-            default -> LOGGER.warn("[FireHosePacket] rejected unknown action {}", packet.action());
+            default -> {
+                if (REPORTED_UNKNOWN_ACTION.compareAndSet(false, true))
+                    LOGGER.warn("Rejected an unsupported fire hose action ({}). "
+                        + "Verify that the client and server use the same mod version.", packet.action());
+            }
         }
     }
 
@@ -168,11 +176,13 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
                         placedPos, Integer.toHexString(System.identityHashCode(be)));
                 return be;
             }
-            LOGGER.error("[FireHosePacket] addHose at {} returned no fire hose BE", placedPos);
+            LOGGER.error("A fire hose endpoint at {} was created without its block entity. "
+                + "Verify the mod installation and report this issue if it persists.", placedPos);
             return null;
         }
 
-        LOGGER.error("[FireHosePacket] addHose FAILED at {} setBlockAndUpdate returned false", placedPos);
+        LOGGER.error("Could not place a fire hose endpoint at {} because the world rejected the block update.",
+            placedPos);
         return null;
     }
 

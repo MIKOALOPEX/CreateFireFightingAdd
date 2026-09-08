@@ -80,7 +80,7 @@ public final class FireExtinguisherSprayEffects {
 			|| customRule != null && (customRule.igniting() || customRule.flammable());
 
 		NozzleSpraySounds.tick(level, NozzleSpraySounds.handheldKey(player.getUUID()) + ":extinguisher",
-			origin, SoundSource.PLAYERS);
+			origin, SoundSource.PLAYERS, SprayLoopSound.FIRE_EXTINGUISHER);
 		applyBlockEffects(level, origin, direction, behavior, fluid, ignited, customRule);
 		applyEntityEffects(level, origin, direction, behavior, fluid, ignited, customRule);
 		return true;

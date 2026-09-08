@@ -1,0 +1,6 @@
+{
+  "selector": "createfirefightingadd:traffic_cone",
+  "properties": {
+    "sable:fragile": true
+  }
+}

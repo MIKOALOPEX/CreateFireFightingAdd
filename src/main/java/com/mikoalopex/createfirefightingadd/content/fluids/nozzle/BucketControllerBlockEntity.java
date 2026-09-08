@@ -102,7 +102,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	@Override
 	protected int getFluidConsumptionPerTick() {
-		if (level == null || !level.hasNeighborSignal(worldPosition))
+		if (!isRedstonePowered())
 			return 0;
 		return Math.max(1, Config.bucketWaterConsumption / 20);
 	}
@@ -128,7 +128,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	@Override
 	public IFluidHandler getFluidHandler(Direction side) {
-		if (level != null && level.hasNeighborSignal(worldPosition))
+		if (isRedstonePowered())
 			return null;
 		if (side == getFacing().getOpposite() || side == Direction.UP)
 			return null;
@@ -137,9 +137,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	@Override
 	public boolean isSpraying() {
-		if (level == null)
-			return false;
-		if (!level.hasNeighborSignal(worldPosition))
+		if (!isRedstonePowered())
 			return false;
 		return super.isSpraying();
 	}
@@ -153,7 +151,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 			if (level.isClientSide())
 				return;
 
-			if (level.hasNeighborSignal(worldPosition)) {
+			if (isRedstonePowered()) {
 				ticksSinceLastExtinguishSound++;
 			} else {
 				tryPullFromIntake();
@@ -168,7 +166,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	@Override
 	protected void waterBehavior() {
-		if (!level.hasNeighborSignal(worldPosition))
+		if (!isRedstonePowered())
 			return;
 		int radius = Config.bucketRadius;
 		int range = getEffectiveRange();
@@ -388,7 +386,7 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 	@Override
 	protected void spawnClientParticles() {
-		if (level == null || !level.hasNeighborSignal(worldPosition))
+		if (!isRedstonePowered())
 			return;
 		Vec3 origin = getWorldSprayOrigin();
 		Vec3 direction = getWorldSprayDirection();
@@ -429,6 +427,11 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 		Vec3 perp1 = facing.cross(ref).normalize();
 		Vec3 perp2 = facing.cross(perp1).normalize();
 		return new Vec3[] { perp1, perp2 };
+	}
+
+	private boolean isRedstonePowered() {
+		return getBlockState().hasProperty(BucketControllerBlock.POWERED)
+			&& getBlockState().getValue(BucketControllerBlock.POWERED);
 	}
 
 	private static class ClickValueBoxTransform extends ValueBoxTransform.Sided {

@@ -1,10 +1,16 @@
 {
   "variants": {
-    "facing=east":  { "model": "createfirefightingadd:block/water_intake", "y": 90 },
-    "facing=north": { "model": "createfirefightingadd:block/water_intake" },
-    "facing=south": { "model": "createfirefightingadd:block/water_intake", "y": 180 },
-    "facing=west":  { "model": "createfirefightingadd:block/water_intake", "y": 270 },
-    "facing=up":    { "model": "createfirefightingadd:block/water_intake", "x": 270 },
-    "facing=down":  { "model": "createfirefightingadd:block/water_intake", "x": 90 }
+    "facing=east,powered=false":  { "model": "createfirefightingadd:block/water_intake", "y": 90 },
+    "facing=east,powered=true":  { "model": "createfirefightingadd:block/water_intake", "y": 90 },
+    "facing=north,powered=false": { "model": "createfirefightingadd:block/water_intake" },
+    "facing=north,powered=true": { "model": "createfirefightingadd:block/water_intake" },
+    "facing=south,powered=false": { "model": "createfirefightingadd:block/water_intake", "y": 180 },
+    "facing=south,powered=true": { "model": "createfirefightingadd:block/water_intake", "y": 180 },
+    "facing=west,powered=false":  { "model": "createfirefightingadd:block/water_intake", "y": 270 },
+    "facing=west,powered=true":  { "model": "createfirefightingadd:block/water_intake", "y": 270 },
+    "facing=up,powered=false":    { "model": "createfirefightingadd:block/water_intake", "x": 270 },
+    "facing=up,powered=true":    { "model": "createfirefightingadd:block/water_intake", "x": 270 },
+    "facing=down,powered=false":  { "model": "createfirefightingadd:block/water_intake", "x": 90 },
+    "facing=down,powered=true":  { "model": "createfirefightingadd:block/water_intake", "x": 90 }
   }
 }

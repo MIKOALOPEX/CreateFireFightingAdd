@@ -17,6 +17,7 @@ public record NozzleSpraySoundPacket(
 	String key,
 	boolean active,
 	int sourceOrdinal,
+	int loopSoundOrdinal,
 	double x,
 	double y,
 	double z
@@ -31,6 +32,7 @@ public record NozzleSpraySoundPacket(
 		buf.writeUtf(packet.key, 128);
 		buf.writeBoolean(packet.active);
 		buf.writeVarInt(packet.sourceOrdinal);
+		buf.writeVarInt(packet.loopSoundOrdinal);
 		buf.writeDouble(packet.x);
 		buf.writeDouble(packet.y);
 		buf.writeDouble(packet.z);
@@ -40,6 +42,7 @@ public record NozzleSpraySoundPacket(
 		return new NozzleSpraySoundPacket(
 			buf.readUtf(128),
 			buf.readBoolean(),
+			buf.readVarInt(),
 			buf.readVarInt(),
 			buf.readDouble(),
 			buf.readDouble(),
@@ -60,9 +63,10 @@ public record NozzleSpraySoundPacket(
 	private static void handle(NozzleSpraySoundPacket packet, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			SoundSource source = source(packet.sourceOrdinal);
+			SprayLoopSound loopSound = SprayLoopSound.byOrdinal(packet.loopSoundOrdinal);
 			Vec3 pos = new Vec3(packet.x, packet.y, packet.z);
 			if (packet.active)
-				NozzleSprayClientSounds.keepAlive(packet.key, pos, source);
+				NozzleSprayClientSounds.keepAlive(packet.key, pos, source, loopSound);
 			else
 				NozzleSprayClientSounds.stop(packet.key, pos);
 		});

@@ -259,6 +259,7 @@ public final class FirefighterRecordStore {
 		final Map<InviteKey, Long> inviteCooldowns = new HashMap<>();
 		boolean dirty;
 		long lastSaveMillis;
+		long lastSaveWarningMillis;
 
 		private Store(Path path) {
 			this.path = path;
@@ -297,7 +298,10 @@ public final class FirefighterRecordStore {
 					store.teams.put(id, team);
 				}
 			} catch (IOException | RuntimeException e) {
-				CreateFireFightingAdd.LOGGER.warn("Could not read firefighter records from {}", path, e);
+				CreateFireFightingAdd.LOGGER.warn(
+					"Could not read firefighter records from '{}'. Existing records will not be loaded: {}",
+					path, e.toString());
+				CreateFireFightingAdd.LOGGER.debug("Firefighter record read failure", e);
 			}
 			return store;
 		}
@@ -347,7 +351,14 @@ public final class FirefighterRecordStore {
 				dirty = false;
 				lastSaveMillis = System.currentTimeMillis();
 			} catch (IOException e) {
-				CreateFireFightingAdd.LOGGER.warn("Could not write firefighter records to {}", path, e);
+				long now = System.currentTimeMillis();
+				if (now - lastSaveWarningMillis >= 30_000L) {
+					lastSaveWarningMillis = now;
+					CreateFireFightingAdd.LOGGER.warn(
+						"Could not write firefighter records to '{}'. Check server file permissions and free space: {}",
+						path, e.toString());
+				}
+				CreateFireFightingAdd.LOGGER.debug("Firefighter record write failure", e);
 			}
 		}
 

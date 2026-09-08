@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.api.handheld.HandheldNozzleBindingApi;
@@ -55,6 +56,7 @@ public class HandheldNozzleControllerEntity extends LivingEntity {
 	private static final Vec3 HOSE_FACE_NORMAL = new Vec3(0.0, 0.0, 1.0);
 	private static final Vec3 HOSE_FACE_UP = new Vec3(-0.70710677, 0.70710677, 0.0);
 	private static final Map<BindingKey, Integer> ACTIVE_BINDINGS = new ConcurrentHashMap<>();
+	private static final AtomicBoolean REPORTED_DROP_CONVERSION_FAILURE = new AtomicBoolean();
 
 	public HandheldNozzleControllerEntity(EntityType<? extends HandheldNozzleControllerEntity> type, Level level) {
 		super(type, level);
@@ -82,7 +84,13 @@ public class HandheldNozzleControllerEntity extends LivingEntity {
 				entity.unregisterActiveBinding();
 			}
 		} catch (RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Failed to convert bound handheld nozzle controller item into an entity.", e);
+			if (REPORTED_DROP_CONVERSION_FAILURE.compareAndSet(false, true)) {
+				CreateFireFightingAdd.LOGGER.warn(
+					"A bound handheld nozzle controller could not be restored after it was dropped; "
+						+ "further matching errors are suppressed: {}",
+					e.toString());
+				CreateFireFightingAdd.LOGGER.debug("Dropped handheld nozzle controller conversion failure", e);
+			}
 		}
 	}
 

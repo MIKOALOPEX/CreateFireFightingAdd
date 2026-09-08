@@ -11,6 +11,15 @@
       "createfirefightingadd:nozzle_spray"
     ]
   },
+  "fire_extinguisher_spray": {
+    "subtitle": "subtitles.createfirefightingadd.fire_extinguisher_spray",
+    "sounds": [
+      {
+        "name": "createfirefightingadd:fire_extinguisher_spray",
+        "stream": true
+      }
+    ]
+  },
   "hydraulic_ram_waterflyoff": {
     "subtitle": "subtitles.createfirefightingadd.hydraulic_ram_waterflyoff",
     "sounds": [

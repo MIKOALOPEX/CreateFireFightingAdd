@@ -13,10 +13,12 @@ import org.slf4j.Logger;
  * Disabled-by-default diagnostics for pipe-derived utility blocks.
  *
  * <p>The call sites stay in place so fluid transfer issues can be inspected
- * without reintroducing ad-hoc logging.</p>
+ * without reintroducing ad-hoc logging. Enable with the
+ * {@code createfirefightingadd.fluidAccessoryDebug.enabled} system property.</p>
  */
 public final class FluidAccessoryDebugLog {
-	public static final boolean ENABLED = false;
+	public static final boolean ENABLED =
+		Boolean.getBoolean("createfirefightingadd.fluidAccessoryDebug.enabled");
 	public static final String TAG = "[PIPE_ACC_DBG]";
 
 	private static final Logger LOGGER = LogUtils.getLogger();

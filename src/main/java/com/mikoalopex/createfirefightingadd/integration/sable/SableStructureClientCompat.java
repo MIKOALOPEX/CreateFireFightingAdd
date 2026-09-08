@@ -103,14 +103,16 @@ public final class SableStructureClientCompat {
 				true,
 				loader);
 			ClientStructureBackend backend = (ClientStructureBackend) backendClass.getDeclaredConstructor().newInstance();
-			CreateFireFightingAdd.LOGGER.info("Sable client structure compatibility enabled.");
+			CreateFireFightingAdd.LOGGER.debug("Sable client structure compatibility enabled.");
 			return backend;
 		} catch (ClassNotFoundException ignored) {
 			return null;
 		} catch (Throwable e) {
 			CreateFireFightingAdd.LOGGER.warn(
-				"Sable client structure compatibility is disabled because the available Sable API is not compatible.",
-				e);
+				"Sable client structure compatibility is disabled. "
+					+ "Check that the installed mod versions are compatible: {}",
+				e.toString());
+			CreateFireFightingAdd.LOGGER.debug("Sable client structure compatibility initialization failure", e);
 			return null;
 		}
 	}

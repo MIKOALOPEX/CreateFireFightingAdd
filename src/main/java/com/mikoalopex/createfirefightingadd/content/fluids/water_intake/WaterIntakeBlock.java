@@ -21,6 +21,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -33,16 +35,20 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 public class WaterIntakeBlock extends DirectionalKineticBlock
 		implements IBE<WaterIntakeBlockEntity>, FireFightingWrenchableBlock {
 
+	public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 	private static final VoxelShape SHAPE = Shapes.block();
 
 	public WaterIntakeBlock(Properties properties) {
 		super(properties);
+		registerDefaultState(defaultBlockState().setValue(POWERED, false));
 	}
 
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext ctx) {
 		Direction dir = ctx.getHorizontalDirection().getOpposite();
-		return defaultBlockState().setValue(FACING, dir);
+		return defaultBlockState()
+			.setValue(FACING, dir)
+			.setValue(POWERED, hasRedstoneSignal(ctx.getLevel(), ctx.getClickedPos(), dir));
 	}
 
 	@Override
@@ -69,7 +75,19 @@ public class WaterIntakeBlock extends DirectionalKineticBlock
 
 	@Override
 	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+		builder.add(POWERED);
 		super.createBlockStateDefinition(builder);
+	}
+
+	@Override
+	public void neighborChanged(BlockState state, Level level, BlockPos pos, Block otherBlock,
+			BlockPos neighborPos, boolean isMoving) {
+		super.neighborChanged(state, level, pos, otherBlock, neighborPos, isMoving);
+		if (level.isClientSide)
+			return;
+		boolean powered = hasRedstoneSignal(level, pos, state.getValue(FACING));
+		if (state.getValue(POWERED) != powered)
+			level.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_CLIENTS);
 	}
 
 	@Override
@@ -146,5 +164,9 @@ public class WaterIntakeBlock extends DirectionalKineticBlock
 	@Override
 	public boolean isPathfindable(BlockState state, PathComputationType type) {
 		return false;
+	}
+
+	private static boolean hasRedstoneSignal(Level level, BlockPos pos, Direction facing) {
+		return level.hasSignal(pos.relative(facing), facing);
 	}
 }

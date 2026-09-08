@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -23,23 +24,39 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class BucketControllerBlock extends Block implements IBE<BucketControllerBlockEntity>, FireFightingWrenchableBlock {
 
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
+	public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
 	private static final VoxelShape SHAPE = box(0, 0, 0, 16, 16, 16);
 
 	public BucketControllerBlock(Properties properties) {
 		super(properties);
-		registerDefaultState(defaultBlockState().setValue(FACING, Direction.UP));
+		registerDefaultState(defaultBlockState()
+			.setValue(FACING, Direction.UP)
+			.setValue(POWERED, false));
 	}
 
 	@Override
 	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-		builder.add(FACING);
+		builder.add(FACING, POWERED);
 		super.createBlockStateDefinition(builder);
 	}
 
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
-		return defaultBlockState().setValue(FACING, Direction.UP);
+		return defaultBlockState()
+			.setValue(FACING, Direction.UP)
+			.setValue(POWERED, context.getLevel().hasNeighborSignal(context.getClickedPos()));
+	}
+
+	@Override
+	public void neighborChanged(BlockState state, Level level, BlockPos pos, Block otherBlock,
+			BlockPos neighborPos, boolean isMoving) {
+		super.neighborChanged(state, level, pos, otherBlock, neighborPos, isMoving);
+		if (level.isClientSide)
+			return;
+		boolean powered = level.hasNeighborSignal(pos);
+		if (state.getValue(POWERED) != powered)
+			level.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_CLIENTS);
 	}
 
 	@Override

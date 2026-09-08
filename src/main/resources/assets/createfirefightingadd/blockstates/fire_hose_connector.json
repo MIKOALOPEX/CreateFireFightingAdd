@@ -1,13 +1,22 @@
 {
   "variants": {
-    "axis=x,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
-    "axis=x,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
-    "axis=x,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x" },
-    "axis=y,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/y", "y": 90 },
-    "axis=y,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
-    "axis=y,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
-    "axis=z,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 },
-    "axis=z,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y", "x": 90 },
-    "axis=z,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 }
+    "axis=x,powered=false,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
+    "axis=x,powered=true,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
+    "axis=x,powered=false,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
+    "axis=x,powered=true,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/x", "x": 90 },
+    "axis=x,powered=false,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x" },
+    "axis=x,powered=true,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x" },
+    "axis=y,powered=false,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/y", "y": 90 },
+    "axis=y,powered=true,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/y", "y": 90 },
+    "axis=y,powered=false,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
+    "axis=y,powered=true,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
+    "axis=y,powered=false,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
+    "axis=y,powered=true,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/y" },
+    "axis=z,powered=false,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 },
+    "axis=z,powered=true,redstone_axis=x": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 },
+    "axis=z,powered=false,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y", "x": 90 },
+    "axis=z,powered=true,redstone_axis=y": { "model": "createfirefightingadd:block/fire_hose_connector/y", "x": 90 },
+    "axis=z,powered=false,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 },
+    "axis=z,powered=true,redstone_axis=z": { "model": "createfirefightingadd:block/fire_hose_connector/x", "y": 90 }
   }
 }

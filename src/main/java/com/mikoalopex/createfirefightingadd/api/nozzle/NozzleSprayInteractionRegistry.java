@@ -2,6 +2,8 @@ package com.mikoalopex.createfirefightingadd.api.nozzle;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
@@ -14,6 +16,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  */
 public final class NozzleSprayInteractionRegistry {
 	private static final List<NozzleSprayBlockInteraction> INTERACTIONS = new CopyOnWriteArrayList<>();
+	private static final Set<String> REPORTED_FAILURES = ConcurrentHashMap.newKeySet();
 
 	private NozzleSprayInteractionRegistry() {
 	}
@@ -62,7 +65,7 @@ public final class NozzleSprayInteractionRegistry {
 		try {
 			return target.shouldReceiveNozzleSprayHit(context);
 		} catch (RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Nozzle spray block target rejected with an exception at {}.", context.pos(), e);
+			warnOnce("target predicate", target, context, e);
 			return false;
 		}
 	}
@@ -71,7 +74,7 @@ public final class NozzleSprayInteractionRegistry {
 		try {
 			target.onNozzleSprayHit(context);
 		} catch (RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Nozzle spray block target failed at {}.", context.pos(), e);
+			warnOnce("target callback", target, context, e);
 		}
 	}
 
@@ -79,7 +82,7 @@ public final class NozzleSprayInteractionRegistry {
 		try {
 			return interaction.shouldReceive(context);
 		} catch (RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Nozzle spray interaction rejected with an exception at {}.", context.pos(), e);
+			warnOnce("interaction predicate", interaction, context, e);
 			return false;
 		}
 	}
@@ -88,7 +91,17 @@ public final class NozzleSprayInteractionRegistry {
 		try {
 			interaction.onHit(context);
 		} catch (RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Nozzle spray interaction failed at {}.", context.pos(), e);
+			warnOnce("interaction callback", interaction, context, e);
 		}
+	}
+
+	private static void warnOnce(String phase, Object handler, NozzleSprayHitContext context, RuntimeException error) {
+		String handlerName = handler.getClass().getName();
+		if (!REPORTED_FAILURES.add(phase + ':' + handlerName))
+			return;
+		CreateFireFightingAdd.LOGGER.warn(
+			"Nozzle spray {} failed for {} at {}; further matching errors are suppressed: {}",
+			phase, handlerName, context.pos(), error.toString());
+		CreateFireFightingAdd.LOGGER.debug("Nozzle spray integration failure", error);
 	}
 }

@@ -16,6 +16,10 @@ import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseRen
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDynamicRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_pole.FirePoleBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeItem;
+import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterRenderer;
 import com.mikoalopex.createfirefightingadd.content.equipment.backtank.MultipurposeBacktankBlock;
@@ -47,6 +51,7 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControll
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ClientNozzleParticleColorSampler;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlock;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleRenderer;
@@ -147,6 +152,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
@@ -277,6 +283,16 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> FIRE_POLE_ITEM =
 		ITEMS.registerSimpleBlockItem("fire_pole", FIRE_POLE);
 
+	public static final DeferredBlock<TrafficConeBlock> TRAFFIC_CONE = BLOCKS.register("traffic_cone",
+		() -> new TrafficConeBlock(BlockBehaviour.Properties.of()
+			.mapColor(MapColor.COLOR_ORANGE)
+			.strength(0.5f)
+			.sound(SoundType.WOOL)
+			.noOcclusion()));
+
+	public static final DeferredItem<TrafficConeItem> TRAFFIC_CONE_ITEM = ITEMS.register("traffic_cone",
+		() -> new TrafficConeItem(TRAFFIC_CONE.get(), new Item.Properties()));
+
 	public static final DeferredBlock<FlowMeterBlock> FLUID_FLOW_METER = BLOCKS.register("fluid_flow_meter",
 		() -> new FlowMeterBlock(fluidPipeProperties()));
 
@@ -325,6 +341,7 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<HandheldNozzleControllerItem> HANDHELD_NOZZLE_CONTROLLER_ITEM =
 		ITEMS.register("handheld_nozzle_controller", () -> new HandheldNozzleControllerItem(new Item.Properties().stacksTo(1)));
 
+	// Creative-only configurator; intentionally has no survival recipe.
 	public static final DeferredItem<MultifunctionConfiguratorItem> MULTIFUNCTION_CONFIGURATOR_ITEM =
 		ITEMS.register("multifunction_configurator", () -> new MultifunctionConfiguratorItem(new Item.Properties().stacksTo(1)));
 
@@ -364,6 +381,10 @@ public class CreateFireFightingAdd {
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireExtinguisherBlockEntity>> FIRE_EXTINGUISHER_BE =
 		BLOCK_ENTITY_TYPES.register("fire_extinguisher",
 			() -> BlockEntityType.Builder.of(FireExtinguisherBlockEntity::new, FIRE_EXTINGUISHER.get()).build(null));
+
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<TrafficConeBlockEntity>> TRAFFIC_CONE_BE =
+		BLOCK_ENTITY_TYPES.register("traffic_cone",
+			() -> BlockEntityType.Builder.of(TrafficConeBlockEntity::new, TRAFFIC_CONE.get()).build(null));
 
 	public static final DeferredHolder<MenuType<?>, MenuType<FireHydrantCabinetMenu>> FIRE_HYDRANT_CABINET_MENU =
 		MENU_TYPES.register("fire_hydrant_cabinet",
@@ -445,6 +466,10 @@ public class CreateFireFightingAdd {
 		SOUND_EVENTS.register("nozzle_spray",
 			() -> SoundEvent.createVariableRangeEvent(path("nozzle_spray")));
 
+	public static final DeferredHolder<SoundEvent, SoundEvent> FIRE_EXTINGUISHER_SPRAY_SOUND =
+		SOUND_EVENTS.register("fire_extinguisher_spray",
+			() -> SoundEvent.createVariableRangeEvent(path("fire_extinguisher_spray")));
+
 	public static final DeferredHolder<SoundEvent, SoundEvent> HYDRAULIC_RAM_WATERFLYOFF_SOUND =
 		SOUND_EVENTS.register("hydraulic_ram_waterflyoff",
 			() -> SoundEvent.createVariableRangeEvent(path("hydraulic_ram_waterflyoff")));
@@ -485,6 +510,7 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
+				output.accept(TRAFFIC_CONE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
 				output.accept(FIRE_HYDRANT_CABINET_ITEM.get());
 				output.accept(FIRE_EXTINGUISHER_ITEM.get());
@@ -555,7 +581,10 @@ public class CreateFireFightingAdd {
 				CreateFireFightingAdd.class.getClassLoader());
 			compat.getMethod("register").invoke(null);
 		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
-			CreateFireFightingAdd.LOGGER.warn("Sable Blueprint compatibility could not be registered.", e);
+			CreateFireFightingAdd.LOGGER.warn(
+				"Sable Blueprint compatibility is unavailable. Check that the installed mod versions are compatible: {}",
+				e.toString());
+			CreateFireFightingAdd.LOGGER.debug("Sable Blueprint compatibility registration failure", e);
 		}
 	}
 
@@ -706,6 +735,11 @@ public class CreateFireFightingAdd {
 		}
 
 		@SubscribeEvent
+		public static void registerClientReloadListeners(RegisterClientReloadListenersEvent event) {
+			ClientNozzleParticleColorSampler.registerReloadListener(event);
+		}
+
+		@SubscribeEvent
 		public static void onClientSetup(FMLClientSetupEvent event) {
 			BoundBlockHighlightHandler.init();
 			PartialModels.init();
@@ -732,15 +766,19 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_EXTINGUISHER.get(), RenderType.cutout());
+			ItemBlockRenderTypes.setRenderLayer(TRAFFIC_CONE.get(), RenderType.cutout());
 		}
 
 		private static void registerCreateTooltips() {
+			registerCreateTooltip(HYDRAULIC_RAM_ITEM.get());
 			registerCreateTooltip(PNEUMATIC_HAMMER_ITEM.get());
 			registerCreateTooltip(MULTIPURPOSE_BACKTANK_ITEM.get());
 			registerCreateTooltip(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 			registerCreateTooltip(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
 			registerCreateTooltip(FIREFIGHTER_HANDBOOK_ITEM.get());
 			registerCreateTooltip(FIRE_EXTINGUISHER_ITEM.get());
+			registerCreateTooltip(EXTENSION_LADDER_ITEM.get());
+			registerCreateTooltip(TRAFFIC_CONE_ITEM.get());
 			registerCreateTooltip(FIRE_POLE_ITEM.get());
 		}
 
@@ -769,6 +807,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);
 			event.registerBlockEntityRenderer(MULTIPURPOSE_BACKTANK_BE.get(), MultipurposeBacktankRenderer::new);
 			event.registerBlockEntityRenderer(FIRE_HYDRANT_CABINET_BE.get(), FireHydrantCabinetRenderer::new);
+			event.registerBlockEntityRenderer(TRAFFIC_CONE_BE.get(), TrafficConeRenderer::new);
 		}
 
 		@SubscribeEvent

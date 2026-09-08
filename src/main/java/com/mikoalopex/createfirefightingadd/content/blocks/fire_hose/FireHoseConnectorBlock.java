@@ -27,14 +27,15 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.ticks.TickPriority;
 
 /**
@@ -47,12 +48,14 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 		implements IBE<FireHoseConnectorBlockEntity>, ProperWaterloggedBlock {
 	public static final MapCodec<FireHoseConnectorBlock> CODEC = simpleCodec(FireHoseConnectorBlock::new);
 	public static final EnumProperty<Axis> REDSTONE_AXIS = EnumProperty.create("redstone_axis", Axis.class);
+	public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
 	public FireHoseConnectorBlock(Properties properties) {
 		super(properties);
 		registerDefaultState(defaultBlockState()
 			.setValue(AXIS, Axis.X)
 			.setValue(REDSTONE_AXIS, Axis.Z)
+			.setValue(POWERED, false)
 			.setValue(BlockStateProperties.WATERLOGGED, false));
 	}
 
@@ -64,6 +67,7 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 		return defaultBlockState()
 			.setValue(AXIS, pipeAxis)
 			.setValue(REDSTONE_AXIS, redstoneAxis)
+			.setValue(POWERED, hasRedstoneSignal(context.getLevel(), context.getClickedPos(), redstoneAxis))
 			.setValue(BlockStateProperties.WATERLOGGED, fluidState.getType() == Fluids.WATER);
 	}
 
@@ -95,8 +99,22 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 	public void neighborChanged(BlockState state, Level level, BlockPos pos, Block otherBlock,
 			BlockPos neighborPos, boolean isMoving) {
 		super.neighborChanged(state, level, pos, otherBlock, neighborPos, isMoving);
-		if (!level.isClientSide && level.getBlockEntity(pos) instanceof FireHoseConnectorBlockEntity connector)
-			connector.onNeighborChanged();
+		if (level.isClientSide)
+			return;
+
+		BlockState normalizedState = normalizeState(state);
+		boolean wasPowered = normalizedState.getValue(POWERED);
+		boolean nowPowered = hasRedstoneSignal(level, pos, redstoneAxis(normalizedState));
+		BlockState updatedState = normalizedState;
+		if (wasPowered != nowPowered)
+			updatedState = updatedState.setValue(POWERED, nowPowered);
+		if (updatedState != state) {
+			level.setBlock(pos, updatedState, Block.UPDATE_CLIENTS);
+			state = updatedState;
+		}
+
+		if (level.getBlockEntity(pos) instanceof FireHoseConnectorBlockEntity connector)
+			connector.onNeighborChanged(wasPowered, state.getValue(POWERED));
 	}
 
 	@Override
@@ -129,7 +147,10 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 		Level level = context.getLevel();
 		if (!level.isClientSide) {
 			Axis redstoneAxis = dialAxis(state);
-			level.setBlock(context.getClickedPos(), state.setValue(REDSTONE_AXIS, redstoneAxis), Block.UPDATE_ALL);
+			boolean powered = hasRedstoneSignal(level, context.getClickedPos(), redstoneAxis);
+			level.setBlock(context.getClickedPos(), state
+				.setValue(REDSTONE_AXIS, redstoneAxis)
+				.setValue(POWERED, powered), Block.UPDATE_ALL);
 		}
 		return InteractionResult.SUCCESS;
 	}
@@ -172,7 +193,7 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 
 	@Override
 	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-		builder.add(AXIS, BlockStateProperties.WATERLOGGED, REDSTONE_AXIS);
+		builder.add(AXIS, BlockStateProperties.WATERLOGGED, REDSTONE_AXIS, POWERED);
 	}
 
 	@Override
@@ -260,6 +281,14 @@ public class FireHoseConnectorBlock extends AxisPipeBlock
 
 	private static Axis rotateAxis(Axis axis, Rotation rotation) {
 		return rotation.rotate(Direction.fromAxisAndDirection(axis, Direction.AxisDirection.POSITIVE)).getAxis();
+	}
+
+	static boolean hasRedstoneSignal(Level level, BlockPos pos, Axis redstoneAxis) {
+		for (Direction direction : Iterate.directions) {
+			if (direction.getAxis() == redstoneAxis && level.hasSignal(pos.relative(direction), direction))
+				return true;
+		}
+		return false;
 	}
 
 	@Override

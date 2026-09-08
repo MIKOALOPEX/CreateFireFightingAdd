@@ -33,10 +33,14 @@ public final class SableSchematicCompat {
 			Object mapper = FireHoseBlueprintMapper.create(api.mapperApi());
 			api.registerMethod().invoke(null, CreateFireFightingAdd.FIRE_HOSE_BE.get(), mapper);
 			registered = true;
-			LOGGER.info("Registered Create Firefighting Add Sable Blueprint compatibility");
+			LOGGER.debug("Registered Create Firefighting Add Sable Blueprint compatibility");
 		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
 			disabled = true;
-			LOGGER.warn("Sable Blueprint compatibility is unavailable; fire hose blueprint links will be skipped.", e);
+			LOGGER.warn(
+				"Sable Blueprint compatibility is unavailable; fire hose blueprint links will be skipped. "
+					+ "Check that the installed mod versions are compatible: {}",
+				e.toString());
+			LOGGER.debug("Sable Blueprint compatibility initialization failure", e);
 		}
 	}
 

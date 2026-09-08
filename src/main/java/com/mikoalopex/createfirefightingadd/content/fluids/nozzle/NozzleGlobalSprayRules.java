@@ -71,7 +71,10 @@ public final class NozzleGlobalSprayRules {
 			try {
 				readConfigRule(entry).ifPresent(rules::add);
 			} catch (RuntimeException e) {
-				CreateFireFightingAdd.LOGGER.warn("Invalid nozzle global fluid rule: {}", entry, e);
+				CreateFireFightingAdd.LOGGER.warn(
+					"Ignoring invalid nozzle global fluid rule '{}'. Correct this server configuration entry: {}",
+					entry, e.toString());
+				CreateFireFightingAdd.LOGGER.debug("Invalid nozzle global fluid rule", e);
 			}
 		}
 		CONFIG_RULES = List.copyOf(rules);
@@ -126,7 +129,7 @@ public final class NozzleGlobalSprayRules {
 			case LAVA -> rule.withFlags(false, false, true)
 				.withFanProcessing(ResourceLocation.fromNamespaceAndPath("create", "blasting")).asLocked();
 			case FLAMMABLE -> rule.withFlags(true, false, false).asLocked();
-			case POTION -> rule.withEffects(potionEffects(stack)).asLocked();
+			case POTION -> rule.withFlags(false, true, false).withEffects(potionEffects(stack)).asLocked();
 			case MILK, DRAGON_BREATH -> rule.asLocked();
 			default -> rule.asLocked();
 		};
