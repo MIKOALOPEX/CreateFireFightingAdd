@@ -52,6 +52,34 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId = "sable"
 type = "optional"
-versionRange = "[1.2.0,)"
+versionRange = "[1.2.2,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "offroad"
+type = "optional"
+versionRange = "[1.2.1,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "simulated"
+type = "optional"
+versionRange = "[1.2.1,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "synaxis"
+type = "optional"
+versionRange = "[1.2.1,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "tracks"
+type = "optional"
+versionRange = "[1.0.0,)"
 ordering = "AFTER"
 side = "BOTH"

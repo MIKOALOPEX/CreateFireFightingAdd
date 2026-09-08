@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import org.slf4j.Logger;
 
 /**
- * Optional Sable Schematic API integration.
+ * Optional blueprint integration for Sable Schematic API and Sable Photomancy.
  */
 public final class SableSchematicCompat {
 	private static final Logger LOGGER = LogUtils.getLogger();
