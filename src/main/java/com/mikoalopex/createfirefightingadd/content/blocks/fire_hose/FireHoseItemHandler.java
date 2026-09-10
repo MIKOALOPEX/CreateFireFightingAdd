@@ -64,7 +64,8 @@ public class FireHoseItemHandler {
         if (this.linkPos != null)
             return false;
 
-        if (level.getBlockEntity(pos) instanceof FireHoseBlockEntity) {
+        // Secondary use against a hose is reserved for placing another endpoint beside it.
+        if (!context.isSecondaryUseActive() && level.getBlockEntity(pos) instanceof FireHoseBlockEntity) {
             selectEndpoint(level, pos);
             return true;
         }
