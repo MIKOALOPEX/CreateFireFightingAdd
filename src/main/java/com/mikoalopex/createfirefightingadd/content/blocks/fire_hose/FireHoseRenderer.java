@@ -236,6 +236,9 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         FireHoseAppearances.Entry appearance = be.getHoseAppearance();
         renderCustomEndpoint(be, ps, bufferSource, light, appearance);
 
+        if (be.route != null && be.route.nodes.size() >= 2)
+            return;
+
         if (!be.isController())
             return;
 

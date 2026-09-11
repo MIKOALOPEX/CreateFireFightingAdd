@@ -29,6 +29,13 @@ public class SableFireHoseBlockEntity extends FireHoseBlockEntity implements Blo
     @Override
     @Nullable
     public Iterable<@NotNull SubLevel> sable$getConnectionDependencies() {
-        return SableStructureCallbacks.connectionDependencies(getLevel(), getPartnerSubLevelID());
+        var dependencies = new java.util.LinkedHashSet<SubLevel>();
+        for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(), getPartnerSubLevelID()))
+            dependencies.add(dependency);
+        if (route != null)
+            for (var node : route.nodes)
+                for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(), node.subLevel()))
+                    dependencies.add(dependency);
+        return dependencies;
     }
 }

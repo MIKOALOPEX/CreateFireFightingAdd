@@ -4,6 +4,10 @@ import java.util.EnumMap;
 import java.util.List;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketRenderer;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseConnectorBlockEntity;
@@ -258,6 +262,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<ExtensionLadderItem> EXTENSION_LADDER_ITEM = ITEMS.register("extension_ladder",
 		() -> new ExtensionLadderItem(new Item.Properties().stacksTo(1)));
 
+	public static final DeferredBlock<HoseBracketBlock> HOSE_BRACKET = BLOCKS.register("hose_bracket",
+		() -> SableStructureCompat.createHoseBracketBlock(BlockBehaviour.Properties.of().strength(1.5f).noOcclusion()));
+
 	public static final DeferredBlock<FireHoseBlock> FIRE_HOSE = BLOCKS.register("fire_hose",
 		() -> SableStructureCompat.createFireHoseBlock(
 			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
@@ -444,6 +451,10 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("extension_ladder",
 			() -> BlockEntityType.Builder.of(SableStructureCompat::createExtensionLadderBlockEntity, EXTENSION_LADDER.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HoseBracketBlockEntity>> HOSE_BRACKET_BE =
+		BLOCK_ENTITY_TYPES.register("hose_bracket",
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createHoseBracketBlockEntity, HOSE_BRACKET.get()).build(null));
+
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireHoseBlockEntity>> FIRE_HOSE_BE =
 		BLOCK_ENTITY_TYPES.register("fire_hose",
 			() -> BlockEntityType.Builder.of(SableStructureCompat::createFireHoseBlockEntity, FIRE_HOSE.get()).build(null));
@@ -565,6 +576,7 @@ public class CreateFireFightingAdd {
 		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(HOSE_BRACKET.get(), new HoseBracketMovementBehaviour());
 		MovementBehaviour.REGISTRY.register(FIRE_HYDRANT_CABINET.get(), FireHydrantCabinetMovementBehaviour.INSTANCE);
 
 		MountedFluidStorageType.REGISTRY.register(CONE_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
@@ -804,6 +816,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
+			event.registerBlockEntityRenderer(HOSE_BRACKET_BE.get(), HoseBracketRenderer::new);
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);
 			event.registerBlockEntityRenderer(MULTIPURPOSE_BACKTANK_BE.get(), MultipurposeBacktankRenderer::new);
 			event.registerBlockEntityRenderer(FIRE_HYDRANT_CABINET_BE.get(), FireHydrantCabinetRenderer::new);

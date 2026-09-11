@@ -319,6 +319,8 @@ final class FireHoseMovingEndpoints {
 
 	private static void submitRender(MovementContext context, FireHoseMountedFluidStorage storage,
 			MovingEndpoint endpoint) {
+		if (HoseRouteRenderer.hasRoute(storage.getEndpointId()))
+			return;
 		BlockPos partnerPos = storage.getPartnerPos();
 		if (partnerPos == null)
 			return;

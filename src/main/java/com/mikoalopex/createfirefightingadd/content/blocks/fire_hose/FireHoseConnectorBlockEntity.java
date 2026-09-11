@@ -54,6 +54,7 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 	private static final String TAG_CACHED_ENDPOINT_ID = "CachedEndpointId";
 	private static final String TAG_CONNECTOR_ID = "ConnectorId";
 	private static final String TAG_ACTION_COOLDOWN_UNTIL = "ActionCooldownUntil";
+	// Debounce redstone edges after a connection or disconnection completes.
 	private static final int ACTION_COOLDOWN_TICKS = 100;
 
 	// Endpoint currently adjacent to the connector's pipe axis.

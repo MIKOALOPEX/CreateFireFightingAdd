@@ -6,6 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.ModelEvent;
 
 public class PartialModels {
+	public static final PartialModel HOSE_SETPOINT_Y = block("fire_hose/setpoint_y");
+	public static final PartialModel HOSE_SETPOINT_Z = block("fire_hose/setpoint_z");
+	public static final PartialModel HOSE_BRACKET_METAL = PartialModel.of(ResourceLocation.fromNamespaceAndPath("create", "block/bracket/pipe/ground_metal"));
+	public static final PartialModel HOSE_BRACKET_WOOD = PartialModel.of(ResourceLocation.fromNamespaceAndPath("create", "block/bracket/pipe/ground_wooden"));
 
 	public static final PartialModel HIGH_PRESSURE_PUMP_COG = block("high_pressure_pump_cog");
 	public static final PartialModel MULTIPURPOSE_BACKTANK_COG = block("multipurpose_backtank_cog");
@@ -42,6 +46,10 @@ public class PartialModels {
 
 	public static void registerAdditional(ModelEvent.RegisterAdditional event) {
 		init();
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Y.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Z.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_BRACKET_METAL.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_BRACKET_WOOD.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HIGH_PRESSURE_PUMP_COG.modelLocation()));
 		event.register(ModelResourceLocation.standalone(MULTIPURPOSE_BACKTANK_COG.modelLocation()));
 		event.register(ModelResourceLocation.standalone(MULTIPURPOSE_BACKTANK_SHAFT.modelLocation()));

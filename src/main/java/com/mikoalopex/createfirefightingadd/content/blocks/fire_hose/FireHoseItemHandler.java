@@ -43,8 +43,8 @@ public class FireHoseItemHandler {
 
     public static final FireHoseItemHandler INSTANCE = new FireHoseItemHandler();
 
-    private static final int SUCCESS_LIME = 0x70FF33;
-    private static final int NUH_UH_RED = 0xFF5555;
+    static final int SUCCESS_LIME = 0x70FF33;
+    static final int NUH_UH_RED = 0xFF5555;
 
     public BlockPos linkPos;
     public Direction linkDirection;

@@ -13,8 +13,12 @@ public class FireHoseMovementBehaviour implements MovementBehaviour {
 	@Override
 	public void tick(MovementContext context) {
 		MountedFluidStorage storage = context.getFluidStorage();
-		if (storage instanceof FireHoseMountedFluidStorage hoseStorage)
+		if (storage instanceof FireHoseMountedFluidStorage hoseStorage) {
+			if (context.world.isClientSide && context.blockEntityData != null)
+				HoseRouteRenderer.track(context, HoseRoute.read(context.blockEntityData.getCompound("HoseRoute")),
+					hoseStorage.getEndpointId());
 			FireHoseMovingEndpoints.update(context, hoseStorage);
+		}
 	}
 
 	@Override

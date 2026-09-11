@@ -87,6 +87,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     // Connection identity and partner state
     protected boolean isController;
+    public HoseRoute route;
     protected boolean assembling;
     private UUID endpointId = UUID.randomUUID();
     protected BlockPos partnerPos;
@@ -206,11 +207,13 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (level == null) return;
 
         if (level.isClientSide) {
+            HoseRouteRenderer.track(this, route);
             renderLength.chase(getCurrentLength(), 0.5, LerpedFloat.Chaser.EXP);
             renderLength.tickChaser();
             return;
         }
 
+        HoseRoutes.tick(this);
         if (partnerPos == null) {
             updateDisconnectedEndpoint();
             return;
@@ -1216,6 +1219,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         partnerPos = null;
         partnerSubLevel = null;
         if (!level.isClientSide && !assembling) {
+            HoseRoutes.disconnect(this);
             FireHoseMovingEndpoints.disconnectAttachedTo(level, worldPosition);
             if (wasPartner != null) {
                 BlockEntity be = level.getBlockEntity(wasPartner);
@@ -1228,6 +1232,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     void clearFireHoseConnection() {
+        HoseRoutes.disconnect(this);
         partnerPos = null;
         partnerSubLevel = null;
         partnerEndpointId = null;
@@ -1357,6 +1362,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     public void updatePartnerEndpoint(BlockPos pos, @Nullable UUID subLevel) {
+        if (level != null && !level.isClientSide)
+            HoseRoutes.get(level).relocate(level, route, HoseRoute.Node.of(this));
         FireHoseBlockEntity partner = getPairedHose();
         if (partner != null)
             partner.setPartnerPos(pos, subLevel);
@@ -1608,6 +1615,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             partner.notifyUpdate();
             changed = true;
         }
+        if (changed)
+            HoseRoutes.tick(this);
         return changed;
     }
 
@@ -2037,6 +2046,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     private void writeFireHoseConnectionFields(CompoundTag tag) {
+        if (route != null)
+            tag.put("HoseRoute", route.write());
         tag.putBoolean(TAG_CONTROLLER, isController);
         tag.putString(TAG_APPEARANCE, getHoseAppearanceId().toString());
         tag.putUUID(TAG_ENDPOINT_ID, getFireHoseEndpointId());
@@ -2057,6 +2068,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     private void readFireHoseConnectionFields(CompoundTag tag) {
+        route = HoseRoute.read(tag.getCompound("HoseRoute"));
         isController = tag.getBoolean(TAG_CONTROLLER);
         hoseAppearance = readHoseAppearance(tag);
         endpointId = tag.hasUUID(TAG_ENDPOINT_ID) ? tag.getUUID(TAG_ENDPOINT_ID) : UUID.randomUUID();

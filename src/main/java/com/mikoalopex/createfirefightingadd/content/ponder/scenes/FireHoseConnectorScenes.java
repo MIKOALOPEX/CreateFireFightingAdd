@@ -89,7 +89,19 @@ public class FireHoseConnectorScenes {
 		resetLever(scene, lever, lamp);
 		scene.idle(20);
 
+		scene.overlay().showText(80)
+			.attachKeyFrame()
+			.colored(PonderPalette.RED)
+			.placeNearTarget()
+			.pointAt(util.vector().centerOf(hoseA))
+			.text("When a hose is already connected, signal the Fire Hose Connector again to disconnect it.");
+		pullLever(scene, util, lever, lamp);
 		disconnectHose(scene, hoseA);
+		scene.effects().indicateRedstone(hoseA);
+		scene.idle(70);
+		resetLever(scene, lever, lamp);
+		scene.idle(20);
+
 		scene.overlay().showText(80)
 			.attachKeyFrame()
 			.colored(PonderPalette.RED)

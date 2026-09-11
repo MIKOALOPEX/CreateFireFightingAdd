@@ -12,6 +12,8 @@ import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.Exte
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.BucketControllerBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.ConeNozzleBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBlockEntity;
@@ -55,6 +57,26 @@ public final class SableStructureCompat {
                 return blockEntity;
         }
         return new FireHoseBlockEntity(pos, state);
+    }
+
+    public static HoseBracketBlock createHoseBracketBlock(BlockBehaviour.Properties properties) {
+        if (BACKEND != null) {
+            try {
+                return (HoseBracketBlock) Class.forName(
+                    "com.mikoalopex.createfirefightingadd.integration.sable.SableHoseBracketBlock")
+                    .getConstructor(BlockBehaviour.Properties.class).newInstance(properties);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Could not initialize Sable hose brackets", e);
+            }
+        }
+        return new HoseBracketBlock(properties);
+    }
+
+    public static HoseBracketBlockEntity createHoseBracketBlockEntity(BlockPos pos, BlockState state) {
+        HoseBracketBlockEntity bracket = instantiateSableBlockEntity(
+            "com.mikoalopex.createfirefightingadd.integration.sable.SableHoseBracketBlockEntity",
+            HoseBracketBlockEntity.class, pos, state);
+        return bracket != null ? bracket : new HoseBracketBlockEntity(pos, state);
     }
 
     public static ExtensionLadderBlock createExtensionLadderBlock(BlockBehaviour.Properties properties) {

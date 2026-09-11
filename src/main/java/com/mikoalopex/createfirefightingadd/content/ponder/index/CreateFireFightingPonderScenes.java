@@ -37,7 +37,9 @@ public class CreateFireFightingPonderScenes {
 
 		helper.forComponents(CreateFireFightingAdd.FIRE_HOSE_ITEM)
 			.addStoryBoard("fire_hose/connection_and_relay",
-				FireHoseScenes::connectionAndRelay, AllCreatePonderTags.FLUIDS);
+				FireHoseScenes::connectionAndRelay, AllCreatePonderTags.FLUIDS)
+			.addStoryBoard("fire_hose/bracket_routing",
+				FireHoseScenes::bracketRouting, AllCreatePonderTags.FLUIDS);
 
 		helper.forComponents(CreateFireFightingAdd.FIRE_HOSE_CONNECTOR)
 			.addStoryBoard("fire_hose_connector/modes_and_reconnection",

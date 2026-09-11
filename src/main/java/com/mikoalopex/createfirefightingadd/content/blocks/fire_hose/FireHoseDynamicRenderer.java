@@ -189,6 +189,75 @@ public final class FireHoseDynamicRenderer {
 		}
 	}
 
+	/** Both end frames follow the model, rather than choosing roll from the curve direction. */
+	static List<AttachedPoint> attachedSpline(Vec3 startPos, Vec3 endPos, Vec3 startNormal, Vec3 endNormal,
+			Vec3 startUp, Vec3 endUp) {
+		Vector3d start = vector(startPos);
+		Vector3d end = vector(endPos);
+		Vector3d normalA = vector(startNormal).normalize();
+		Vector3d normalB = vector(endNormal).normalize();
+		double distance = start.distance(end);
+		if (distance < 1e-5)
+			return List.of();
+
+		// A short straight collar keeps the first bend outside the attachment face.
+		double collar = Math.min(1.0 / 16, distance / 4);
+		Vector3d curveStart = start.fma(collar, normalA, new Vector3d());
+		Vector3d curveEnd = end.fma(collar, normalB, new Vector3d());
+		double influence = curveStart.distance(curveEnd) / 5 + 0.25;
+		List<SplinePoint> curve = generateSpline(curveStart, curveEnd, normalA, normalB, influence);
+		List<SplinePoint> points = new ObjectArrayList<>();
+		points.add(new SplinePoint(start, normalA));
+		Vector3d controlA = curveStart.fma(influence, normalA, new Vector3d());
+		Vector3d controlB = curveEnd.fma(influence, normalB, new Vector3d());
+		for (int i = 0; i < curve.size(); i++) {
+			double t = (double) i / (curve.size() - 1);
+			Vector3d tangent = controlA.sub(curveStart, new Vector3d()).mul(3 * (1 - t) * (1 - t))
+				.fma(6 * (1 - t) * t, controlB.sub(controlA, new Vector3d()))
+				.fma(3 * t * t, curveEnd.sub(controlB, new Vector3d()));
+			if (tangent.lengthSquared() < 1e-12)
+				tangent.set(points.getLast().normal());
+			points.add(new SplinePoint(curve.get(i).point(), tangent.normalize()));
+		}
+		points.add(new SplinePoint(end, normalB.negate(new Vector3d())));
+
+		List<Vector3d> transported = new ObjectArrayList<>();
+		Vector3d up = projectOntoPlane(vector(startUp), normalA).normalize();
+		transported.add(new Vector3d(up));
+		double[] lengths = new double[points.size()];
+		for (int i = 1; i < points.size(); i++) {
+			SplinePoint previous = points.get(i - 1);
+			SplinePoint point = points.get(i);
+			rotationBetween(previous.normal(), point.normal()).transform(up);
+			up = projectOntoPlane(up, point.normal()).normalize();
+			transported.add(new Vector3d(up));
+			lengths[i] = lengths[i - 1] + previous.point().distance(point.point());
+		}
+		double twist = signedAngleAround(up, vector(endUp), points.getLast().normal());
+		// A square repeats every quarter-turn. Avoid unnecessary turns between matching corners.
+		twist -= Math.rint(twist / (Math.PI / 2)) * (Math.PI / 2);
+		double curveLength = Math.max(1e-8, lengths[lengths.length - 2] - lengths[1]);
+		List<AttachedPoint> result = new ObjectArrayList<>();
+		for (int i = 0; i < points.size(); i++) {
+			SplinePoint point = points.get(i);
+			double fraction = Mth.clamp((lengths[i] - lengths[1]) / curveLength, 0, 1);
+			Vector3d frameUp = new Quaterniond().rotationAxis(twist * fraction,
+				point.normal().x(), point.normal().y(), point.normal().z())
+				.transform(transported.get(i), new Vector3d()).normalize();
+			result.add(new AttachedPoint(point.point(), point.normal(), frameUp, lengths[i]));
+		}
+		return result;
+	}
+
+	static void renderAttachedSpline(PoseStack poseStack, VertexConsumer buffer, List<AttachedPoint> points, int light) {
+		for (int i = 0; i + 1 < points.size(); i++) {
+			AttachedPoint a = points.get(i);
+			AttachedPoint b = points.get(i + 1);
+			renderSegment(poseStack, a.normal(), b.normal(), a.up(), b.up(), a.point(), b.point(),
+				(float) a.length(), (float) b.length(), light, 0xFFFFFFFF, buffer, TUBE_WIDTH, TUBE_WIDTH);
+		}
+	}
+
 	private static double snappedTwist(Matrix3d matrix) {
 		Quaterniond orientation = matrix.getNormalizedRotation(new Quaterniond());
 		if (Math.abs(UP.dot(new Vector3d(orientation.x(), orientation.y(), orientation.z()))) < 1e-5)
@@ -271,7 +340,7 @@ public final class FireHoseDynamicRenderer {
 		return new Vec3(dir.x, dir.y, dir.z);
 	}
 
-	private static List<SplinePoint> generateSpline(Vector3dc pointA, Vector3dc pointB,
+	static List<SplinePoint> generateSpline(Vector3dc pointA, Vector3dc pointB,
 			Vector3dc normalA, Vector3dc normalB, double controlPointLength) {
 		List<SplinePoint> points = new ObjectArrayList<>();
 		Vector3d controlA = pointA.fma(controlPointLength, normalA, new Vector3d());
@@ -376,6 +445,9 @@ public final class FireHoseDynamicRenderer {
 			ResourceLocation appearance, long expiresAt) {
 	}
 
-	private record SplinePoint(Vector3dc point, Vector3dc normal) {
+	record SplinePoint(Vector3dc point, Vector3dc normal) {
+	}
+
+	record AttachedPoint(Vector3dc point, Vector3dc normal, Vector3dc up, double length) {
 	}
 }
