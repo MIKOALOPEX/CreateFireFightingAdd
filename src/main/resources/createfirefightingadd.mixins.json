@@ -4,6 +4,9 @@
   "package": "com.mikoalopex.createfirefightingadd.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "BallCouplingNetworkMixin",
+    "BallCouplingKineticSaveMixin",
+    "BallCouplingConflictMixin"
   ],
   "client": [
   ],

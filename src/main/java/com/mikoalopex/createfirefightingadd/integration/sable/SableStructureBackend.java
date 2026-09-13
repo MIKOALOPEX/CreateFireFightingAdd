@@ -233,6 +233,13 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
 
     @Override
     @Nullable
+    public UUID containingSubLevelId(BlockEntity owner) {
+        SubLevel subLevel = Sable.HELPER.getContaining(owner);
+        return subLevel != null ? subLevel.getUniqueId() : null;
+    }
+
+    @Override
+    @Nullable
     public UUID containingSubLevelId(Level level, BlockPos pos) {
         SubLevel subLevel = Sable.HELPER.getContaining(level, pos);
         return subLevel != null ? subLevel.getUniqueId() : null;

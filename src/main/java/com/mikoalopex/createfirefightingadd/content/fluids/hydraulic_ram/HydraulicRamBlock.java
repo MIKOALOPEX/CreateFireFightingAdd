@@ -41,19 +41,19 @@ public class HydraulicRamBlock extends HorizontalDirectionalBlock
 	public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 
 	private static final VoxelShape SHAPE_SOUTH = Shapes.or(
-		box(4, 4, 2, 12, 12, 8),
+		box(4, 4, 0, 12, 12, 16),
 		box(5, 13, 9, 11, 26, 15),
 		box(4, 15, 8, 12, 25, 16));
 	private static final VoxelShape SHAPE_NORTH = Shapes.or(
-		box(4, 4, 8, 12, 12, 14),
+		box(4, 4, 0, 12, 12, 16),
 		box(5, 13, 1, 11, 26, 7),
 		box(4, 15, 0, 12, 25, 8));
 	private static final VoxelShape SHAPE_EAST = Shapes.or(
-		box(2, 4, 4, 8, 12, 12),
+		box(0, 4, 4, 16, 12, 12),
 		box(9, 13, 5, 15, 26, 11),
 		box(8, 15, 4, 16, 25, 12));
 	private static final VoxelShape SHAPE_WEST = Shapes.or(
-		box(8, 4, 4, 14, 12, 12),
+		box(0, 4, 4, 16, 12, 12),
 		box(1, 13, 5, 7, 26, 11),
 		box(0, 15, 4, 8, 25, 12));
 

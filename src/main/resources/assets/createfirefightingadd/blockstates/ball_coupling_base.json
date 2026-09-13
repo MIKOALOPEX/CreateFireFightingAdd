@@ -1,0 +1,604 @@
+{
+  "variants": {
+    "facing=up,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=up,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=down,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 180,
+      "y": 0
+    },
+    "facing=down,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 180,
+      "y": 0
+    },
+    "facing=north,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=north,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 0
+    },
+    "facing=south,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 180
+    },
+    "facing=west,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 270
+    },
+    "facing=east,length=0,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=0,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=0,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=0,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=1,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=1,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=1,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=1,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=2,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=2,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=2,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=2,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=3,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=3,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=3,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=3,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=4,connected=false,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=4,connected=false,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=4,connected=true,powered=false": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_off",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,length=4,connected=true,powered=true": {
+      "model": "createfirefightingadd:block/ball_coupling/base_fixed_on",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

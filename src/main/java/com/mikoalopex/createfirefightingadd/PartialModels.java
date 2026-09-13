@@ -45,6 +45,7 @@ public class PartialModels {
 	}
 
 	public static void registerAdditional(ModelEvent.RegisterAdditional event) {
+		com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingRenderer.registerModels(event);
 		init();
 		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Y.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Z.modelLocation()));

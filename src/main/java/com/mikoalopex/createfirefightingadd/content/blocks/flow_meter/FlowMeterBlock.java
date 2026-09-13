@@ -2,11 +2,14 @@ package com.mikoalopex.createfirefightingadd.content.blocks.flow_meter;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
+import com.mikoalopex.createfirefightingadd.content.fluids.hydraulic_ram.HydraulicRamBlockEntity;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.foundation.block.IBE;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -23,6 +26,7 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.ticks.TickPriority;
 
 /**
  * In-line pipe segment that monitors fluid pressure and flow rate. Data is
@@ -81,6 +85,22 @@ public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, 
 	public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
 		super.onPlace(state, level, pos, oldState, moved);
 		FluidPropagator.propagateChangedPipe(level, pos, state);
+	}
+
+	@Override
+	public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+			BlockPos neighborPos, boolean moved) {
+		super.neighborChanged(state, level, pos, block, neighborPos, moved);
+		Direction facing = state.getValue(FACING);
+		if (!level.isClientSide
+			&& (pos.relative(facing).equals(neighborPos) || pos.relative(facing.getOpposite()).equals(neighborPos)))
+			level.scheduleTick(pos, this, 1, TickPriority.HIGH);
+	}
+
+	@Override
+	public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+		FluidPropagator.propagateChangedPipe(level, pos, state);
+		HydraulicRamBlockEntity.notifyNetworkChanged(level, pos);
 	}
 
 	@Override

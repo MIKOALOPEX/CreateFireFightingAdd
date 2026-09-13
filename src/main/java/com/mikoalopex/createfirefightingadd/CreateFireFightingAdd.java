@@ -2,6 +2,9 @@ package com.mikoalopex.createfirefightingadd;
 
 import java.util.EnumMap;
 import java.util.List;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingScreen;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingRenderer;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
@@ -520,6 +523,8 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
+				output.accept(BallCouplings.BASE_ITEM.get());
+				output.accept(BallCouplings.TOP_ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
@@ -533,6 +538,7 @@ public class CreateFireFightingAdd {
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
+		BallCouplings.init();
 		modEventBus.addListener(this::commonSetup);
 		modEventBus.addListener(this::registerCapabilities);
 		modEventBus.addListener(this::registerEntityAttributes);
@@ -562,6 +568,9 @@ public class CreateFireFightingAdd {
 	}
 
 	private void commonSetup(final FMLCommonSetupEvent event) {
+		if (ModList.get().isLoaded("sable"))
+			LOGGER.warn("Sable 1.x compatibility is deprecated and will no longer be maintained starting with the next Create Firefighting Add release. Please migrate to Sable 2.x.");
+
 		BlockStressValues.IMPACTS.register(HIGH_PRESSURE_PUMP.get(), () -> 8.0);
 		BlockStressValues.IMPACTS.register(WATER_INTAKE.get(), () -> 4.0);
 		BlockStressValues.IMPACTS.register(MULTIPURPOSE_BACKTANK.get(), () -> 4.0);
@@ -800,6 +809,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
+			event.register(BallCouplings.MENU.get(), BallCouplingScreen::new);
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
 			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
 			event.register(FIREFIGHTER_HANDBOOK_MENU.get(), FirefighterHandbookScreen::new);
@@ -807,6 +817,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+			event.registerBlockEntityRenderer(BallCouplings.BLOCK_ENTITY.get(), BallCouplingRenderer::new);
 			event.registerEntityRenderer(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntityRenderer::new);
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());

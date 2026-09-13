@@ -250,6 +250,13 @@ public final class SableStructureCompat {
     }
 
     @Nullable
+    public static UUID containingSubLevelId(BlockEntity owner) {
+        if (owner.getLevel() != null && BACKEND != null)
+            return BACKEND.containingSubLevelId(owner);
+        return null;
+    }
+
+    @Nullable
     public static UUID containingSubLevelId(Level level, BlockPos pos) {
         if (level != null && BACKEND != null)
             return BACKEND.containingSubLevelId(level, pos);
@@ -421,6 +428,9 @@ public final class SableStructureCompat {
         void notifyBlockChanged(BlockEntity owner);
 
         void notifyBlockChanged(Level level, BlockPos pos, BlockState state);
+
+        @Nullable
+        UUID containingSubLevelId(BlockEntity owner);
 
         @Nullable
         UUID containingSubLevelId(Level level, BlockPos pos);

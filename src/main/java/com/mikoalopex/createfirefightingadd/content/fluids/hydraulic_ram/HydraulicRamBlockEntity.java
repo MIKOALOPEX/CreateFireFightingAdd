@@ -66,6 +66,8 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 	private static final int HOLD_TICKS = 10;
 	private static final int OUTPUT_AGE = LIFT_TICKS + HOLD_TICKS;
 	private static final int PASSIVE_INPUT_MEMORY_TICKS = 2;
+	private static final int PRESSURE_CHECK_INTERVAL = 10;
+	private static final int PRESSURE_RETRY_INTERVAL = 100;
 	private static final String TAG_BUFFER = "Buffer";
 	private static final String TAG_PENDING = "PendingOutput";
 	private static final String TAG_ACTIVE_PRESSURE = "ActivePressure";
@@ -94,6 +96,8 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 	private long lastOutputDrainTick = Long.MIN_VALUE;
 	private int outputDrainedThisTick;
 	private int pressureRefreshTimer;
+	private int pressureRefreshFailures;
+	private boolean pressureApplied;
 
 	public HydraulicRamBlockEntity(BlockPos pos, BlockState state) {
 		super(CreateFireFightingAdd.HYDRAULIC_RAM_BE.get(), pos, state);
@@ -188,6 +192,8 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 		outputPerformed = false;
 		outputDrainedThisTick = 0;
 		lastOutputDrainTick = Long.MIN_VALUE;
+		pressureApplied = false;
+		pressureRefreshFailures = 0;
 		refreshOutputPressure(true);
 		playRamClickSound();
 		setChanged();
@@ -291,77 +297,104 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 		}
 		if (!force && pressureRefreshTimer-- > 0)
 			return;
-		pressureRefreshTimer = 10;
-		distributePressureTo(getOutputSide(), activeOutputPressure);
+		if (pressureApplied && hasOutputPressure()) {
+			pressureRefreshTimer = PRESSURE_CHECK_INTERVAL;
+			pressureRefreshFailures = 0;
+			return;
+		}
+
+		pressureApplied = distributePressureTo(getOutputSide(), activeOutputPressure);
+		if (pressureApplied) {
+			pressureRefreshFailures = 0;
+			pressureRefreshTimer = PRESSURE_CHECK_INTERVAL;
+		} else {
+			pressureRefreshFailures++;
+			pressureRefreshTimer = pressureRefreshFailures < 3
+				? PRESSURE_CHECK_INTERVAL
+				: PRESSURE_RETRY_INTERVAL;
+		}
 	}
 
 	private void clearOutputPressure() {
 		if (level == null || level.isClientSide)
 			return;
-		FluidPropagator.resetAffectedFluidNetworks(level, worldPosition, getOutputSide().getOpposite());
 		BlockPos pipePos = worldPosition.relative(getOutputSide());
 		FluidPropagator.propagateChangedPipe(level, pipePos, level.getBlockState(pipePos));
 		activeOutputPressure = 0;
+		pressureApplied = false;
+		pressureRefreshFailures = 0;
+		pressureRefreshTimer = 0;
 	}
 
-	private void distributePressureTo(Direction side, float pressure) {
+	private boolean hasOutputPressure() {
+		Direction outputSide = getOutputSide();
+		BlockPos pipePos = worldPosition.relative(outputSide);
+		FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, pipePos);
+		if (pipe == null)
+			return hasOutputEndpoint(level, new BlockFace(worldPosition, outputSide));
+		PipeConnection connection = pipe.getConnection(outputSide.getOpposite());
+		if (connection == null || connection.getPressure() == null)
+			return false;
+		return connection.getPressure().getFirst() > 0 || connection.getPressure().getSecond() > 0;
+	}
+
+	private boolean distributePressureTo(Direction side, float pressure) {
 		BlockFace start = new BlockFace(worldPosition, side);
 		boolean pull = false;
 		Set<BlockFace> targets = new HashSet<>();
 		Map<BlockPos, Pair<Integer, Map<Direction, Boolean>>> pipeGraph = new HashMap<>();
 
-		FluidPropagator.resetAffectedFluidNetworks(level, worldPosition, side.getOpposite());
+		if (hasOutputEndpoint(level, start))
+			return true;
 
-		if (!hasOutputEndpoint(level, start)) {
-			recordPipeFace(pipeGraph, worldPosition, 0, side, pull);
-			recordPipeFace(pipeGraph, start.getConnectedPos(), 1, side.getOpposite(), !pull);
+		recordPipeFace(pipeGraph, worldPosition, 0, side, pull);
+		recordPipeFace(pipeGraph, start.getConnectedPos(), 1, side.getOpposite(), !pull);
 
-			Queue<Pair<Integer, BlockPos>> frontier = new ArrayDeque<>();
-			Set<BlockPos> visited = new HashSet<>();
-			int maxDistance = FluidPropagator.getPumpRange();
-			frontier.add(Pair.of(1, start.getConnectedPos()));
+		Queue<Pair<Integer, BlockPos>> frontier = new ArrayDeque<>();
+		Set<BlockPos> visited = new HashSet<>();
+		int maxDistance = FluidPropagator.getPumpRange();
+		frontier.add(Pair.of(1, start.getConnectedPos()));
 
-			while (!frontier.isEmpty()) {
-				Pair<Integer, BlockPos> entry = frontier.poll();
-				int distance = entry.getFirst();
-				BlockPos currentPos = entry.getSecond();
-				if (!level.isLoaded(currentPos) || !visited.add(currentPos))
+		while (!frontier.isEmpty()) {
+			Pair<Integer, BlockPos> entry = frontier.poll();
+			int distance = entry.getFirst();
+			BlockPos currentPos = entry.getSecond();
+			if (!level.isLoaded(currentPos) || !visited.add(currentPos))
+				continue;
+
+			BlockState currentState = level.getBlockState(currentPos);
+			FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, currentPos);
+			if (pipe == null)
+				continue;
+
+			for (Direction face : FluidPropagator.getPipeConnections(currentState, pipe)) {
+				BlockFace blockFace = new BlockFace(currentPos, face);
+				BlockPos connectedPos = blockFace.getConnectedPos();
+				if (!level.isLoaded(connectedPos) || blockFace.isEquivalent(start))
 					continue;
-
-				BlockState currentState = level.getBlockState(currentPos);
-				FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, currentPos);
-				if (pipe == null)
+				if (hasOutputEndpoint(level, blockFace)) {
+					recordTarget(pipeGraph, targets, currentPos, distance, face, pull, blockFace);
 					continue;
-
-				for (Direction face : FluidPropagator.getPipeConnections(currentState, pipe)) {
-					BlockFace blockFace = new BlockFace(currentPos, face);
-					BlockPos connectedPos = blockFace.getConnectedPos();
-					if (!level.isLoaded(connectedPos) || blockFace.isEquivalent(start))
-						continue;
-					if (hasOutputEndpoint(level, blockFace)) {
-						recordTarget(pipeGraph, targets, currentPos, distance, face, pull, blockFace);
-						continue;
-					}
-
-					FluidTransportBehaviour pipeBehaviour = FluidPropagator.getPipe(level, connectedPos);
-					if (pipeBehaviour == null || visited.contains(connectedPos))
-						continue;
-					if (level.getBlockEntity(connectedPos) instanceof PumpBlockEntity)
-						continue;
-					if (distance + 1 >= maxDistance) {
-						recordTarget(pipeGraph, targets, currentPos, distance, face, pull, blockFace);
-						continue;
-					}
-
-					recordPipeFace(pipeGraph, currentPos, distance, face, pull);
-					recordPipeFace(pipeGraph, connectedPos, distance + 1, face.getOpposite(), !pull);
-					frontier.add(Pair.of(distance + 1, connectedPos));
 				}
+
+				FluidTransportBehaviour pipeBehaviour = FluidPropagator.getPipe(level, connectedPos);
+				if (pipeBehaviour == null || visited.contains(connectedPos))
+					continue;
+				if (level.getBlockEntity(connectedPos) instanceof PumpBlockEntity)
+					continue;
+				if (distance + 1 >= maxDistance) {
+					recordTarget(pipeGraph, targets, currentPos, distance, face, pull, blockFace);
+					continue;
+				}
+
+				recordPipeFace(pipeGraph, currentPos, distance, face, pull);
+				recordPipeFace(pipeGraph, connectedPos, distance + 1, face.getOpposite(), !pull);
+				frontier.add(Pair.of(distance + 1, connectedPos));
 			}
 		}
 
 		Map<Integer, Set<BlockFace>> validFaces = new HashMap<>();
-		searchForEndpointRecursively(pipeGraph, targets, validFaces,
+		boolean successfulBranch = searchForEndpointRecursively(pipeGraph, targets, validFaces,
 			new BlockFace(start.getPos(), start.getOppositeFace()), pull);
 
 		for (Set<BlockFace> set : validFaces.values()) {
@@ -380,6 +413,7 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 				pipeBehaviour.addPressure(pipeSide, entry.getSecond().get(pipeSide), pressure / parallelBranches);
 			}
 		}
+		return successfulBranch;
 	}
 
 	private void recordTarget(Map<BlockPos, Pair<Integer, Map<Direction, Boolean>>> pipeGraph,
@@ -511,6 +545,8 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 	}
 
 	public void onDirectionChanged() {
+		pressureApplied = false;
+		pressureRefreshFailures = 0;
 		if (!pendingOutput.isEmpty()) {
 			ensurePendingOutputPressure();
 			pressureRefreshTimer = 0;
@@ -520,6 +556,53 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 		}
 		setChanged();
 		sendData();
+	}
+
+	/** Re-arms hydraulic ram pressure after a connected pipe graph was rebuilt. */
+	public static void notifyNetworkChanged(Level level, BlockPos origin) {
+		if (level == null || level.isClientSide || !level.isLoaded(origin))
+			return;
+
+		Queue<Pair<Integer, BlockPos>> frontier = new ArrayDeque<>();
+		Set<BlockPos> visited = new HashSet<>();
+		frontier.add(Pair.of(0, origin));
+		int maxDistance = FluidPropagator.getPumpRange() + 1;
+
+		while (!frontier.isEmpty()) {
+			Pair<Integer, BlockPos> entry = frontier.poll();
+			int distance = entry.getFirst();
+			BlockPos currentPos = entry.getSecond();
+			if (!level.isLoaded(currentPos) || !visited.add(currentPos))
+				continue;
+
+			BlockEntity blockEntity = level.getBlockEntity(currentPos);
+			if (blockEntity instanceof HydraulicRamBlockEntity ram) {
+				BlockPos outputPipe = ram.worldPosition.relative(ram.getOutputSide());
+				if (outputPipe.equals(origin) || visited.contains(outputPipe))
+					ram.requestPressureRefresh();
+				continue;
+			}
+			if (blockEntity instanceof PumpBlockEntity || distance >= maxDistance)
+				continue;
+
+			FluidTransportBehaviour pipe = FluidPropagator.getPipe(level, currentPos);
+			if (pipe == null)
+				continue;
+			BlockState state = level.getBlockState(currentPos);
+			for (Direction face : FluidPropagator.getPipeConnections(state, pipe)) {
+				BlockPos next = currentPos.relative(face);
+				if (!visited.contains(next))
+					frontier.add(Pair.of(distance + 1, next));
+			}
+		}
+	}
+
+	private void requestPressureRefresh() {
+		if (pendingOutput.isEmpty() || activeOutputPressure <= 0)
+			return;
+		pressureApplied = false;
+		pressureRefreshFailures = 0;
+		pressureRefreshTimer = 0;
 	}
 
 	private boolean ensurePendingOutputPressure() {
@@ -733,17 +816,26 @@ public class HydraulicRamBlockEntity extends SmartBlockEntity {
 
 		@Override
 		public Vec3 getLocalOffset(LevelAccessor level, BlockPos pos, BlockState state) {
-			return VecHelper.rotateCentered(TANK_TOP_CENTER, rotationAngle(state), Axis.Y);
+			return VecHelper.rotateCentered(TANK_TOP_CENTER, offsetRotationAngle(state), Axis.Y);
 		}
 
 		@Override
 		public void rotate(LevelAccessor level, BlockPos pos, BlockState state, PoseStack poseStack) {
 			TransformStack.of(poseStack)
-				.rotateYDegrees(rotationAngle(state) + 180)
+				.rotateYDegrees(boardRotationAngle(state) + 180)
 				.rotateXDegrees(90);
 		}
 
-		private static float rotationAngle(BlockState state) {
+		private static float offsetRotationAngle(BlockState state) {
+			return switch (state.getValue(HydraulicRamBlock.FACING)) {
+				case NORTH -> 180;
+				case EAST -> 90;
+				case WEST -> 270;
+				default -> 0;
+			};
+		}
+
+		private static float boardRotationAngle(BlockState state) {
 			return switch (state.getValue(HydraulicRamBlock.FACING)) {
 				case NORTH -> 180;
 				case EAST -> 270;
