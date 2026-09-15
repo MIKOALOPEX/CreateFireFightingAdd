@@ -7,10 +7,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingBlockEntity;
-import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.ModList;
 import org.joml.Quaterniond;
@@ -20,6 +19,13 @@ import org.joml.Vector3dc;
 
 /** Uses the installed Synaxis weld converter without linking native Sable constraint types. */
 public final class CouplingPhysics {
+    /** Anchors use body model coordinates; normals use world coordinates. */
+    public record Endpoint(ResourceKey<net.minecraft.world.level.Level> dimension, UUID body,
+            Vector3dc anchor, Vector3dc normal) {}
+    public record Request(ResourceLocation feature, UUID id, Endpoint a, Endpoint b,
+            int mode, double lowerDegrees, double upperDegrees) {}
+    private record Connection(Object key, Quaterniond orientationA, Quaterniond orientationB,
+            Vector3d normalA, Vector3d normalB) {}
     private static Api api;
     private static boolean inspected;
     private static boolean reported;
@@ -44,21 +50,52 @@ public final class CouplingPhysics {
         }
     }
 
-    public static Object connect(BallCouplingBlockEntity base, BallCouplingBlockEntity top, UUID id, int mode) {
+    public static Object connect(Request request) {
         if (!available()) return null;
-        try { return api.connect(base, top, id, mode); }
+        try { return api.connect(request, null); }
         catch (ReflectiveOperationException | RuntimeException e) { report(e); return null; }
+    }
+
+    /** Rebuilds the limit frames against the original connection pose, not the current angle. */
+    public static Object update(Object connection, Request request) {
+        if (!available()) return null;
+        try { return api.connect(request, connection instanceof Connection c ? c : null); }
+        catch (ReflectiveOperationException | RuntimeException e) { report(e); return null; }
+    }
+
+    public static CompoundTag saveReference(Object connection) {
+        CompoundTag tag = new CompoundTag();
+        if (!(connection instanceof Connection c)) return tag;
+        double[] values = {c.orientationA.x, c.orientationA.y, c.orientationA.z, c.orientationA.w,
+            c.orientationB.x, c.orientationB.y, c.orientationB.z, c.orientationB.w,
+            c.normalA.x, c.normalA.y, c.normalA.z, c.normalB.x, c.normalB.y, c.normalB.z};
+        for (int i = 0; i < values.length; i++) tag.putDouble("V" + i, values[i]);
+        return tag;
+    }
+
+    public static Object restoreReference(CompoundTag tag) {
+        double[] v = new double[14];
+        for (int i = 0; i < v.length; i++) {
+            if (!tag.contains("V" + i, net.minecraft.nbt.Tag.TAG_DOUBLE)) return null;
+            v[i] = tag.getDouble("V" + i);
+            if (!Double.isFinite(v[i])) return null;
+        }
+        Quaterniond a = new Quaterniond(v[0], v[1], v[2], v[3]), b = new Quaterniond(v[4], v[5], v[6], v[7]);
+        Vector3d na = new Vector3d(v[8], v[9], v[10]), nb = new Vector3d(v[11], v[12], v[13]);
+        if (a.lengthSquared() < 1e-10 || b.lengthSquared() < 1e-10
+                || na.lengthSquared() < 1e-10 || nb.lengthSquared() < 1e-10) return null;
+        return new Connection(null, a.normalize(), b.normalize(), na.normalize(), nb.normalize());
     }
 
     public static boolean active(Object key) {
         if (api == null || key == null) return false;
-        try { return (boolean) api.active.invoke(api.access.invoke(null), key); }
+        try { return (boolean) api.active.invoke(api.access.invoke(null), ((Connection) key).key()); }
         catch (ReflectiveOperationException e) { report(e); return false; }
     }
 
     public static void remove(Object key) {
         if (api == null || key == null) return;
-        try { api.remove.invoke(api.access.invoke(null), key); }
+        try { api.remove.invoke(api.access.invoke(null), ((Connection) key).key()); }
         catch (ReflectiveOperationException e) { report(e); }
     }
 
@@ -111,21 +148,46 @@ public final class CouplingPhysics {
             key = keyClass.getConstructor(ownerClass, ResourceLocation.class);
         }
 
-        Object connect(BallCouplingBlockEntity a, BallCouplingBlockEntity b, UUID id, int mode) throws ReflectiveOperationException {
+        Object connect(Request request, Connection previous) throws ReflectiveOperationException {
+            Endpoint a = request.a(), b = request.b();
+            int mode = request.mode();
+            if (mode < 0 || mode > 2 || !Double.isFinite(request.lowerDegrees())
+                    || !Double.isFinite(request.upperDegrees()) || request.lowerDegrees() < -180
+                    || request.upperDegrees() > 180 || request.lowerDegrees() > request.upperDegrees()) return null;
+            if (mode == 1 && definition.getParameterCount() != 14) return null;
+            UUID id = request.id();
+            if (!a.dimension().equals(b.dimension())) return null;
             Object bodyA = bodyId(a);
             Object bodyB = bodyId(b);
             if (bodyA.equals(bodyB)) return null;
             Object viewA = ((Optional<?>) body.invoke(null, bodyA)).orElse(null);
             Object viewB = ((Optional<?>) body.invoke(null, bodyB)).orElse(null);
             if (viewA == null && !(boolean) ground.invoke(bodyA) || viewB == null && !(boolean) ground.invoke(bodyB)) return null;
-            Vector3d anchorA = vector(viewA == null ? a.worldAnchor() : a.localAnchor());
-            Vector3d anchorB = vector(viewB == null ? b.worldAnchor() : b.localAnchor());
+            Vector3d anchorA = new Vector3d(a.anchor());
+            Vector3d anchorB = new Vector3d(b.anchor());
             Quaterniond qa = viewA == null ? new Quaterniond() : new Quaterniond((Quaterniondc) orientation.invoke(viewA));
             Quaterniond qb = viewB == null ? new Quaterniond() : new Quaterniond((Quaterniondc) orientation.invoke(viewB));
-            Vector3d axis = vector(a.worldNormal()).normalize();
+            if (previous != null) {
+                qa.set(previous.orientationA());
+                qb.set(previous.orientationB());
+            }
+            Vector3d axis = new Vector3d(previous == null ? a.normal() : previous.normalA()).normalize();
+            Vector3d otherAxis = new Vector3d(previous == null ? b.normal() : previous.normalB()).normalize();
             // A free ball joint preserves its current pose. Hinge and fixed modes align the top axis to the socket.
             Quaterniond targetB = mode == 0 ? new Quaterniond(qb)
-                : new Quaterniond().rotationTo(vector(b.worldNormal()), new Vector3d(axis).negate()).mul(qb).normalize();
+                : new Quaterniond().rotationTo(otherAxis, new Vector3d(axis).negate()).mul(qb).normalize();
+            Object limit = null;
+            if (mode == 1 && definition.getParameterCount() == 14) {
+                Class<?> arc = Class.forName(WELD + "WeldAngularLimit$ArcSelection");
+                Class<?> limitClass = Class.forName(WELD + "WeldAngularLimit");
+                double lower = Math.toRadians(request.lowerDegrees()), upper = Math.toRadians(request.upperDegrees());
+                double offset = (lower + upper) / 2;
+                // Preserve the signed -180 endpoint instead of wrapping it onto +180.
+                limit = limitClass.getConstructor(double.class, double.class, arc, double.class, double.class, double.class)
+                    .newInstance(lower, upper, arc.getField("BETWEEN_ENDPOINTS").get(null), offset,
+                        lower - offset, upper - offset);
+                targetB = new Quaterniond().rotationAxis(offset, axis.x, axis.y, axis.z).mul(targetB).normalize();
+            }
             Quaterniond worldFrame = new Quaterniond().rotationTo(new Vector3d(1,0,0), axis);
             Quaterniond frameA = new Quaterniond(qa).conjugate().mul(worldFrame);
             Quaterniond frameB = new Quaterniond(targetB).conjugate().mul(worldFrame);
@@ -135,29 +197,31 @@ public final class CouplingPhysics {
                 new Quaterniond(qa).conjugate().mul(targetB), frameA, frameB,
                 new Quaterniond(qa).conjugate().transform(new Vector3d(axis)),
                 new Quaterniond(targetB).conjugate().transform(new Vector3d(axis)), contacts));
-            if (definition.getParameterCount() == 14) { values.add(Optional.empty()); values.add(Optional.empty()); }
+            if (definition.getParameterCount() == 14) { values.add(Optional.ofNullable(limit)); values.add(Optional.empty()); }
             Object weld = definition.newInstance(values.toArray());
             Object specification = spec.invoke(null, weld);
-            ResourceLocation name = ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, "ball_coupling");
-            Object constraintKey = key.newInstance(owner.newInstance(a.worldLevel().dimension(), name,
+            ResourceLocation name = request.feature();
+            Object constraintKey = key.newInstance(owner.newInstance(a.dimension(), name,
                 ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, id.toString())), name);
             Object constraints = access.invoke(null);
+            Object config = configuration == null ? null : configuration.invoke(null, weld);
+            if (config != null && contacts)
+                config = config.getClass().getMethod("withContactsEnabled", boolean.class).invoke(config, true);
             String result = (configuration == null ? replace.invoke(constraints, constraintKey, specification)
-                : replace.invoke(constraints, constraintKey, specification, configuration.invoke(null, weld))).toString();
+                : replace.invoke(constraints, constraintKey, specification, config)).toString();
             if (!result.equals("APPLIED") && !result.equals("QUEUED") && !result.equals("STORED_DESIRED")) return null;
             if (configuration == null) {
                 try { command.invoke(constraints, constraintKey, contact.newInstance(contacts)); }
                 catch (ReflectiveOperationException e) { remove.invoke(constraints, constraintKey); throw e; }
             }
-            return constraintKey;
+            return new Connection(constraintKey, qa, qb, axis, otherAxis);
         }
 
-        private Object bodyId(BallCouplingBlockEntity endpoint) throws ReflectiveOperationException {
-            UUID subLevel = SableStructureCompat.containingSubLevelId(endpoint);
+        private Object bodyId(Endpoint endpoint) throws ReflectiveOperationException {
+            UUID subLevel = endpoint.body();
             UUID id = subLevel != null ? subLevel : new UUID(0, 0);
-            return bodyIdConstructor.newInstance(endpoint.worldLevel().dimension(), id);
+            return bodyIdConstructor.newInstance(endpoint.dimension(), id);
         }
 
-        private static Vector3d vector(net.minecraft.world.phys.Vec3 v) { return new Vector3d(v.x,v.y,v.z); }
     }
 }

@@ -31,8 +31,15 @@ public final class ExtensionLadderClientInputHandler {
 
 	public static void clientTick() {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.screen != null) {
+		if (mc.player == null) {
 			wasJumpDown = false;
+			sendIfChanged(0, 0, false);
+			releaseAdjustCapture();
+			return;
+		}
+		if (mc.screen != null) {
+			wasJumpDown = false;
+			ExtensionLadderClimbingController.clientTick(mc.player, 0, 0, false);
 			sendIfChanged(0, 0, false);
 			releaseAdjustCapture();
 			return;

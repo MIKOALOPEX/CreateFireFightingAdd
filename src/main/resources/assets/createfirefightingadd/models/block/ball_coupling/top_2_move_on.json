@@ -166,21 +166,5 @@
         }
       }
     }
-  ],
-  "groups": [
-    {
-      "name": "move",
-      "origin": [
-        8,
-        12,
-        8
-      ],
-      "scope": 0,
-      "color": 0,
-      "children": [
-        0,
-        1
-      ]
-    }
   ]
 }

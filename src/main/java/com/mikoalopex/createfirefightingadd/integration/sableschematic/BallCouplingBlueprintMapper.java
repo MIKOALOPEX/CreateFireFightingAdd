@@ -41,6 +41,9 @@ final class BallCouplingBlueprintMapper implements InvocationHandler {
                     for (String name : new String[] {"CouplingEndpoint", "CouplingPartner", "CouplingPair"})
                         if (tag.hasUUID(name)) tag.putUUID(name, ids.computeIfAbsent(tag.getUUID(name), ignored -> UUID.randomUUID()));
                     tag.putBoolean("CouplingSearch", false);
+                    tag.remove("CouplingEstablished");
+                    tag.remove("CouplingReference");
+                    tag.remove("RenderLink");
                     clearKinetics(tag);
                 }
                 yield null;
@@ -55,6 +58,8 @@ final class BallCouplingBlueprintMapper implements InvocationHandler {
 
     private static void clearPair(CompoundTag tag) {
         tag.remove("CouplingPartner"); tag.remove("CouplingPair"); tag.putBoolean("CouplingSearch", false);
+        tag.remove("CouplingEstablished");
+        tag.remove("CouplingReference");
     }
     private static void clearKinetics(CompoundTag tag) {
         tag.remove("Network"); tag.remove("Source"); tag.putFloat("Speed",0);

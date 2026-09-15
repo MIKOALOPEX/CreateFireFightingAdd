@@ -22,7 +22,7 @@ final class BallCouplingIndex {
         if (current.equals(previous)) return;
         removeCell(be, previous);
         cells.computeIfAbsent(current, p -> new HashSet<>()).add(be);
-        if (be.isTop() && be.partnerId() == null) wakeNearby(be);
+        if (be.partnerId() == null) wakeNearby(be);
     }
 
     void wakeNearby(BallCouplingBlockEntity top) {
@@ -30,7 +30,7 @@ final class BallCouplingIndex {
         for (int x=-1;x<=1;x++) for (int y=-1;y<=1;y++) for (int z=-1;z<=1;z++) {
             Set<BallCouplingBlockEntity> entries = cells.get(center.offset(x,y,z));
             if (entries != null) for (BallCouplingBlockEntity be : entries)
-                if (!be.isTop()) be.wakeSearch();
+                if (be.searches()) be.wakeSearch();
         }
     }
 
@@ -52,7 +52,8 @@ final class BallCouplingIndex {
         for (int x=-1;x<=1;x++) for (int y=-1;y<=1;y++) for (int z=-1;z<=1;z++) {
             Set<BallCouplingBlockEntity> entries = cells.get(center.offset(x,y,z));
             if (entries != null) for (BallCouplingBlockEntity be : entries)
-                if (be.isTop() && !be.isRemoved() && be.partnerId() == null && be.worldAnchor().distanceToSqr(base.worldAnchor()) <= 1)
+                if (be != base && base.interfaceMode().accepts(be.interfaceMode()) && !be.isRemoved()
+                        && be.partnerId() == null && be.worldAnchor().distanceToSqr(base.worldAnchor()) <= 1)
                     result.add(be);
         }
         return result;

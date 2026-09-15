@@ -11,9 +11,12 @@ import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -208,7 +211,21 @@ public final class ExtensionLadderClimbingController {
 		ClimbTarget best = null;
 		double bestDistance = Double.MAX_VALUE;
 		for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
-			if (!(level.getBlockEntity(pos) instanceof ExtensionLadderBlockEntity ladder) || !ladder.isClimbable())
+			if (level.isOutsideBuildHeight(pos))
+				continue;
+			BlockEntity blockEntity;
+			if (level instanceof ServerLevel serverLevel) {
+				// Climb detection must never load chunks or wait for chunk generation.
+				LevelChunk chunk = serverLevel.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+				if (chunk == null)
+					continue;
+				blockEntity = chunk.getBlockEntity(pos);
+			} else {
+				if (!level.isLoaded(pos))
+					continue;
+				blockEntity = level.getBlockEntity(pos);
+			}
+			if (!(blockEntity instanceof ExtensionLadderBlockEntity ladder) || !ladder.isClimbable())
 				continue;
 			ClimbTarget target = match(ladder, playerWorldBox);
 			if (target == null || target.distanceSqr() >= bestDistance)

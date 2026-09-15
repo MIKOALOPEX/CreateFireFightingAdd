@@ -13,9 +13,9 @@ import net.minecraft.world.item.BlockItem;
 
 public final class BallCouplings {
     public static final DeferredBlock<BallCouplingBlock> BASE = CreateFireFightingAdd.BLOCKS.register("ball_coupling_base",
-        () -> new BallCouplingBlock(BlockBehaviour.Properties.of().strength(2).sound(SoundType.METAL).noOcclusion(), false));
+        () -> new BallCouplingBlock(BlockBehaviour.Properties.of().strength(2).sound(SoundType.METAL).noOcclusion().dynamicShape(), false));
     public static final DeferredBlock<BallCouplingBlock> TOP = CreateFireFightingAdd.BLOCKS.register("ball_coupling_top",
-        () -> new BallCouplingBlock(BlockBehaviour.Properties.of().strength(2).sound(SoundType.METAL).noOcclusion(), true));
+        () -> new BallCouplingBlock(BlockBehaviour.Properties.of().strength(2).sound(SoundType.METAL).noOcclusion().dynamicShape(), true));
     public static final DeferredItem<BlockItem> BASE_ITEM = CreateFireFightingAdd.ITEMS.registerSimpleBlockItem(BASE);
     public static final DeferredItem<BlockItem> TOP_ITEM = CreateFireFightingAdd.ITEMS.registerSimpleBlockItem(TOP);
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BallCouplingBlockEntity>> BLOCK_ENTITY =

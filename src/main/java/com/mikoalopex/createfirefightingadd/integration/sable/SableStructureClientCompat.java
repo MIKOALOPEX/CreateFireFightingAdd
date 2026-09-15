@@ -22,6 +22,10 @@ public final class SableStructureClientCompat {
 	private SableStructureClientCompat() {
 	}
 
+	public static boolean renderTargetAvailable(@Nullable UUID subLevel) {
+		return subLevel == null || BACKEND != null && BACKEND.renderTargetAvailable(subLevel);
+	}
+
 	public static FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
 			@Nullable UUID partnerSubLevel, Vector3d partnerCenter, Vector3d partnerNormal) {
 		if (BACKEND != null)
@@ -165,6 +169,8 @@ public final class SableStructureClientCompat {
 	}
 
 	interface ClientStructureBackend {
+		boolean renderTargetAvailable(UUID subLevel);
+
 		FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
 				@Nullable UUID partnerSubLevel,
 				Vector3d partnerCenter,

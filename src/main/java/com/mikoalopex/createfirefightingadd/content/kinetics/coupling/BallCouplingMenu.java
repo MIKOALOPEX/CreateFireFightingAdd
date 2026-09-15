@@ -27,10 +27,17 @@ public class BallCouplingMenu extends AbstractContainerMenu {
         super(BallCouplings.MENU.get(), id);
         this.owner = owner;
         this.pos = pos;
-        values = owner == null ? new SimpleContainerData(2) : new ContainerData() {
+        values = owner == null ? new SimpleContainerData(6) : new ContainerData() {
             @Override
             public int get(int index) {
-                return index == 0 ? owner.mode() : owner.status();
+                return switch (index) {
+                    case 0 -> owner.mode();
+                    case 1 -> owner.status();
+                    case 2 -> owner.interfaceMode().ordinal();
+                    case 3 -> owner.lowerAngle();
+                    case 4 -> owner.upperAngle();
+                    default -> 1;
+                };
             }
 
             @Override
@@ -38,16 +45,16 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
             @Override
             public int getCount() {
-                return 2;
+                return 6;
             }
         };
         addDataSlots(values);
 
         for (int row = 0; row < 3; row++)
             for (int column = 0; column < 9; column++)
-                addSlot(new Slot(inventory, column + row * 9 + 9, 8 + column * 18, 112 + row * 18));
+                addSlot(new Slot(inventory, column + row * 9 + 9, 59 + column * 18, 190 + row * 18));
         for (int column = 0; column < 9; column++)
-            addSlot(new Slot(inventory, column, 8 + column * 18, 170));
+            addSlot(new Slot(inventory, column, 59 + column * 18, 248));
     }
 
     public int mode() {
@@ -56,6 +63,17 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
     public int status() {
         return values.get(1);
+    }
+
+    public int interfaceMode() { return values.get(2); }
+    public int lowerAngle() { return values.get(3); }
+    public int upperAngle() { return values.get(4); }
+    public boolean synchronizedSettings() { return values.get(5) == 1; }
+
+    public void applySettings(Player player, int mode, int role, int lower, int upper) {
+        if (owner == null || !stillValid(player) || player.isSpectator()) return;
+        owner.applySettings(mode, role, lower, upper);
+        broadcastChanges();
     }
 
     @Override

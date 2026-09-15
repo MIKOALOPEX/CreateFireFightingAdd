@@ -1,0 +1,92 @@
+{
+  "format_version": "1.9.0",
+  "credit": "Made with Blockbench",
+  "texture_size": [
+    64,
+    64
+  ],
+  "textures": {
+    "2": "createfirefightingadd:block/ball_coupling/ctop_on",
+    "particle": "createfirefightingadd:block/ball_coupling/cbase_rs_on"
+  },
+  "elements": [
+    {
+      "name": "shaft",
+      "from": [
+        6,
+        0,
+        6
+      ],
+      "to": [
+        10,
+        7,
+        10
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          4,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            0,
+            11,
+            3
+          ],
+          "texture": "#2"
+        },
+        "east": {
+          "uv": [
+            9,
+            0,
+            11,
+            3
+          ],
+          "texture": "#2"
+        },
+        "south": {
+          "uv": [
+            9,
+            0,
+            11,
+            3
+          ],
+          "texture": "#2"
+        },
+        "west": {
+          "uv": [
+            9,
+            0,
+            11,
+            3
+          ],
+          "texture": "#2"
+        },
+        "up": {
+          "uv": [
+            7.5,
+            7,
+            5.5,
+            5
+          ],
+          "texture": "#2"
+        },
+        "down": {
+          "uv": [
+            7.5,
+            5,
+            5.5,
+            7
+          ],
+          "texture": "#2"
+        }
+      }
+    }
+  ]
+}

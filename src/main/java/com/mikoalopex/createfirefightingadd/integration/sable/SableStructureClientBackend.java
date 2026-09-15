@@ -25,6 +25,14 @@ import net.minecraft.world.phys.Vec3;
 final class SableStructureClientBackend implements SableStructureClientCompat.ClientStructureBackend {
 
 	@Override
+	public boolean renderTargetAvailable(UUID subLevel) {
+		if (Minecraft.getInstance().level == null) return false;
+		ClientSubLevelContainer container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
+		ClientSubLevel target = container == null ? null : (ClientSubLevel) container.getSubLevel(subLevel);
+		return target != null && !target.isRemoved();
+	}
+
+	@Override
 	public SableStructureClientCompat.FireHoseRenderTransform transformFireHoseTarget(BlockEntity owner,
 			@Nullable UUID partnerSubLevel, Vector3d partnerCenter, Vector3d partnerNormal) {
 		Vector3d transformedCenter = new Vector3d(partnerCenter);

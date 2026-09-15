@@ -48,6 +48,10 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
         return simpleCodec(p -> new BallCouplingBlock(p, top));
     }
 
+    @Override public net.minecraft.world.level.block.RenderShape getRenderShape(BlockState state) {
+        return net.minecraft.world.level.block.RenderShape.ENTITYBLOCK_ANIMATED;
+    }
+
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, LENGTH, CONNECTED, POWERED);
     }
@@ -65,7 +69,7 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
 
     @Override public InteractionResult onWrenched(BlockState state, UseOnContext context) {
         if (context.getLevel().getBlockEntity(context.getClickedPos()) instanceof BallCouplingBlockEntity be) {
-            if (top && !context.getLevel().isClientSide) be.cycleLength(context.getPlayer());
+            if (!context.getLevel().isClientSide) be.cycleLength(context.getPlayer());
             return InteractionResult.SUCCESS;
         }
         return InteractionResult.PASS;
@@ -73,7 +77,6 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
-        if (top) return InteractionResult.PASS;
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof BallCouplingBlockEntity be)
             player.openMenu(be, buf -> buf.writeBlockPos(pos));
         return InteractionResult.sidedSuccess(level.isClientSide);
@@ -113,6 +116,14 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
     }
 
     @Override public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        if (level.getBlockEntity(pos) instanceof BallCouplingBlockEntity be) {
+            int length = state.getValue(LENGTH);
+            boolean small = be.interfaceMode() == CouplingInterfaceMode.PASSIVE;
+            double height = be.interfaceMode() == CouplingInterfaceMode.FREE ? 9 + 4 * length
+                : small ? new double[] {8, 12, 16, 20, 23}[length] : 10 + 4 * length;
+            return Shapes.or(orientedBox(state, small ? 3 : 0, 0, small ? 3 : 0, small ? 13 : 16, small ? 3 : 5, small ? 13 : 16),
+                orientedBox(state, 4, 3, 4, 12, height, 12));
+        }
         double height = top ? new double[] {8, 12, 16, 20, 23}[state.getValue(LENGTH)] : 12;
         VoxelShape shape = Shapes.empty();
         double[][] boxes = top ? new double[][] {{3, 0, 3, 13, 3, 13}, {5, 2, 5, 11, height, 11}}
@@ -126,6 +137,13 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
                 Math.max(a.x,b.x)+8, Math.max(a.y,b.y)+8, Math.max(a.z,b.z)+8));
         }
         return shape;
+    }
+
+    private static VoxelShape orientedBox(BlockState state, double x1, double y1, double z1, double x2, double y2, double z2) {
+        Vec3 a = orient(new Vec3(x1 - 8, y1 - 8, z1 - 8), state.getValue(FACING));
+        Vec3 b = orient(new Vec3(x2 - 8, y2 - 8, z2 - 8), state.getValue(FACING));
+        return Block.box(Math.min(a.x, b.x) + 8, Math.min(a.y, b.y) + 8, Math.min(a.z, b.z) + 8,
+            Math.max(a.x, b.x) + 8, Math.max(a.y, b.y) + 8, Math.max(a.z, b.z) + 8);
     }
 
     @Override public Class<BallCouplingBlockEntity> getBlockEntityClass() { return BallCouplingBlockEntity.class; }

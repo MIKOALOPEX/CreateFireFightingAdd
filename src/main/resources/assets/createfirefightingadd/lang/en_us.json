@@ -1,4 +1,12 @@
 {
+  "ball_coupling.constraint": "Constraint",
+  "ball_coupling.interface": "Interface",
+  "ball_coupling.interface.0": "Free",
+  "ball_coupling.interface.1": "Active",
+  "ball_coupling.interface.2": "Passive",
+  "ball_coupling.lower": "Lower limit",
+  "ball_coupling.upper": "Upper limit",
+  "ball_coupling.apply": "Apply",
   "ball_coupling.status.0": "Disconnected",
   "ball_coupling.status.1": "Connected",
   "ball_coupling.status.2": "Searching",
