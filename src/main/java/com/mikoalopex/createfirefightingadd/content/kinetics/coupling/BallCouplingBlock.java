@@ -9,6 +9,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -77,6 +78,8 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
+        if (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty())
+            return InteractionResult.PASS;
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof BallCouplingBlockEntity be)
             player.openMenu(be, buf -> buf.writeBlockPos(pos));
         return InteractionResult.sidedSuccess(level.isClientSide);
@@ -101,6 +104,11 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
 
     @Override public BlockState mirror(BlockState state, Mirror mirror) {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
+    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+        return new ItemStack(BallCouplings.ITEM.get());
     }
 
     /** Matches the +Y model's blockstate rotation, including horizontal roll. */
@@ -137,6 +145,11 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
                 Math.max(a.x,b.x)+8, Math.max(a.y,b.y)+8, Math.max(a.z,b.z)+8));
         }
         return shape;
+    }
+
+    @Override protected VoxelShape getBlockSupportShape(BlockState state, BlockGetter level, BlockPos pos) {
+        return Shapes.or(super.getBlockSupportShape(state, level, pos),
+            orientedBox(state, 0, 0, 0, 16, 1, 16));
     }
 
     private static VoxelShape orientedBox(BlockState state, double x1, double y1, double z1, double x2, double y2, double z2) {

@@ -5,7 +5,6 @@ import org.joml.Vector3f;
 import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.content.equipment.extinguisher.FireExtinguisherItem;
 
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
@@ -19,7 +18,7 @@ public final class FireExtinguisherClientSprayVisuals {
 	private static final RandomSource RANDOM = RandomSource.create();
 	private static final int BASE_PARTICLES_PER_TICK = 14;
 	private static final double MIN_DISTANCE = 0.25;
-	private static final double EDGE_MARGIN = 0.15;
+	private static final double EDGE_MARGIN = 0.4;
 	private static final double TAN_HALF_ANGLE = Math.tan(Math.toRadians(FireExtinguisherSprayEffects.HALF_ANGLE));
 	private static final Vector3f WHITE = new Vector3f(1.0f, 1.0f, 1.0f);
 	private static final Vector3f WATER_BLUE = new Vector3f(0.3f, 0.55f, 1.0f);
@@ -103,10 +102,13 @@ public final class FireExtinguisherClientSprayVisuals {
 		float size = 1.4f + RANDOM.nextFloat() * 1.2f
 			+ (float) (distance / Math.max(1.0, FireExtinguisherSprayEffects.RANGE)) * 0.8f;
 		switch (behavior) {
-			case LAVA -> level.addParticle(new DustParticleOptions(pick(LAVA_ORANGE, LAVA_YELLOW), size),
-				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
+			case LAVA -> {
+				level.addParticle(new SprayParticleOptions(pick(LAVA_ORANGE, LAVA_YELLOW), size, 1f, 0.08f),
+					pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
+				SprayProjectileVisuals.spawnLavaSpark(level, RANDOM, pos, velocity.x, velocity.y, velocity.z);
+			}
 			case DRAGON_BREATH -> {
-				level.addParticle(new DustParticleOptions(pick(DRAGON_PURPLE, DRAGON_PINK), size * 1.1f),
+				level.addParticle(new SprayParticleOptions(pick(DRAGON_PURPLE, DRAGON_PINK), size * 1.1f, 1f, 0.08f),
 					pos.x, pos.y, pos.z, velocity.x * 0.6, velocity.y * 0.6 + 0.01, velocity.z * 0.6);
 				if (RANDOM.nextFloat() < 0.08f)
 					level.addParticle(ParticleTypes.END_ROD, pos.x, pos.y, pos.z,
@@ -116,17 +118,17 @@ public final class FireExtinguisherClientSprayVisuals {
 				if (ignited && RANDOM.nextFloat() < 0.14f) {
 					level.addParticle(ParticleTypes.LAVA, pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
 				} else {
-					level.addParticle(new DustParticleOptions(particles.pickVector(RANDOM), size),
+					level.addParticle(new SprayParticleOptions(particles.pickVector(RANDOM), size, 1f, 0.08f),
 						pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
 				}
 			}
-			case MILK -> level.addParticle(new DustParticleOptions(WHITE, size),
+			case MILK -> level.addParticle(new SprayParticleOptions(WHITE, size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
-			case POTION -> level.addParticle(new DustParticleOptions(SprayProjectileVisuals.potionColor(fluid), size),
+			case POTION -> level.addParticle(new SprayParticleOptions(SprayProjectileVisuals.potionColor(fluid), size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
-			case CUSTOM -> level.addParticle(new DustParticleOptions(particles.pickVector(RANDOM), size),
+			case CUSTOM -> level.addParticle(new SprayParticleOptions(particles.pickVector(RANDOM), size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
-			default -> level.addParticle(new DustParticleOptions(waterColor(distance), size),
+			default -> level.addParticle(new SprayParticleOptions(waterColor(distance), size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
 		}
 	}

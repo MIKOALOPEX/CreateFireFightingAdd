@@ -10,7 +10,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
-/** Temporary Create network coupling, adapted from CreateAllCreative's kinetic links. */
+/** Bridges Create kinetic networks while the corresponding physical coupling remains active. */
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
 public final class CouplingKinetics {
     private record Edge(BallCouplingBlockEntity a, BallCouplingBlockEntity b) {}
@@ -100,6 +100,7 @@ public final class CouplingKinetics {
         if (service != null) service.tick();
     }
     @SubscribeEvent public static void stopped(ServerStoppedEvent event) {
+        com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingAlignment.clear();
         SERVERS.remove(event.getServer());
         BallCouplingIndex.clear(event.getServer());
     }

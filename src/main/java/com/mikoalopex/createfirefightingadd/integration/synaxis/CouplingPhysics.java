@@ -17,13 +17,13 @@ import org.joml.Quaterniondc;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-/** Uses the installed Synaxis weld converter without linking native Sable constraint types. */
+/** Bridges coupling modes to Synaxis without loading optional physics classes directly. */
 public final class CouplingPhysics {
-    /** Anchors use body model coordinates; normals use world coordinates. */
+    /** Anchors use body model coordinates; normals and tangents use world coordinates. */
     public record Endpoint(ResourceKey<net.minecraft.world.level.Level> dimension, UUID body,
-            Vector3dc anchor, Vector3dc normal) {}
+            Vector3dc anchor, Vector3dc normal, Vector3dc tangent) {}
     public record Request(ResourceLocation feature, UUID id, Endpoint a, Endpoint b,
-            int mode, double lowerDegrees, double upperDegrees) {}
+            int mode, double lowerDegrees, double upperDegrees, boolean flipRange) {}
     private record Connection(Object key, Quaterniond orientationA, Quaterniond orientationB,
             Vector3d normalA, Vector3d normalB) {}
     private static Api api;
@@ -173,8 +173,9 @@ public final class CouplingPhysics {
             }
             Vector3d axis = new Vector3d(previous == null ? a.normal() : previous.normalA()).normalize();
             Vector3d otherAxis = new Vector3d(previous == null ? b.normal() : previous.normalB()).normalize();
-            // A free ball joint preserves its current pose. Hinge and fixed modes align the top axis to the socket.
+            // A fixed joint also snaps the face roll to the nearest quarter turn.
             Quaterniond targetB = mode == 0 ? new Quaterniond(qb)
+                : mode == 2 ? snappedFixedTarget(qb, otherAxis, axis, b.tangent(), a.tangent())
                 : new Quaterniond().rotationTo(otherAxis, new Vector3d(axis).negate()).mul(qb).normalize();
             Object limit = null;
             if (mode == 1 && definition.getParameterCount() == 14) {
@@ -182,10 +183,16 @@ public final class CouplingPhysics {
                 Class<?> limitClass = Class.forName(WELD + "WeldAngularLimit");
                 double lower = Math.toRadians(request.lowerDegrees()), upper = Math.toRadians(request.upperDegrees());
                 double offset = (lower + upper) / 2;
-                // Preserve the signed -180 endpoint instead of wrapping it onto +180.
-                limit = limitClass.getConstructor(double.class, double.class, arc, double.class, double.class, double.class)
-                    .newInstance(lower, upper, arc.getField("BETWEEN_ENDPOINTS").get(null), offset,
-                        lower - offset, upper - offset);
+                if (request.flipRange()) {
+                    limit = limitClass.getConstructor(double.class, double.class, arc)
+                        .newInstance(lower, upper, arc.getField("ACROSS_WRAP").get(null));
+                    offset = (double) limitClass.getMethod("angleOffset").invoke(limit);
+                } else {
+                    // Preserve the signed -180 endpoint instead of wrapping it onto +180.
+                    limit = limitClass.getConstructor(double.class, double.class, arc, double.class, double.class, double.class)
+                        .newInstance(lower, upper, arc.getField("BETWEEN_ENDPOINTS").get(null), offset,
+                            lower - offset, upper - offset);
+                }
                 targetB = new Quaterniond().rotationAxis(offset, axis.x, axis.y, axis.z).mul(targetB).normalize();
             }
             Quaterniond worldFrame = new Quaterniond().rotationTo(new Vector3d(1,0,0), axis);
@@ -223,5 +230,34 @@ public final class CouplingPhysics {
             return bodyIdConstructor.newInstance(endpoint.dimension(), id);
         }
 
+    }
+
+    static Quaterniond snappedFixedTarget(Quaterniondc movingOrientation, Vector3dc movingNormal,
+            Vector3dc fixedNormal, Vector3dc movingTangent, Vector3dc fixedTangent) {
+        Vector3d axis = new Vector3d(fixedNormal).negate().normalize();
+        Quaterniond normalCorrection = new Quaterniond().rotationTo(movingNormal, axis);
+        Quaterniond aligned = new Quaterniond(normalCorrection).mul(movingOrientation).normalize();
+        Vector3d current = normalCorrection.transform(new Vector3d(movingTangent));
+        Vector3d reference = new Vector3d(fixedTangent);
+        projectOntoPlane(current, axis);
+        projectOntoPlane(reference, axis);
+        double angle = signedAngle(reference, current, axis);
+        double snapped = Math.rint(angle / (Math.PI / 2)) * (Math.PI / 2);
+        Vector3d desired = new Quaterniond().rotationAxis(snapped, axis.x, axis.y, axis.z)
+            .transform(reference);
+        double correction = signedAngle(current, desired, axis);
+        return new Quaterniond().rotationAxis(correction, axis.x, axis.y, axis.z).mul(aligned).normalize();
+    }
+
+    private static void projectOntoPlane(Vector3d vector, Vector3dc normal) {
+        vector.fma(-vector.dot(normal), normal);
+        if (vector.lengthSquared() < 1e-10)
+            vector.set(Math.abs(normal.y()) < 0.9 ? 0 : 1, Math.abs(normal.y()) < 0.9 ? 1 : 0, 0)
+                .cross(normal);
+        vector.normalize();
+    }
+
+    private static double signedAngle(Vector3dc from, Vector3dc to, Vector3dc axis) {
+        return Math.atan2(new Vector3d(from).cross(to).dot(axis), from.dot(to));
     }
 }

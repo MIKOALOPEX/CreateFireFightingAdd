@@ -15,7 +15,6 @@ import net.createmod.catnip.math.VecHelper;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -417,8 +416,10 @@ public class BucketControllerBlockEntity extends AbstractSprayDeviceBlockEntity 
 
 			Vector3f color = pickMistColor(random);
 			float size = 1.0f + random.nextFloat() * 2.0f;
-			level.addParticle(new DustParticleOptions(color, size),
+			level.addParticle(new SprayParticleOptions(color, size, 1f, 0.6f),
 				pos.x, pos.y, pos.z, vel.x, vel.y, vel.z);
+			if (currentFluid == FluidBehavior.LAVA)
+				SprayProjectileVisuals.spawnLavaSpark(level, random, pos, vel.x, vel.y, vel.z);
 		}
 	}
 

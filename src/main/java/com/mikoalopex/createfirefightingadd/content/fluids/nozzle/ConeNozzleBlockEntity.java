@@ -8,7 +8,6 @@ import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -124,8 +123,10 @@ public class ConeNozzleBlockEntity extends AbstractSprayDeviceBlockEntity {
 			Vec3 pos = origin.add(direction.scale(0.3 + random.nextDouble() * 0.4)).add(offset);
 			Vec3 vel = direction.scale(getProjectileSpeed());
 			Vector3f color = pickStreamColor(random);
-			level.addParticle(new DustParticleOptions(color, 2.5f + random.nextFloat()),
+			level.addParticle(new SprayParticleOptions(color, 2.5f + random.nextFloat()),
 				pos.x, pos.y, pos.z, vel.x, vel.y, vel.z);
+			if (currentFluid == FluidBehavior.LAVA)
+				SprayProjectileVisuals.spawnLavaSpark(level, random, pos, vel.x, vel.y, vel.z);
 		}
 	}
 

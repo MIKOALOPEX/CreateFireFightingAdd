@@ -29,7 +29,6 @@ import com.simibubi.create.infrastructure.config.AllConfigs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -954,8 +953,10 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			Vec3 vel = direction.scale(-1.5 - random.nextDouble() * 4.0);
 
 			Vector3f color = colorFor(behavior, fluid, particles, random, tick);
-			level.addParticle(new DustParticleOptions(color, 1.5f + random.nextFloat() * 1.5f),
+			level.addParticle(new SprayParticleOptions(color, 1.5f + random.nextFloat() * 1.5f),
 				pos.x, pos.y, pos.z, vel.x, vel.y, vel.z);
+			if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.LAVA)
+				SprayProjectileVisuals.spawnLavaSpark(level, random, pos, vel.x, vel.y, vel.z);
 		}
 	}
 

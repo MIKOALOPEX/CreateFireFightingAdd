@@ -53,9 +53,13 @@ final class BallCouplingIndex {
             Set<BallCouplingBlockEntity> entries = cells.get(center.offset(x,y,z));
             if (entries != null) for (BallCouplingBlockEntity be : entries)
                 if (be != base && base.interfaceMode().accepts(be.interfaceMode()) && !be.isRemoved()
-                        && be.partnerId() == null && be.worldAnchor().distanceToSqr(base.worldAnchor()) <= 1)
+                        && be.partnerId() == null && inCaptureRange(base.worldAnchor(), be.worldAnchor()))
                     result.add(be);
         }
         return result;
+    }
+
+    private static boolean inCaptureRange(Vec3 a, Vec3 b) {
+        return Math.abs(a.x - b.x) <= 1.5 && Math.abs(a.y - b.y) <= 1.5 && Math.abs(a.z - b.z) <= 1.5;
     }
 }

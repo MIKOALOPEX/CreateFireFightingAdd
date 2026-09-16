@@ -3,10 +3,12 @@ package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 import java.util.List;
 import java.util.function.Function;
 
+import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.Config;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.ParticleStatus;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -132,6 +134,22 @@ final class SprayProjectileVisuals {
 		return id == null ? "" : id.getPath();
 	}
 
+	static void spawnLavaSpark(Level level, RandomSource random, Vec3 pos,
+			double velX, double velY, double velZ) {
+		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft.options.particles().get() == ParticleStatus.MINIMAL
+			|| minecraft.gameRenderer.getMainCamera().getPosition().distanceToSqr(pos) >
+				ClientConfig.sprayParticleViewDistance * ClientConfig.sprayParticleViewDistance)
+			return;
+		float chance = 0.08f * (float) ClientConfig.particleDensity;
+		if (minecraft.options.particles().get() == ParticleStatus.DECREASED)
+			chance *= 0.5f;
+		if (random.nextFloat() >= chance)
+			return;
+		level.addParticle(ParticleTypes.FLAME, true, pos.x, pos.y, pos.z,
+			velX * 0.02, velY * 0.02 + 0.004, velZ * 0.02);
+	}
+
 	private static void spawnTrailParticles(Level level, LightweightProjectile proj,
 			AbstractSprayDeviceBlockEntity.FluidBehavior behavior, String fuelPath, Vector3f potionColor,
 			@Nullable NozzleParticlePalette customPalette, int trailParticlesPerTick,
@@ -173,7 +191,7 @@ final class SprayProjectileVisuals {
 			double velZ = proj.velocity.z * 0.1 * streamWeight + (level.random.nextDouble() - 0.5) * 0.04 * mistFactor;
 
 			spawnColoredParticle(level, behavior, proj, fuelPath, potionColor, customPalette,
-				size, particlePos, velX, velY, velZ, t);
+				size, particlePos, velX, velY, velZ, t, (float) mistFactor);
 		}
 	}
 
@@ -211,17 +229,18 @@ final class SprayProjectileVisuals {
 	private static void spawnColoredParticle(Level level, AbstractSprayDeviceBlockEntity.FluidBehavior behavior,
 			LightweightProjectile proj, String fuelPath, Vector3f potionColor,
 			@Nullable NozzleParticlePalette customPalette, float size, Vec3 pos,
-			double velX, double velY, double velZ, double partialAge) {
+			double velX, double velY, double velZ, double partialAge, float mistFactor) {
 		switch (behavior) {
 			case LAVA -> {
 				Vector3f lavaColor = level.random.nextFloat() < 0.5f
 					? new Vector3f(1.0f, 0.4f, 0.0f)
 					: new Vector3f(1.0f, 0.7f, 0.1f);
-				level.addParticle(new DustParticleOptions(lavaColor, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+				level.addParticle(new SprayParticleOptions(lavaColor, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
+				spawnLavaSpark(level, level.random, pos, velX, velY, velZ);
 			}
 			case DRAGON_BREATH -> {
 				Vector3f color = pickDragonBreathColor(level.random);
-				level.addParticle(new DustParticleOptions(color, size * 1.1f),
+				level.addParticle(new SprayParticleOptions(color, size * 1.1f, mistFactor, 0.6f),
 					pos.x, pos.y, pos.z, velX * 0.6, velY * 0.6 + 0.01, velZ * 0.6);
 				if (level.random.nextFloat() < 0.08f)
 					level.addParticle(ParticleTypes.END_ROD, pos.x, pos.y, pos.z, velX * 0.2, velY * 0.2 + 0.01, velZ * 0.2);
@@ -234,14 +253,14 @@ final class SprayProjectileVisuals {
 				} else {
 					Vector3f[] fuelColors = getFuelColorsByPath(fuelPath);
 					Vector3f fuelColor = fuelColors[level.random.nextInt(fuelColors.length)];
-					level.addParticle(new DustParticleOptions(fuelColor, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+					level.addParticle(new SprayParticleOptions(fuelColor, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
 				}
 			}
-			case MILK -> level.addParticle(new DustParticleOptions(WHITE, size), pos.x, pos.y, pos.z, velX, velY, velZ);
-			case POTION -> level.addParticle(new DustParticleOptions(potionColor, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+			case MILK -> level.addParticle(new SprayParticleOptions(WHITE, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
+			case POTION -> level.addParticle(new SprayParticleOptions(potionColor, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
 			case CUSTOM -> {
 				Vector3f color = customPalette == null ? potionColor : customPalette.pickVector(level.random);
-				level.addParticle(new DustParticleOptions(color, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+				level.addParticle(new SprayParticleOptions(color, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
 			}
 			default -> {
 				Vector3f color;
@@ -250,7 +269,7 @@ final class SprayProjectileVisuals {
 					color = WHITE;
 				else
 					color = level.random.nextFloat() < 0.5f ? LIGHT_BLUE : BLUE;
-				level.addParticle(new DustParticleOptions(color, size), pos.x, pos.y, pos.z, velX, velY, velZ);
+				level.addParticle(new SprayParticleOptions(color, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
 			}
 		}
 	}

@@ -6,7 +6,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "createfirefightingadd:ball_coupling_top"
+          "name": "createfirefightingadd:stress_coupling"
         }
       ],
       "conditions": [

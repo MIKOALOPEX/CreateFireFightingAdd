@@ -59,8 +59,8 @@ public class BallCouplingRenderer extends KineticBlockEntityRenderer<BallCouplin
                 rotateShaft(pose, phase);
                 draw("top_" + length + "_move_" + state, pose, buffers, light, overlay);
             } else {
-                draw("ball/receiver_" + length + "_" + state, pose, buffers, light, overlay);
                 rotateShaft(pose, phase);
+                draw("ball/receiver_" + length + "_" + state, pose, buffers, light, overlay);
                 draw("ball/receiver_shaft_" + length + "_" + state, pose, buffers, light, overlay);
             }
             pose.popPose();

@@ -75,7 +75,6 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 
 import org.joml.Vector3f;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffects;
@@ -1443,11 +1442,11 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				Vector3f lavaColor = level.random.nextFloat() < 0.5f
 					? new Vector3f(1.0f, 0.4f, 0.0f)
 					: new Vector3f(1.0f, 0.7f, 0.1f);
-				level.addParticle(new DustParticleOptions(lavaColor, size),
+				level.addParticle(new SprayParticleOptions(lavaColor, size),
 					px, py, pz, velX, velY, velZ);
 			} else if (currentFluid == FluidBehavior.DRAGON_BREATH) {
 				Vector3f color = pickDragonBreathColor(level.random);
-				level.addParticle(new DustParticleOptions(color, size * 1.1f),
+				level.addParticle(new SprayParticleOptions(color, size * 1.1f),
 					px, py, pz, velX * 0.6, velY * 0.6 + 0.01, velZ * 0.6);
 				if (level.random.nextFloat() < 0.08f)
 					level.addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD,
@@ -1462,7 +1461,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 					} else {
 						Vector3f[] fuelColors = getFuelColorsByPath(sprayedFuelPath);
 						Vector3f fuelColor = fuelColors[level.random.nextInt(fuelColors.length)];
-						level.addParticle(new DustParticleOptions(fuelColor, size),
+						level.addParticle(new SprayParticleOptions(fuelColor, size),
 							px, py, pz, velX, velY, velZ);
 					}
 				} else {
@@ -1480,7 +1479,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 								: new Vector3f(0.3f, 0.55f, 1.0f);
 						}
 					}
-					level.addParticle(new DustParticleOptions(color, size),
+					level.addParticle(new SprayParticleOptions(color, size),
 						px, py, pz, velX, velY, velZ);
 				}
 			}

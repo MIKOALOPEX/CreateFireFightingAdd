@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.mikoalopex.createfirefightingadd.api.coupling.StressCouplingApi;
+import com.mikoalopex.createfirefightingadd.api.coupling.StressCouplingEndpoint;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingPhysics;
+import com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingAlignment;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 
@@ -25,7 +28,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 
-public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuProvider {
+public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuProvider, StressCouplingEndpoint {
     /** Centers of the named ball element in each top model, measured in model pixels. */
     private static final double[] BALL_CENTERS = {5, 9, 13, 17, 20};
 
@@ -35,24 +38,27 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     private UUID previousPartner;
     private Object constraint;
     private Object savedReference;
+    private CouplingAlignment.Session alignment;
+    private long alignmentRetryUntil;
     private boolean searching;
     private boolean powered;
     private int searchTicks;
     private int nextSearch;
     private int pendingTicks;
     private boolean connectionEstablished;
+    private long guiPairCooldownUntil;
     private int mode;
     private CouplingInterfaceMode interfaceMode;
     private int lowerAngle = -45;
     private int upperAngle = 45;
+    private boolean flipRange;
     private Vec3 renderPartnerAnchor;
     private Vec3 renderPartnerNormal;
     private UUID renderPartnerBody;
 
     public BallCouplingBlockEntity(BlockPos pos, BlockState state) {
         super(BallCouplings.BLOCK_ENTITY.get(), pos, state);
-        interfaceMode = ((BallCouplingBlock) state.getBlock()).isTop()
-            ? CouplingInterfaceMode.PASSIVE : CouplingInterfaceMode.ACTIVE;
+        interfaceMode = CouplingInterfaceMode.FREE;
     }
 
     public static BallCouplingBlockEntity create(BlockPos pos, BlockState state) {
@@ -87,6 +93,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     public CouplingInterfaceMode interfaceMode() { return interfaceMode; }
     public int lowerAngle() { return lowerAngle; }
     public int upperAngle() { return upperAngle; }
+    public boolean flipRange() { return flipRange; }
     public Vec3 renderPartnerAnchor() { return renderPartnerAnchor; }
     public Vec3 renderPartnerNormal() { return renderPartnerNormal; }
     public UUID renderPartnerBody() { return renderPartnerBody; }
@@ -99,15 +106,16 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     private CouplingPhysics.Endpoint physicsEndpoint() {
-        Vec3 p = localAnchor(), n = worldNormal();
+        Vec3 p = localAnchor(), n = worldNormal(), t = worldTangent();
         return new CouplingPhysics.Endpoint(worldLevel().dimension(), SableStructureCompat.containingSubLevelId(this),
-            new org.joml.Vector3d(p.x, p.y, p.z), new org.joml.Vector3d(n.x, n.y, n.z));
+            new org.joml.Vector3d(p.x, p.y, p.z), new org.joml.Vector3d(n.x, n.y, n.z),
+            new org.joml.Vector3d(t.x, t.y, t.z));
     }
 
     private Object createConstraint(BallCouplingBlockEntity other, UUID id) {
         return CouplingPhysics.update(constraint != null ? constraint : savedReference, new CouplingPhysics.Request(
             com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.path("ball_coupling"), id,
-            physicsEndpoint(), other.physicsEndpoint(), mode, lowerAngle, upperAngle));
+            physicsEndpoint(), other.physicsEndpoint(), mode, lowerAngle, upperAngle, flipRange));
     }
 
     public int status() {
@@ -123,6 +131,14 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     void wakeSearch() {
         if (searching && powered)
             nextSearch = Math.min(nextSearch, 1);
+    }
+
+    public void requestConnectionSearch() {
+        if (level == null || level.isClientSide || partner != null)
+            return;
+        updateSignal();
+        beginSearch(true);
+        BallCouplingIndex.of(worldLevel()).wakeNearby(this);
     }
 
     public Level worldLevel() {
@@ -148,6 +164,12 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         return SableStructureCompat.transformNormalToWorld(this, localNormal).normalize();
     }
 
+    public Vec3 worldTangent() {
+        Vec3 localTangent = BallCouplingBlock.orient(new Vec3(1, 0, 0),
+            getBlockState().getValue(BallCouplingBlock.FACING));
+        return SableStructureCompat.transformNormalToWorld(this, localTangent).normalize();
+    }
+
     public BallCouplingBlockEntity partner() {
         return level == null || level.isClientSide || partner == null
             ? null
@@ -161,6 +183,28 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     public boolean powered() {
         return powered;
     }
+
+    @Override public UUID stressCouplingEndpointId() { return endpoint; }
+    @Override public UUID stressCouplingPartnerId() { return partner; }
+    @Override public Level stressCouplingLevel() { return worldLevel(); }
+    @Override public Vec3 stressCouplingAnchor() { return worldAnchor(); }
+    @Override public Vec3 stressCouplingNormal() { return worldNormal(); }
+    @Override public StressCouplingApi.InterfaceMode stressCouplingInterfaceMode() {
+        return StressCouplingApi.InterfaceMode.values()[interfaceMode.ordinal()];
+    }
+    @Override public StressCouplingApi.ConnectionState stressCouplingState() {
+        return switch (status()) {
+            case 1 -> StressCouplingApi.ConnectionState.CONNECTED;
+            case 2 -> StressCouplingApi.ConnectionState.SEARCHING;
+            case 3 -> StressCouplingApi.ConnectionState.ALIGNING;
+            case 4 -> StressCouplingApi.ConnectionState.UNAVAILABLE;
+            default -> StressCouplingApi.ConnectionState.IDLE;
+        };
+    }
+    @Override public boolean stressCouplingPowered() { return powered; }
+    @Override public void stressCouplingRequestSearch() { requestConnectionSearch(); }
+    @Override public void stressCouplingDisconnect() { disconnect(); }
+
 
     @Override
     public void initialize() {
@@ -199,8 +243,20 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         boolean changed = next != powered;
         powered = next;
         setPoweredState(next);
+        if (changed && next) alignmentRetryUntil = 0;
 
-        if (!next && !(partner != null && interfaceMode == CouplingInterfaceMode.PASSIVE)) {
+        if (changed && next && guiPairCooldownUntil > 0) {
+            guiPairCooldownUntil = 0;
+            BallCouplingBlockEntity previous = previousPartner == null ? null
+                : BallCouplingIndex.of(worldLevel()).find(previousPartner);
+            if (previous != null && endpoint.equals(previous.previousPartner)) {
+                previous.guiPairCooldownUntil = 0;
+                previous.setChanged();
+            }
+            setChanged();
+        }
+
+        if (!next && !(partner != null && interfaceMode == CouplingInterfaceMode.PASSIVE && connectionEstablished)) {
             if (partner != null || searching)
                 disconnect();
             return;
@@ -242,6 +298,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
         BallCouplingIndex.of(worldLevel()).update(this);
         if (pair != null && CouplingSavedData.get(level.getServer()).consume(pair)) {
+            if (alignment != null) { alignment.close(); alignment = null; }
             CouplingKinetics.disconnect(this);
             CouplingPhysics.remove(constraint);
             constraint = null;
@@ -269,6 +326,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     private void maintainConnection() {
         BallCouplingBlockEntity other = partner();
         if (other == null) {
+            if (alignment != null) { cancelAlignment(); return; }
             setActive(false);
             CouplingKinetics.disconnect(this);
             if (constraint != null) savedReference = constraint;
@@ -280,6 +338,20 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
                 || !interfaceMode.accepts(other.interfaceMode) || !endpoint.equals(other.partner) || !Objects.equals(pair, other.pair)) {
             disconnect();
             return;
+        }
+
+        if (alignment != null) {
+            if (alignment.failed() || ++pendingTicks > 60) {
+                cancelAlignment();
+                return;
+            }
+            if (!withinConnectionRange(other))
+                return;
+            alignment.close();
+            alignment = other.alignment = null;
+            pendingTicks = 0;
+            constraint = createConstraint(other, pair);
+            if (constraint == null) { cancelAlignment(); return; }
         }
 
         if (constraint == null)
@@ -302,8 +374,15 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         }
     }
 
+    private boolean withinConnectionRange(BallCouplingBlockEntity other) {
+        Vec3 a = worldAnchor(), b = other.worldAnchor();
+        return Math.abs(a.x - b.x) <= 0.75 && Math.abs(a.y - b.y) <= 0.75
+            && Math.abs(a.z - b.z) <= 0.75;
+    }
+
     private void searchForPartner() {
-        if (!powered || !searching || !CouplingPhysics.available())
+        if (!powered || !searching || !CouplingPhysics.available()
+                || guiPairCooldownUntil > level.getGameTime() || alignmentRetryUntil > level.getGameTime())
             return;
 
         searchTicks = Math.min(searchTicks + 1, 600);
@@ -317,14 +396,18 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             .thenComparing(be -> be.endpoint));
 
         for (BallCouplingBlockEntity other : candidates) {
-            if (!other.powered || other.partner != null || !ownsConnection(other))
+            if (!other.powered || other.partner != null || !ownsConnection(other)
+                    || other.guiPairCooldownUntil > level.getGameTime()
+                    || other.alignmentRetryUntil > level.getGameTime())
                 continue;
             UUID id = UUID.randomUUID();
-            Object created = createConstraint(other, id);
-            if (created == null)
+            CouplingAlignment.Session attempt = CouplingAlignment.begin(physicsEndpoint(), other.physicsEndpoint(), mode,
+                interfaceMode == CouplingInterfaceMode.FREE);
+            if (attempt == null)
                 continue;
 
-            constraint = created;
+            alignment = other.alignment = attempt;
+            savedReference = other.savedReference = null;
             connectionEstablished = other.connectionEstablished = false;
             pair = id;
             partner = other.endpoint;
@@ -333,6 +416,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             other.mode = mode;
             other.lowerAngle = lowerAngle;
             other.upperAngle = upperAngle;
+            other.flipRange = flipRange;
             searching = false;
             pendingTicks = 0;
             previousPartner = null;
@@ -340,6 +424,13 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             other.notifyUpdate();
             break;
         }
+    }
+
+    private void cancelAlignment() {
+        BallCouplingBlockEntity other = partner();
+        alignmentRetryUntil = level.getGameTime() + 40;
+        if (other != null) other.alignmentRetryUntil = other.level.getGameTime() + 40;
+        disconnect();
     }
 
     private void setActive(boolean active) {
@@ -372,6 +463,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         }
 
         CouplingKinetics.disconnect(this);
+        if (alignment != null) { alignment.close(); alignment = null; }
         CouplingPhysics.remove(constraint);
         constraint = null;
         if (partner != null && other == null)
@@ -388,6 +480,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         notifyUpdate();
 
         if (other != null && endpoint.equals(other.partner)) {
+            if (other.alignment != null) { other.alignment.close(); other.alignment = null; }
             CouplingPhysics.remove(other.constraint);
             other.constraint = null;
             other.partner = null;
@@ -402,6 +495,22 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         }
     }
 
+    public void disconnectFromGui() {
+        if (level == null || level.isClientSide || partner == null)
+            return;
+        BallCouplingBlockEntity other = partner();
+        long until = level.getGameTime() + 100;
+        guiPairCooldownUntil = until;
+        previousPartner = partner;
+        setChanged();
+        if (other != null) {
+            other.guiPairCooldownUntil = other.level == null ? until : other.level.getGameTime() + 100;
+            other.previousPartner = endpoint;
+            other.setChanged();
+        }
+        disconnect();
+    }
+
     public void cycleLength(Player player) {
         if (partner != null) {
             if (player != null)
@@ -412,27 +521,30 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public void setMode(int value) {
-        applySettings(value, interfaceMode.ordinal(), lowerAngle, upperAngle);
+        applySettings(value, interfaceMode.ordinal(), lowerAngle, upperAngle, flipRange);
     }
 
-    public void applySettings(int value, int role, int lower, int upper) {
+    public void applySettings(int value, int role, int lower, int upper, boolean flip) {
         if (level == null || level.isClientSide) return;
         if (value < 0 || value > 2 || role < 0 || role > 2 || lower < -180 || upper > 180 || lower > upper)
             return;
-        if (mode == value && interfaceMode.ordinal() == role && lowerAngle == lower && upperAngle == upper)
+        if (mode == value && interfaceMode.ordinal() == role && lowerAngle == lower && upperAngle == upper
+                && flipRange == flip)
             return;
-        if (interfaceMode.ordinal() != role) disconnect();
+        if (interfaceMode.ordinal() != role || alignment != null) disconnect();
         mode = value;
         interfaceMode = CouplingInterfaceMode.values()[role];
         lowerAngle = lower;
         upperAngle = upper;
+        flipRange = flip;
         BallCouplingBlockEntity other = partner();
         if (other != null && !ownsConnection(other))
-            other.applySettings(value, other.interfaceMode.ordinal(), lower, upper);
+            other.applySettings(value, other.interfaceMode.ordinal(), lower, upper, flip);
         if (other != null && ownsConnection(other)) {
             other.mode = mode;
             other.lowerAngle = lowerAngle;
             other.upperAngle = upperAngle;
+            other.flipRange = flipRange;
             other.notifyUpdate();
             CouplingKinetics.disconnect(this);
             Object updated = createConstraint(other, pair);
@@ -469,6 +581,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     @Override
     public void invalidate() {
         if (level != null && !level.isClientSide) {
+            if (alignment != null) disconnect();
             CouplingKinetics.disconnect(this);
             if (constraint != null) savedReference = constraint;
             CouplingPhysics.remove(constraint);
@@ -501,6 +614,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             tag.putUUID("CouplingPair", pair);
         tag.putInt("CouplingMode", mode);
         tag.putBoolean("CouplingEstablished", connectionEstablished);
+        // An interrupted attraction is retried from search; it must never restore as a hard joint.
+        tag.putBoolean("CouplingAligning", alignment != null);
+        if (!packet && guiPairCooldownUntil > 0)
+            tag.putLong("CouplingGuiPairCooldown", guiPairCooldownUntil);
         if (!packet && pair != null)
             tag.put("CouplingReference", CouplingPhysics.saveReference(constraint != null ? constraint : savedReference));
         CompoundTag config = new CompoundTag();
@@ -508,6 +625,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         config.putInt("Interface", interfaceMode.ordinal());
         config.putInt("Lower", lowerAngle);
         config.putInt("Upper", upperAngle);
+        config.putBoolean("FlipRange", flipRange);
         tag.put("CouplingConfig", config);
         if (packet) {
             BallCouplingBlockEntity other = partner();
@@ -533,6 +651,13 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         pair = tag.hasUUID("CouplingPair") ? tag.getUUID("CouplingPair") : null;
         mode = Math.clamp(tag.getInt("CouplingMode"), 0, 2);
         connectionEstablished = pair != null && tag.getBoolean("CouplingEstablished");
+        if (!packet && tag.getBoolean("CouplingAligning")) {
+            partner = null;
+            pair = null;
+            connectionEstablished = false;
+        }
+        if (!packet)
+            guiPairCooldownUntil = tag.getLong("CouplingGuiPairCooldown");
         if (!packet)
             savedReference = pair == null ? null : CouplingPhysics.restoreReference(tag.getCompound("CouplingReference"));
         if (tag.contains("CouplingConfig")) {
@@ -540,6 +665,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             interfaceMode = CouplingInterfaceMode.values()[Math.clamp(config.getInt("Interface"), 0, 2)];
             lowerAngle = Math.clamp(config.getInt("Lower"), -180, 180);
             upperAngle = Math.clamp(config.getInt("Upper"), lowerAngle, 180);
+            flipRange = config.getBoolean("FlipRange");
         }
         if (packet) {
             renderPartnerAnchor = null;
@@ -557,7 +683,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("block.createfirefightingadd.ball_coupling_base");
+        return Component.translatable("item.createfirefightingadd.stress_coupling");
     }
 
     @Override

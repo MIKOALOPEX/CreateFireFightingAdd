@@ -64,6 +64,9 @@ import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleBloc
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.FlatNozzleRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleSprayClientSounds;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDebugRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayParticle;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayParticleOptions;
+import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayParticleType;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMountedFluidStorageType;
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.SprayDeviceMovementBehaviour;
 import com.mikoalopex.createfirefightingadd.content.items.configurator.MultifunctionConfiguratorItem;
@@ -116,6 +119,8 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.particles.ParticleType;
+import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
@@ -197,6 +202,9 @@ public class CreateFireFightingAdd {
 	public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(Registries.SOUND_EVENT, MODID);
 	public static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MODID);
 	public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
+	public static final DeferredRegister<ParticleType<?>> PARTICLE_TYPES = DeferredRegister.create(Registries.PARTICLE_TYPE, MODID);
+	public static final DeferredHolder<ParticleType<?>, ParticleType<SprayParticleOptions>> SPRAY_PARTICLE =
+		PARTICLE_TYPES.register("spray", SprayParticleType::new);
 	public static final DeferredRegister.DataComponents DATA_COMPONENTS =
 		DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, MODID);
 	public static final DeferredRegister<MountedFluidStorageType<?>> MOUNTED_FLUID_STORAGE_TYPES =
@@ -523,8 +531,7 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
-				output.accept(BallCouplings.BASE_ITEM.get());
-				output.accept(BallCouplings.TOP_ITEM.get());
+				output.accept(BallCouplings.ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
@@ -557,6 +564,7 @@ public class CreateFireFightingAdd {
 		SOUND_EVENTS.register(modEventBus);
 		ARMOR_MATERIALS.register(modEventBus);
 		ENTITY_TYPES.register(modEventBus);
+		PARTICLE_TYPES.register(modEventBus);
 		DATA_COMPONENTS.register(modEventBus);
 		MOUNTED_FLUID_STORAGE_TYPES.register(modEventBus);
 
@@ -750,6 +758,11 @@ public class CreateFireFightingAdd {
 
 	@EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
 	public static class ClientModEvents {
+		@SubscribeEvent
+		public static void registerParticleProviders(RegisterParticleProvidersEvent event) {
+			event.registerSpriteSet(SPRAY_PARTICLE.get(), SprayParticle.Provider::new);
+		}
+
 		@SubscribeEvent
 		public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
 			PartialModels.registerAdditional(event);

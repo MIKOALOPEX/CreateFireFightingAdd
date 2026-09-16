@@ -7,7 +7,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 public class BallCouplingMenu extends AbstractContainerMenu {
@@ -27,7 +26,7 @@ public class BallCouplingMenu extends AbstractContainerMenu {
         super(BallCouplings.MENU.get(), id);
         this.owner = owner;
         this.pos = pos;
-        values = owner == null ? new SimpleContainerData(6) : new ContainerData() {
+        values = owner == null ? new SimpleContainerData(8) : new ContainerData() {
             @Override
             public int get(int index) {
                 return switch (index) {
@@ -36,6 +35,8 @@ public class BallCouplingMenu extends AbstractContainerMenu {
                     case 2 -> owner.interfaceMode().ordinal();
                     case 3 -> owner.lowerAngle();
                     case 4 -> owner.upperAngle();
+                    case 6 -> owner.partnerId() != null ? 1 : 0;
+                    case 7 -> owner.flipRange() ? 1 : 0;
                     default -> 1;
                 };
             }
@@ -45,16 +46,11 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
             @Override
             public int getCount() {
-                return 6;
+                return 8;
             }
         };
         addDataSlots(values);
 
-        for (int row = 0; row < 3; row++)
-            for (int column = 0; column < 9; column++)
-                addSlot(new Slot(inventory, column + row * 9 + 9, 59 + column * 18, 190 + row * 18));
-        for (int column = 0; column < 9; column++)
-            addSlot(new Slot(inventory, column, 59 + column * 18, 248));
     }
 
     public int mode() {
@@ -69,10 +65,19 @@ public class BallCouplingMenu extends AbstractContainerMenu {
     public int lowerAngle() { return values.get(3); }
     public int upperAngle() { return values.get(4); }
     public boolean synchronizedSettings() { return values.get(5) == 1; }
+    public boolean connected() { return values.get(6) == 1; }
+    public boolean flipRange() { return values.get(7) == 1; }
 
-    public void applySettings(Player player, int mode, int role, int lower, int upper) {
+    public void applySettings(Player player, int mode, int role, int lower, int upper, boolean flip) {
         if (owner == null || !stillValid(player) || player.isSpectator()) return;
-        owner.applySettings(mode, role, lower, upper);
+        owner.applySettings(mode, role, lower, upper, flip);
+        broadcastChanges();
+    }
+
+    public void disconnectFromGui(Player player) {
+        if (owner == null || !stillValid(player) || player.isSpectator() || owner.partnerId() == null)
+            return;
+        owner.disconnectFromGui();
         broadcastChanges();
     }
 
@@ -95,17 +100,6 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        if (index < 0 || index >= slots.size())
-            return ItemStack.EMPTY;
-        Slot slot = slots.get(index);
-        ItemStack stack = slot.getItem();
-        ItemStack copy = stack.copy();
-        if (!moveItemStackTo(stack, index < 27 ? 27 : 0, index < 27 ? 36 : 27, false))
-            return ItemStack.EMPTY;
-        if (stack.isEmpty())
-            slot.setByPlayer(ItemStack.EMPTY);
-        else
-            slot.setChanged();
-        return copy;
+        return ItemStack.EMPTY;
     }
 }
