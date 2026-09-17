@@ -26,6 +26,8 @@
   "ball_coupling.connected": "Connected",
   "ball_coupling.disconnected": "Disconnected",
   "ball_coupling.connected_length": "Disconnect the coupling before adjusting its length.",
+  "ball_coupling.dependencies_missing": "Stress Coupling requires Sable 2.x and compatible Aeronautics, Synaxis and Sable Photomancy dependencies.",
+  "ball_coupling.dependencies_incompatible": "Stress Coupling is disabled: install Sable 2.x and compatible Aeronautics, Synaxis and Sable Photomancy versions. Back up your world before changing dependencies; mismatched versions may crash or damage saves.",
   "ball_coupling.unavailable": "Requires compatible Synaxis, Sable and Sable Blueprint / Photomancy.",
   "block.createfirefightingadd.hose_bracket": "Fire Hose Bracket",
   "createfirefightingadd.hose_bracket.angle": "Bracket angle",

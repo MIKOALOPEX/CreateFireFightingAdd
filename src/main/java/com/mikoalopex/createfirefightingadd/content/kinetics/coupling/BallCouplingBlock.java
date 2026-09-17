@@ -65,7 +65,7 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
     @Override public Direction.Axis getRotationAxis(BlockState state) { return state.getValue(FACING).getAxis(); }
 
     @Override public boolean hasShaftTowards(LevelReader level, BlockPos pos, BlockState state, Direction face) {
-        return face == state.getValue(FACING).getOpposite();
+        return StressCouplingCompatibility.enabled() && face == state.getValue(FACING).getOpposite();
     }
 
     @Override public InteractionResult onWrenched(BlockState state, UseOnContext context) {
@@ -80,6 +80,10 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
             Player player, BlockHitResult hit) {
         if (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty())
             return InteractionResult.PASS;
+        if (!StressCouplingCompatibility.enabled()) {
+            StressCouplingCompatibility.notifyPlayer(player);
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof BallCouplingBlockEntity be)
             player.openMenu(be, buf -> buf.writeBlockPos(pos));
         return InteractionResult.sidedSuccess(level.isClientSide);

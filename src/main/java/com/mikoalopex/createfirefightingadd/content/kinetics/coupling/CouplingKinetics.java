@@ -28,6 +28,7 @@ public final class CouplingKinetics {
         return be.getLevel() == null || be.getLevel().isClientSide ? null : SERVERS.get(be.getLevel().getServer());
     }
     public static float generated(BallCouplingBlockEntity be) {
+        if (!StressCouplingCompatibility.enabled()) return 0;
         CouplingKinetics service = of(be);
         return service == null || service.nativeRead ? 0 : service.drives.getOrDefault(be, 0f);
     }
@@ -68,6 +69,8 @@ public final class CouplingKinetics {
         return found;
     }
     public static void connect(BallCouplingBlockEntity a, BallCouplingBlockEntity b) {
+        if (!StressCouplingCompatibility.enabled() || !a.active() || !b.active()
+                || a.getLevel() == null || a.getLevel().isClientSide) return;
         CouplingKinetics service = SERVERS.computeIfAbsent(a.getLevel().getServer(), s -> new CouplingKinetics());
         service.edges.put(a, new Edge(a,b));
     }

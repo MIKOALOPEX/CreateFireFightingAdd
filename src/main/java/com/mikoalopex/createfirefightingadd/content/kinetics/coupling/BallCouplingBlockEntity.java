@@ -26,7 +26,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
 
 public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuProvider, StressCouplingEndpoint {
     /** Centers of the named ball element in each top model, measured in model pixels. */
@@ -62,9 +61,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public static BallCouplingBlockEntity create(BlockPos pos, BlockState state) {
-        if (ModList.get().isLoaded("sable"))
-            return new com.mikoalopex.createfirefightingadd.integration.sable.SableBallCouplingBlockEntity(pos, state);
-        return new BallCouplingBlockEntity(pos, state);
+        return StressCouplingCompatibility.create(pos, state);
     }
 
     @Override
@@ -113,13 +110,14 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     private Object createConstraint(BallCouplingBlockEntity other, UUID id) {
+        if (!StressCouplingCompatibility.enabled()) return null;
         return CouplingPhysics.update(constraint != null ? constraint : savedReference, new CouplingPhysics.Request(
             com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.path("ball_coupling"), id,
             physicsEndpoint(), other.physicsEndpoint(), mode, lowerAngle, upperAngle, flipRange));
     }
 
     public int status() {
-        if (!CouplingPhysics.available())
+        if (!StressCouplingCompatibility.enabled())
             return 4;
         if (active())
             return 1;
@@ -134,6 +132,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public void requestConnectionSearch() {
+        if (!StressCouplingCompatibility.enabled()) return;
         if (level == null || level.isClientSide || partner != null)
             return;
         updateSignal();
@@ -171,13 +170,13 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public BallCouplingBlockEntity partner() {
-        return level == null || level.isClientSide || partner == null
+        return !StressCouplingCompatibility.enabled() || level == null || level.isClientSide || partner == null
             ? null
             : BallCouplingIndex.of(worldLevel()).find(partner);
     }
 
     public boolean active() {
-        return getBlockState().getValue(BallCouplingBlock.CONNECTED);
+        return StressCouplingCompatibility.enabled() && getBlockState().getValue(BallCouplingBlock.CONNECTED);
     }
 
     public boolean powered() {
@@ -212,6 +211,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         if (level == null || level.isClientSide)
             return;
 
+        if (!StressCouplingCompatibility.enabled()) {
+            clearDisabledConnection();
+            return;
+        }
         BallCouplingBlockEntity existing = BallCouplingIndex.of(worldLevel()).find(endpoint);
         if (existing != null && existing != this && !existing.isRemoved()) {
             endpoint = UUID.randomUUID();
@@ -238,6 +241,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     public void updateSignal() {
         if (level == null || level.isClientSide)
             return;
+        if (!StressCouplingCompatibility.enabled()) {
+            clearDisabledConnection();
+            return;
+        }
 
         boolean next = level.hasNeighborSignal(worldPosition);
         boolean changed = next != powered;
@@ -279,7 +286,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     private void beginSearch(boolean resetBackoff) {
-        if (!searches() || !powered || partner != null)
+        if (!StressCouplingCompatibility.enabled() || !searches() || !powered || partner != null)
             return;
         boolean wasSearching = searching;
         searching = true;
@@ -295,6 +302,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         super.tick();
         if (level == null || level.isClientSide)
             return;
+        if (!StressCouplingCompatibility.enabled()) {
+            clearDisabledConnection();
+            return;
+        }
 
         BallCouplingIndex.of(worldLevel()).update(this);
         if (pair != null && CouplingSavedData.get(level.getServer()).consume(pair)) {
@@ -454,6 +465,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     public void disconnect() {
         if (level == null || level.isClientSide)
             return;
+        if (!StressCouplingCompatibility.enabled()) {
+            clearDisabledConnection();
+            return;
+        }
 
         BallCouplingBlockEntity other = partner();
         if (other != null && interfaceMode.accepts(other.interfaceMode) && !ownsConnection(other)
@@ -512,6 +527,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public void cycleLength(Player player) {
+        if (!StressCouplingCompatibility.enabled()) {
+            StressCouplingCompatibility.notifyPlayer(player);
+            return;
+        }
         if (partner != null) {
             if (player != null)
                 player.displayClientMessage(Component.translatable("ball_coupling.connected_length"), true);
@@ -525,6 +544,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     }
 
     public void applySettings(int value, int role, int lower, int upper, boolean flip) {
+        if (!StressCouplingCompatibility.enabled()) return;
         if (level == null || level.isClientSide) return;
         if (value < 0 || value > 2 || role < 0 || role > 2 || lower < -180 || upper > 180 || lower > upper)
             return;
@@ -580,7 +600,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
     @Override
     public void invalidate() {
-        if (level != null && !level.isClientSide) {
+        if (StressCouplingCompatibility.enabled() && level != null && !level.isClientSide) {
             if (alignment != null) disconnect();
             CouplingKinetics.disconnect(this);
             if (constraint != null) savedReference = constraint;
@@ -644,6 +664,17 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
     @Override
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean packet) {
+        boolean enabled = StressCouplingCompatibility.enabled();
+        if (!enabled) {
+            // Disabled compatibility keeps settings but discards runtime-only connection state.
+            tag = tag.copy();
+            tag.remove("Network");
+            tag.remove("Source");
+            tag.putFloat("Speed", 0);
+            tag.remove("CouplingPartner");
+            tag.remove("CouplingPair");
+            tag.remove("RenderLink");
+        }
         super.read(tag, registries, packet);
         if (tag.hasUUID("CouplingEndpoint"))
             endpoint = tag.getUUID("CouplingEndpoint");
@@ -688,6 +719,21 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
-        return new BallCouplingMenu(id, inventory, this);
+        return StressCouplingCompatibility.enabled() ? new BallCouplingMenu(id, inventory, this) : null;
+    }
+
+    private void clearDisabledConnection() {
+        boolean changed = partner != null || pair != null || searching || connectionEstablished
+            || getBlockState().getValue(BallCouplingBlock.CONNECTED);
+        partner = pair = previousPartner = null;
+        savedReference = null;
+        searching = connectionEstablished = false;
+        if (alignment != null) { alignment.close(); alignment = null; }
+        if (constraint != null) { CouplingPhysics.remove(constraint); constraint = null; }
+        CouplingKinetics.disconnect(this);
+        if (changed) {
+            setStateProperty(BallCouplingBlock.CONNECTED, false);
+            notifyUpdate();
+        }
     }
 }

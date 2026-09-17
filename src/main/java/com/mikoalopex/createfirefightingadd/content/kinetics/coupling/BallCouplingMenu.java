@@ -92,6 +92,7 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
+        if (!StressCouplingCompatibility.enabled()) return false;
         if (owner == null)
             return true;
         return !owner.isRemoved() && player.level() == owner.worldLevel()

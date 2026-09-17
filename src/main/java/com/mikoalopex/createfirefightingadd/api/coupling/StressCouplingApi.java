@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +37,8 @@ public final class StressCouplingApi {
     }
 
     public static boolean requestConnection(BlockEntity blockEntity) {
+        if (!StressCouplingCompatibility.enabled())
+            return false;
         if (!(blockEntity instanceof StressCouplingEndpoint endpoint) || blockEntity.getLevel() == null
                 || blockEntity.getLevel().isClientSide)
             return false;

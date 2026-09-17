@@ -37,6 +37,10 @@ public final class SableStructureCompat {
     private SableStructureCompat() {
     }
 
+    public static boolean available() {
+        return BACKEND != null;
+    }
+
     public static double distance(Level level, BlockPos first, BlockPos second) {
         return Math.sqrt(distanceSquared(level, Vec3.atCenterOf(first), Vec3.atCenterOf(second)));
     }

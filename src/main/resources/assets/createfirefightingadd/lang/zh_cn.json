@@ -26,6 +26,8 @@
   "ball_coupling.connected": "已连接",
   "ball_coupling.disconnected": "未连接",
   "ball_coupling.connected_length": "请先断开铰接器，再调整球头长度。",
+  "ball_coupling.dependencies_missing": "应力铰链需要安装 Sable 2.x，以及适配的 Aeronautics、Synaxis 和 Sable Photomancy 前置。",
+  "ball_coupling.dependencies_incompatible": "应力铰链已停用：请安装 Sable 2.x 及适配的 Aeronautics、Synaxis、Sable Photomancy。更换依赖前请备份存档，版本不匹配可能导致崩溃或存档损坏。",
   "ball_coupling.unavailable": "需要兼容的 Synaxis、Sable 和 Sable Blueprint / Photomancy。",
   "block.createfirefightingadd.hose_bracket": "消防水带固定架",
   "createfirefightingadd.hose_bracket.angle": "固定架角度",

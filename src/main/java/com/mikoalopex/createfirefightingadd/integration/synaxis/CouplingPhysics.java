@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.nbt.CompoundTag;
@@ -32,6 +33,8 @@ public final class CouplingPhysics {
     private CouplingPhysics() {}
 
     public static boolean available() {
+        if (!StressCouplingCompatibility.supportedVersions())
+            return false;
         if (!inspected) {
             inspected = true;
             if (ModList.get().isLoaded("synaxis") && ModList.get().isLoaded("sable_schematic_api")) {
@@ -51,14 +54,14 @@ public final class CouplingPhysics {
     }
 
     public static Object connect(Request request) {
-        if (!available()) return null;
+        if (!StressCouplingCompatibility.enabled()) return null;
         try { return api.connect(request, null); }
         catch (ReflectiveOperationException | RuntimeException e) { report(e); return null; }
     }
 
     /** Rebuilds the limit frames against the original connection pose, not the current angle. */
     public static Object update(Object connection, Request request) {
-        if (!available()) return null;
+        if (!StressCouplingCompatibility.enabled()) return null;
         try { return api.connect(request, connection instanceof Connection c ? c : null); }
         catch (ReflectiveOperationException | RuntimeException e) { report(e); return null; }
     }
@@ -120,6 +123,15 @@ public final class CouplingPhysics {
                 Vector3dc.class, Vector3dc.class, boolean.class));
             if (def.getRecordComponents().length == 14) { parameters.add(Optional.class); parameters.add(Optional.class); }
             definition = def.getConstructor(parameters.toArray(Class<?>[]::new));
+            if (definition.getParameterCount() != 14)
+                throw new NoSuchMethodException("WeldConstraintDefinition angular limits");
+            Class<?> arc = Class.forName(WELD + "WeldAngularLimit$ArcSelection");
+            Class<?> limit = Class.forName(WELD + "WeldAngularLimit");
+            limit.getConstructor(double.class, double.class, arc);
+            limit.getConstructor(double.class, double.class, arc, double.class, double.class, double.class);
+            limit.getMethod("angleOffset");
+            arc.getField("ACROSS_WRAP");
+            arc.getField("BETWEEN_ENDPOINTS");
             spec = Class.forName(WELD + "WeldConstraintService").getMethod("spec", def);
             modes = new Object[] {mode.getField("GIMBAL").get(null), mode.getField("HINGE").get(null), mode.getField("FIXED").get(null)};
             bodyIdConstructor = bodyIdClass.getConstructor(ResourceKey.class, UUID.class);
@@ -134,6 +146,7 @@ public final class CouplingPhysics {
             catch (NoSuchMethodException oldApi) { newConfiguration = null; }
             configuration = newConfiguration;
             if (configuration != null) {
+                configuration.getReturnType().getMethod("withContactsEnabled", boolean.class);
                 replace = accessClass.getMethod("replace", keyClass, specClass, configuration.getReturnType());
                 command = null;
                 contact = null;

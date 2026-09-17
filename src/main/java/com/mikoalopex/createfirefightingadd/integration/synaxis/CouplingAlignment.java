@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 import com.mojang.logging.LogUtils;
 import org.joml.Matrix3dc;
 import org.joml.Quaterniond;
@@ -25,12 +26,21 @@ public final class CouplingAlignment {
 
     private CouplingAlignment() {}
 
+    public static boolean available() {
+        if (!StressCouplingCompatibility.supportedVersions())
+            return false;
+        if (!inspected) {
+            inspected = true;
+            try { api = new Api(); }
+            catch (ReflectiveOperationException | RuntimeException | LinkageError error) { report(error); }
+        }
+        return api != null;
+    }
+
     public static Session begin(CouplingPhysics.Endpoint a, CouplingPhysics.Endpoint b, int mode, boolean free) {
+        if (!StressCouplingCompatibility.enabled())
+            return null;
         try {
-            if (!inspected) {
-                inspected = true;
-                api = new Api();
-            }
             return api == null ? null : api.begin(a, b, mode, free);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             report(e);

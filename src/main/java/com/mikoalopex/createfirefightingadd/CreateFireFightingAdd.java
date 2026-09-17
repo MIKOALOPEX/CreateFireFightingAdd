@@ -5,6 +5,7 @@ import java.util.List;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingScreen;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingRenderer;
+import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
@@ -531,6 +532,7 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
+			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
