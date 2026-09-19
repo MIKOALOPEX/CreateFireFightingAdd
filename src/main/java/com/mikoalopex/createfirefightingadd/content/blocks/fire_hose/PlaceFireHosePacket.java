@@ -41,8 +41,8 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static final int PLACE_ENDPOINT = 0;
-    private static final int PLACE_AND_CONNECT_FREE = 1;
-    private static final int PLACE_AND_CONNECT_CONSUME = 2;
+    private static final int LEGACY_PLACE_AND_CONNECT_FREE = 1;
+    private static final int PLACE_AND_CONNECT = 2;
     private static final int CONNECT_EXISTING = 3;
     private static final AtomicBoolean REPORTED_UNKNOWN_ACTION = new AtomicBoolean();
 
@@ -65,10 +65,8 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
     }
 
     public static PlaceFireHosePacket placeAndConnect(BlockPos firstEndpoint, BlockPos clickedPos,
-                                                      Direction facing, InteractionHand hand,
-                                                      boolean consumeItem) {
-        return new PlaceFireHosePacket(firstEndpoint, clickedPos, facing, hand,
-            consumeItem ? PLACE_AND_CONNECT_CONSUME : PLACE_AND_CONNECT_FREE);
+                                                      Direction facing, InteractionHand hand) {
+        return new PlaceFireHosePacket(firstEndpoint, clickedPos, facing, hand, PLACE_AND_CONNECT);
     }
 
     public static PlaceFireHosePacket connectExisting(BlockPos firstEndpoint, BlockPos secondEndpoint,
@@ -98,11 +96,9 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
         }
 
         switch (packet.action()) {
-            case PLACE_ENDPOINT -> placeEndpoint(level, player, hose, packet.targetPos(), packet.targetFacing(), true);
-            case PLACE_AND_CONNECT_FREE ->
-                placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing(), false);
-            case PLACE_AND_CONNECT_CONSUME ->
-                placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing(), true);
+            case PLACE_ENDPOINT -> placeEndpoint(level, player, hose, packet.targetPos(), packet.targetFacing());
+            case LEGACY_PLACE_AND_CONNECT_FREE, PLACE_AND_CONNECT ->
+                placeAndConnect(level, player, hose, packet.firstPos(), packet.targetPos(), packet.targetFacing());
             case CONNECT_EXISTING -> connectExisting(level, player, packet.firstPos(), packet.targetPos());
             default -> {
                 if (REPORTED_UNKNOWN_ACTION.compareAndSet(false, true))
@@ -114,14 +110,14 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
 
     private static void placeAndConnect(Level level, ServerPlayer player, ItemStack hose,
                                         BlockPos firstEndpoint, BlockPos clickedPos,
-                                        Direction facing, boolean consumeItem) {
+                                        Direction facing) {
         if (!(level.getBlockEntity(firstEndpoint) instanceof FireHoseBlockEntity)) {
             sendMessage(player, "missing_endpoint");
             return;
         }
 
         BlockPos placedPos = clickedPos.relative(facing);
-        FireHoseBlockEntity placed = placeEndpoint(level, player, hose, clickedPos, facing, consumeItem);
+        FireHoseBlockEntity placed = placeEndpoint(level, player, hose, clickedPos, facing);
         if (placed == null)
             return;
 
@@ -139,7 +135,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
     }
 
     private static FireHoseBlockEntity placeEndpoint(Level level, ServerPlayer player, ItemStack hose,
-                                                     BlockPos clickedPos, Direction facing, boolean consumeItem) {
+                                                     BlockPos clickedPos, Direction facing) {
         BlockPos placedPos = clickedPos.relative(facing);
         if (!level.getBlockState(placedPos).canBeReplaced()) {
             sendMessage(player, "block_exists");
@@ -154,7 +150,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
         }
 
         player.awardStat(Stats.ITEM_USED.get(hose.getItem()));
-        if (consumeItem && !player.hasInfiniteMaterials())
+        if (!player.hasInfiniteMaterials())
             hose.shrink(1);
         return endpoint;
     }

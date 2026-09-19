@@ -48,7 +48,6 @@ public class FireHoseItemHandler {
 
     public BlockPos linkPos;
     public Direction linkDirection;
-    private boolean placedEndpointThisSession;
     private int placementCooldown;
 
     public boolean tryStartPlacement(UseOnContext context) {
@@ -76,7 +75,6 @@ public class FireHoseItemHandler {
         PacketDistributor.sendToServer(PlaceFireHosePacket.placeEndpoint(pos, dir, context.getHand()));
         this.linkPos = relative;
         this.linkDirection = dir;
-        this.placedEndpointThisSession = true;
         this.placementCooldown = 2;
         return true;
     }
@@ -133,7 +131,7 @@ public class FireHoseItemHandler {
                             this.linkPos, pos, hand));
                 } else {
                     PacketDistributor.sendToServer(PlaceFireHosePacket.placeAndConnect(
-                            this.linkPos, pos, dir, hand, !placedEndpointThisSession));
+                            this.linkPos, pos, dir, hand));
                 }
                 reset(false);
                 return true;
@@ -161,7 +159,6 @@ public class FireHoseItemHandler {
             this.linkDirection = level.getBlockState(pos).getValue(FireHoseBlock.FACING);
         else
             this.linkDirection = Direction.UP;
-        this.placedEndpointThisSession = false;
         this.placementCooldown = 2;
     }
 
@@ -183,8 +180,6 @@ public class FireHoseItemHandler {
 
         this.linkPos = null;
         this.linkDirection = null;
-        this.placedEndpointThisSession = false;
-
         placementCooldown = 2;
     }
 
