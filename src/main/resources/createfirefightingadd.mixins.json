@@ -6,9 +6,13 @@
   "mixins": [
     "BallCouplingNetworkMixin",
     "BallCouplingKineticSaveMixin",
-    "BallCouplingConflictMixin"
+    "BallCouplingConflictMixin",
+    "RopeItemMixin",
+    "SmartRopeTrackingMixin"
   ],
   "client": [
+    "client.SmartRopeDataPacketMixin",
+    "client.SmartRopeStoppedPacketMixin"
   ],
   "injectors": {
     "defaultRequire": 1

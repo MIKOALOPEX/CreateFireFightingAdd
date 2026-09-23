@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {"type": "minecraft:item", "name": "createfirefightingadd:smart_rope_connector"}
+      ],
+      "conditions": [
+        {"condition": "minecraft:survives_explosion"}
+      ]
+    }
+  ],
+  "random_sequence": "createfirefightingadd:blocks/smart_rope_connector"
+}

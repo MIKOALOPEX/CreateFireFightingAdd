@@ -29,12 +29,10 @@ repositories {
     }
 
     exclusiveContent { // RyanHCode Maven (Sable, Aeronautics, Simulated, Offroad)
-        forRepository {
-            maven {
-                url = "https://maven.ryanhcode.dev/releases"
-                name = "RyanHCode Maven"
-            }
-        }
+        forRepositories(mavenLocal(), maven {
+            url = "https://maven.ryanhcode.dev/releases"
+            name = "RyanHCode Maven"
+        })
         filter {
             includeGroup("dev.ryanhcode.sable")
             includeGroup("dev.ryanhcode.sable-companion")
@@ -141,6 +139,11 @@ dependencies {
     compileOnly files("libs/jade-15.10.5.jar")
 
     compileOnly("dev.ryanhcode.sable:sable-neoforge-${project.minecraft_version}:${project.sable_version}")
+    if (project.hasProperty('localSimulatedJar')) {
+        compileOnly files(project.property('localSimulatedJar'))
+    } else {
+        compileOnly("dev.simulated_team.simulated:simulated-neoforge-${project.minecraft_version}:${project.simulated_version}") { transitive = false }
+    }
 
 }
 

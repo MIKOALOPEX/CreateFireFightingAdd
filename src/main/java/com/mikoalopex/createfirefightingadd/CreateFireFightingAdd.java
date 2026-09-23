@@ -23,6 +23,7 @@ import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseMov
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDynamicRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_pole.FirePoleBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.smart_rope_connector.SmartRopeCompatibility;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlockEntity;
@@ -215,6 +216,10 @@ public class CreateFireFightingAdd {
 		DATA_COMPONENTS.registerComponentType("fire_extinguisher_fluid",
 			builder -> builder.persistent(SimpleFluidContent.CODEC)
 				.networkSynchronized(SimpleFluidContent.STREAM_CODEC));
+	public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> SMART_ROPE_SELECTION =
+		DATA_COMPONENTS.registerComponentType("smart_rope_selection",
+			builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
+				.networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL));
 
 	public static final DeferredHolder<ArmorMaterial, ArmorMaterial> MULTIPURPOSE_BACKTANK_ARMOR_MATERIAL =
 		ARMOR_MATERIALS.register("multipurpose_backtank", CreateFireFightingAdd::createMultipurposeBacktankArmorMaterial);
@@ -289,6 +294,13 @@ public class CreateFireFightingAdd {
 
 	public static final DeferredItem<BlockItem> FIRE_HOSE_CONNECTOR_ITEM =
 		ITEMS.registerSimpleBlockItem("fire_hose_connector", FIRE_HOSE_CONNECTOR);
+
+	public static final DeferredBlock<Block> SMART_ROPE_CONNECTOR = BLOCKS.register("smart_rope_connector",
+		() -> SmartRopeCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
+
+	public static final DeferredItem<BlockItem> SMART_ROPE_CONNECTOR_ITEM =
+		ITEMS.registerSimpleBlockItem("smart_rope_connector", SMART_ROPE_CONNECTOR);
 
 	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
 		() -> new PipelineTurbineBlock(fluidPipeProperties()));
@@ -475,6 +487,10 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("fire_hose_connector",
 			() -> BlockEntityType.Builder.of(FireHoseConnectorBlockEntity::new, FIRE_HOSE_CONNECTOR.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<net.minecraft.world.level.block.entity.BlockEntity>> SMART_ROPE_CONNECTOR_BE =
+		BLOCK_ENTITY_TYPES.register("smart_rope_connector",
+			() -> BlockEntityType.Builder.of(SmartRopeCompatibility::createEntity, SMART_ROPE_CONNECTOR.get()).build(null));
+
 	public static final DeferredHolder<MountedFluidStorageType<?>, SprayDeviceMountedFluidStorageType> SPRAY_DEVICE_MOUNTED_FLUID_STORAGE =
 		MOUNTED_FLUID_STORAGE_TYPES.register("spray_device", SprayDeviceMountedFluidStorageType::new);
 
@@ -531,6 +547,8 @@ public class CreateFireFightingAdd {
 				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
+				if (ModList.get().isLoaded("simulated"))
+					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
@@ -842,6 +860,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
+			SmartRopeCompatibility.registerRenderer(event);
 			event.registerBlockEntityRenderer(HOSE_BRACKET_BE.get(), HoseBracketRenderer::new);
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);
 			event.registerBlockEntityRenderer(MULTIPURPOSE_BACKTANK_BE.get(), MultipurposeBacktankRenderer::new);

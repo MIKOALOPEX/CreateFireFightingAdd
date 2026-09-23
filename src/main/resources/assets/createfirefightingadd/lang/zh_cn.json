@@ -1,4 +1,5 @@
 {
+	"block.createfirefightingadd.smart_rope_connector": "智能绳索连接器",
   "ball_coupling.constraint": "约束模式",
   "ball_coupling.title": "应力铰链",
   "ball_coupling.interface": "接口模式",
