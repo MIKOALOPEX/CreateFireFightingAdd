@@ -4,19 +4,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.WeakHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -42,6 +40,7 @@ public final class ExtensionLadderClimbingController {
 	private static final Map<UUID, MovementInputState> MOVEMENT_INPUTS = new HashMap<>();
 	private static final Map<UUID, Long> JUMP_REQUESTS = new HashMap<>();
 	private static final Map<PlayerSideKey, Long> JUMP_RELEASES = new HashMap<>();
+	private static final Map<Player, NearbyLadders> NEARBY = java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
 	private ExtensionLadderClimbingController() {
 	}
@@ -177,7 +176,11 @@ public final class ExtensionLadderClimbingController {
 
 	@SubscribeEvent
 	public static void onLivingFall(LivingFallEvent event) {
-		if (event.getEntity() instanceof Player player && isTouchingClimbSurface(findTarget(player))) {
+		if (!(event.getEntity() instanceof Player player))
+			return;
+		// Landing must also discover a ladder that moved into range since the last refresh.
+		NEARBY.remove(player);
+		if (isTouchingClimbSurface(findTarget(player))) {
 			event.setCanceled(true);
 			player.fallDistance = 0;
 		}
@@ -187,53 +190,42 @@ public final class ExtensionLadderClimbingController {
 	private static ClimbTarget findTarget(Player player) {
 		Level level = player.level();
 		AABB box = player.getBoundingBox();
-		List<Vec3> samples = boxSamples(box);
-		ClimbTarget worldTarget = scanLevel(level, box, box);
-		if (worldTarget != null)
-			return worldTarget;
-
-		for (SableStructureCompat.SubLevelProjection projection :
-			SableStructureCompat.projectWorldPositionsToSubLevels(level, samples)) {
-			AABB localBox = boxAround(projection.positions()).inflate(0.35, 0.15, 0.35);
-			ClimbTarget subLevelTarget = scanLevel(projection.level(), localBox, box);
-			if (subLevelTarget != null)
-				return subLevelTarget;
+		if (ExtensionLadderIndex.isEmpty(level)) {
+			NEARBY.remove(player);
+			return null;
 		}
-		return null;
-	}
-
-	@Nullable
-	private static ClimbTarget scanLevel(Level level, AABB searchBox, AABB playerWorldBox) {
-		BlockPos min = BlockPos.containing(searchBox.minX - LOCAL_SCAN_RADIUS, searchBox.minY - LOCAL_SCAN_RADIUS,
-			searchBox.minZ - LOCAL_SCAN_RADIUS);
-		BlockPos max = BlockPos.containing(searchBox.maxX + LOCAL_SCAN_RADIUS, searchBox.maxY + LOCAL_SCAN_RADIUS,
-			searchBox.maxZ + LOCAL_SCAN_RADIUS);
+		long now = level.getGameTime();
+		NearbyLadders nearby = NEARBY.get(player);
+		if (nearby == null || nearby.level != level || now >= nearby.refreshAt
+			|| player.position().distanceToSqr(nearby.origin) > 1) {
+			// Include protruding ladder tops, not just the supporting structure's bounds.
+			AABB search = box.inflate(LOCAL_SCAN_RADIUS);
+			List<ExtensionLadderBlockEntity> candidates = new ArrayList<>(ExtensionLadderIndex.find(level, search));
+			for (var projection : SableStructureCompat.projectWorldPositionsToIntersectingSubLevels(level, boxSamples(search))) {
+				for (var ladder : ExtensionLadderIndex.find(projection.level(), boxAround(projection.positions()).inflate(1))) {
+					if (!candidates.contains(ladder))
+						candidates.add(ladder);
+				}
+			}
+			nearby = new NearbyLadders(level, player.position(), now + 10, candidates);
+			NEARBY.put(player, nearby);
+		}
 		ClimbTarget best = null;
 		double bestDistance = Double.MAX_VALUE;
-		for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
-			if (level.isOutsideBuildHeight(pos))
+		for (ExtensionLadderBlockEntity ladder : nearby.ladders) {
+			if (ladder.isRemoved() || !ladder.isClimbable())
 				continue;
-			BlockEntity blockEntity;
-			if (level instanceof ServerLevel serverLevel) {
-				// Climb detection must never load chunks or wait for chunk generation.
-				LevelChunk chunk = serverLevel.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
-				if (chunk == null)
-					continue;
-				blockEntity = chunk.getBlockEntity(pos);
-			} else {
-				if (!level.isLoaded(pos))
-					continue;
-				blockEntity = level.getBlockEntity(pos);
-			}
-			if (!(blockEntity instanceof ExtensionLadderBlockEntity ladder) || !ladder.isClimbable())
-				continue;
-			ClimbTarget target = match(ladder, playerWorldBox);
+			// Cached candidates still use the current structure pose for contact detection.
+			ClimbTarget target = match(ladder, box);
 			if (target == null || target.distanceSqr() >= bestDistance)
 				continue;
 			best = target;
 			bestDistance = target.distanceSqr();
 		}
 		return best;
+	}
+
+	private record NearbyLadders(Level level, Vec3 origin, long refreshAt, List<ExtensionLadderBlockEntity> ladders) {
 	}
 
 	@Nullable

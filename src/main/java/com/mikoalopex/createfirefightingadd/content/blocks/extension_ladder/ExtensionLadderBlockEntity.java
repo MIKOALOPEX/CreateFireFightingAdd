@@ -1,6 +1,9 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -57,6 +60,10 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	private long clientAnimatedCreatedGameTime = Long.MIN_VALUE;
 	private long lastAdjustTick;
 	private boolean acceleratedPlacementAnimation;
+	@Nullable
+	private Predicate<Vec3> searchCollisionQuery;
+	@Nullable
+	private Map<BlockPos, Boolean> searchLocalCollisions;
 
 	public ExtensionLadderBlockEntity(BlockPos pos, BlockState state) {
 		super(CreateFireFightingAdd.EXTENSION_LADDER_BE.get(), pos, state);
@@ -64,6 +71,28 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 
 	@Override
 	public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
+	}
+
+	@Override
+	public void onLoad() {
+		super.onLoad();
+		ExtensionLadderIndex.add(this);
+	}
+
+	@Override
+	public void remove() {
+		ExtensionLadderIndex.remove(this);
+		if (level != null && !level.isClientSide)
+			ExtensionLadderSearchBudget.cancel(this);
+		super.remove();
+	}
+
+	@Override
+	public void onChunkUnloaded() {
+		ExtensionLadderIndex.remove(this);
+		if (level != null && !level.isClientSide)
+			ExtensionLadderSearchBudget.cancel(this);
+		super.onChunkUnloaded();
 	}
 
 	public void initialize(Vec3 anchor, Vec3 fallDirection, BlockPos anchorSupport) {
@@ -107,6 +136,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 			return;
 		}
 
+		if (phase != Phase.SEARCHING)
+			ExtensionLadderSearchBudget.cancel(this);
 		if (!hasAnchorSupport()) {
 			breakSelf();
 			return;
@@ -146,7 +177,20 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	private void tickSearch() {
-		ExtensionLadderSearchTask.SearchResult result = searchTask.tick(this);
+		if (!ExtensionLadderSearchBudget.acquire(this))
+			return;
+		// Reuse nearby structures and block results only within this search batch.
+		Vec3 center = SableStructureCompat.transformPositionToWorld(this, Vec3.atCenterOf(worldPosition));
+		searchCollisionQuery = SableStructureCompat.collisionQuery(this,
+			new AABB(center, center).inflate(ExtensionLadderGeometry.MAX_LENGTH + 3));
+		searchLocalCollisions = new HashMap<>();
+		ExtensionLadderSearchTask.SearchResult result;
+		try {
+			result = searchTask.tick(this);
+		} finally {
+			searchCollisionQuery = null;
+			searchLocalCollisions = null;
+		}
 		if (result.state() == ExtensionLadderSearchTask.State.SEARCHING)
 			return;
 		if (result.state() == ExtensionLadderSearchTask.State.EXHAUSTED) {
@@ -173,6 +217,11 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		if (animationTick >= TILT_TICKS) {
 			currentPitch = targetPitch;
 			phase = support == null ? Phase.FALLEN : Phase.SUPPORTED;
+			if (support != null && !support.isStillPresent(this)) {
+				support = null;
+				phase = Phase.SEARCHING;
+				searchTask.restart(currentPitch);
+			}
 			animationTick = 0;
 			previousAnimationTick = 0;
 			supportCheckTimer = 0;
@@ -256,13 +305,25 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 	}
 
 	private boolean hasLocalCollision(BlockPos pos) {
+		if (searchLocalCollisions != null)
+			return searchLocalCollisions.computeIfAbsent(pos.immutable(), this::hasLoadedLocalCollision);
+		return hasLoadedLocalCollision(pos);
+	}
+
+	private boolean hasLoadedLocalCollision(BlockPos pos) {
 		if (level == null || !level.isLoaded(pos))
 			return false;
 		return !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
 	}
 
 	public boolean hasCollisionNearLocal(Vec3 localPoint) {
-		return findSupportNearLocal(localPoint, Vec3.ZERO) != null;
+		Vec3 center = SableStructureCompat.transformPositionToWorld(this, localPoint);
+		searchCollisionQuery = SableStructureCompat.collisionQuery(this, new AABB(center, center).inflate(0.25));
+		try {
+			return findSupportNearLocal(localPoint, Vec3.ZERO) != null;
+		} finally {
+			searchCollisionQuery = null;
+		}
 	}
 
 	@Nullable
@@ -293,7 +354,8 @@ public class ExtensionLadderBlockEntity extends SmartBlockEntity {
 		BlockPos worldPos = BlockPos.containing(worldSample);
 		if (isIgnoredWorldSupport(worldPos))
 			return null;
-		if (SableStructureCompat.hasCollisionAtWorld(this, worldSample))
+		if (searchCollisionQuery != null ? searchCollisionQuery.test(worldSample)
+			: SableStructureCompat.hasCollisionAtWorld(this, worldSample))
 			return ExtensionLadderSupportRef.at(this, localSample, worldSample);
 		return null;
 	}

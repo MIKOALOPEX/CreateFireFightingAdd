@@ -1859,7 +1859,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		long perfStart = SprayPerformanceDebug.start();
 		SprayDepotScanner.Stats stats = new SprayDepotScanner.Stats();
 		try {
-			stats = SprayDepotScanner.scan(depotLevel, scanArea, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
+			stats = SprayDepotScanner.scan(depotLevel, scanArea, origin, subLevelId, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
 				ItemStack stack = depot.getHeldItem();
 				if (stack.isEmpty() || !type.canProcess(stack, depotLevel))
 					return 0;
@@ -1910,7 +1910,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		for (CenterlineSample sample : worldCenterline)
 			positions.add(sample.position);
 		for (SableStructureCompat.SubLevelProjection projection :
-				SableStructureCompat.projectWorldPositionsToSubLevels(SableStructureCompat.worldLevel(this), positions)) {
+				SableStructureCompat.projectProcessingPositions(SableStructureCompat.worldLevel(this), positions, 8)) {
 			if (skippedSubLevelId != null && skippedSubLevelId.equals(projection.id()))
 				continue;
 			List<CenterlineSample> localCenterline =

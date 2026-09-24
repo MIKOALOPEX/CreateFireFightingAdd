@@ -409,7 +409,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		long perfStart = SprayPerformanceDebug.start();
 		SprayDepotScanner.Stats stats = new SprayDepotScanner.Stats();
 		try {
-			stats = SprayDepotScanner.scan(level, scanArea, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
+			stats = SprayDepotScanner.scan(level, scanArea, origin, subLevelId, Config.sprayRecipeProcessingBudget, (depotPos, depot) -> {
 			ItemStack stack = depot.getHeldItem();
 			if (stack.isEmpty() || !type.canProcess(stack, level))
 				return 0;
@@ -462,7 +462,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		for (AbstractSprayDeviceBlockEntity.CenterlineSample sample : worldCenterline)
 			positions.add(sample.position());
 		for (SableStructureCompat.SubLevelProjection projection :
-				SableStructureCompat.projectWorldPositionsToSubLevels(worldLevel, positions)) {
+				SableStructureCompat.projectProcessingPositions(worldLevel, positions, 8)) {
 			List<AbstractSprayDeviceBlockEntity.CenterlineSample> localCenterline =
 				rebuildProjectedCenterline(worldCenterline, projection.positions());
 			if (localCenterline.size() < 2)

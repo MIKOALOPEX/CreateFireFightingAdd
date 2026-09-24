@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -24,6 +27,8 @@ import net.minecraft.core.Position;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -220,6 +225,32 @@ public final class SableStructureCompat {
         return !owner.getLevel().getBlockState(pos).getCollisionShape(owner.getLevel(), pos).isEmpty();
     }
 
+    /** Caches loaded collision results for one synchronous batch, not across ticks. */
+    public static Predicate<Vec3> collisionQuery(BlockEntity owner, AABB bounds) {
+        if (owner.getLevel() == null)
+            return point -> false;
+        if (BACKEND != null)
+            return BACKEND.collisionQuery(owner, bounds);
+        return loadedCollisionQuery(owner.getLevel());
+    }
+
+    static Predicate<Vec3> loadedCollisionQuery(Level level) {
+        Map<Long, LevelChunk> chunks = new HashMap<>();
+        Map<BlockPos, Boolean> collisions = new HashMap<>();
+        return point -> {
+            BlockPos pos = BlockPos.containing(point);
+            if (level.isOutsideBuildHeight(pos))
+                return false;
+            return collisions.computeIfAbsent(pos, key -> {
+                long chunkKey = ChunkPos.asLong(pos);
+                if (!chunks.containsKey(chunkKey))
+                    chunks.put(chunkKey, level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, false));
+                var chunk = chunks.get(chunkKey);
+                return chunk != null && !chunk.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+            });
+        };
+    }
+
     public static List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions) {
         if (level != null && level.isClientSide)
             return SableStructureClientCompat.projectWorldPositionsToSubLevels(level, worldPositions);
@@ -235,6 +266,30 @@ public final class SableStructureCompat {
         if (level != null && BACKEND != null)
             return BACKEND.projectWorldPositionsToIntersectingSubLevels(level, worldPositions);
         return Collections.emptyList();
+    }
+
+    /** Selects nearby structures while enclosing the padded local bounds at any rotation. */
+    public static List<SubLevelProjection> projectProcessingPositions(Level level, List<Vec3> positions,
+                                                                     double localPadding) {
+        if (positions.isEmpty())
+            return List.of();
+        AABB bounds = new AABB(positions.get(0), positions.get(0));
+        for (Vec3 point : positions)
+            bounds = bounds.minmax(new AABB(point, point));
+        Vec3 center = bounds.getCenter();
+        double radius = 0;
+        for (Vec3 point : positions)
+            radius = Math.max(radius, point.distanceTo(center));
+        // Each local AABB axis is within radius; its padded corners can be sqrt(3) farther away.
+        double extent = Math.sqrt(3) * (radius + localPadding);
+        List<Vec3> query = new ArrayList<>(positions);
+        query.add(center.add(extent, extent, extent));
+        query.add(center.subtract(extent, extent, extent));
+        List<SubLevelProjection> result = new ArrayList<>();
+        for (SubLevelProjection projection : projectWorldPositionsToIntersectingSubLevels(level, query))
+            result.add(new SubLevelProjection(projection.id(), projection.level(),
+                List.copyOf(projection.positions().subList(0, positions.size()))));
+        return result;
     }
 
     public static boolean hasFirePoleNearEntity(Level level, AABB entityBox, List<Vec3> worldSamples,
@@ -422,6 +477,8 @@ public final class SableStructureCompat {
         boolean isInSubLevel(BlockEntity owner);
 
         boolean hasCollisionAtWorld(BlockEntity owner, Vec3 worldPosition);
+
+        Predicate<Vec3> collisionQuery(BlockEntity owner, AABB bounds);
 
         List<SubLevelProjection> projectWorldPositionsToSubLevels(Level level, List<Vec3> worldPositions);
 

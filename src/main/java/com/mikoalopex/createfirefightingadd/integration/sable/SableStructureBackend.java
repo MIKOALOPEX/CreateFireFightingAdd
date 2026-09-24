@@ -3,6 +3,7 @@ package com.mikoalopex.createfirefightingadd.integration.sable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -108,6 +109,30 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
                 return true;
         }
         return false;
+    }
+
+    @Override
+    public Predicate<Vec3> collisionQuery(BlockEntity owner, AABB bounds) {
+        Level world = worldLevel(owner);
+        var worldQuery = SableStructureCompat.loadedCollisionQuery(world);
+        if (!(world instanceof ServerLevel serverLevel))
+            return worldQuery;
+        List<Predicate<Vec3>> queries = new ArrayList<>();
+        for (SubLevel subLevel : Sable.HELPER.getAllIntersecting(serverLevel, new BoundingBox3d(bounds))) {
+            if (subLevel.isRemoved())
+                continue;
+            var localQuery = SableStructureCompat.loadedCollisionQuery(subLevel.getLevel());
+            queries.add(point -> !subLevel.isRemoved()
+                && localQuery.test(subLevel.logicalPose().transformPositionInverse(point)));
+        }
+        return point -> {
+            if (worldQuery.test(point))
+                return true;
+            for (var query : queries)
+                if (query.test(point))
+                    return true;
+            return false;
+        };
     }
 
     @Override

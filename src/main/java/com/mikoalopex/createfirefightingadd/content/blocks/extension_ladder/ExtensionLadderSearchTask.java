@@ -7,7 +7,7 @@ import net.minecraft.world.phys.Vec3;
 
 public class ExtensionLadderSearchTask {
 	private static final float PITCH_STEP = (float) Math.toRadians(2);
-	private static final int PITCHES_PER_TICK = 2;
+	private static final int PITCHES_PER_TICK = 1;
 	private static final int ALONG_SAMPLES = 14;
 	private static final double[] WIDTH_SAMPLES = {-0.46, -0.23, 0, 0.23, 0.46};
 	private static final double[] NORMAL_SAMPLES = {-ExtensionLadderGeometry.PROBE_RADIUS, 0,
