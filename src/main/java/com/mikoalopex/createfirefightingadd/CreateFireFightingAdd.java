@@ -112,6 +112,9 @@ import com.simibubi.create.content.equipment.armor.BacktankItem;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem;
 import com.simibubi.create.foundation.item.ItemDescription;
 import com.simibubi.create.foundation.item.TooltipModifier;
+import com.simibubi.create.foundation.item.TooltipHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
 import com.simibubi.create.foundation.item.render.CustomRenderedItemModel;
 import com.mojang.logging.LogUtils;
 import net.createmod.catnip.lang.FontHelper.Palette;
@@ -837,7 +840,19 @@ public class CreateFireFightingAdd {
 		}
 
 		private static void registerCreateTooltip(Item item) {
-			TooltipModifier.REGISTRY.register(item, new ItemDescription.Modifier(item, Palette.STANDARD_CREATE));
+			TooltipModifier modifier = new ItemDescription.Modifier(item, Palette.STANDARD_CREATE);
+			if (item == EXTENSION_LADDER_ITEM.get()) {
+				modifier = modifier.andThen(event -> {
+					if (!Screen.hasShiftDown())
+						return;
+					event.getToolTip().add(Component.empty());
+					var warningStyle = TooltipHelper.styleFromColor(ChatFormatting.RED);
+					event.getToolTip().addAll(TooltipHelper.cutTextComponent(
+						Component.translatable("item.createfirefightingadd.extension_ladder.tooltip.performance_warning"),
+						warningStyle, warningStyle));
+				});
+			}
+			TooltipModifier.REGISTRY.register(item, modifier);
 		}
 
 		@SubscribeEvent

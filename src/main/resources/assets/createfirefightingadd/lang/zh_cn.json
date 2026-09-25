@@ -136,6 +136,7 @@
   "item.createfirefightingadd.extension_ladder.tooltip.behaviour2": "_旋转视角_以旋转拉梯方向，_调整滚轮_以调整_拉梯长度_。",
   "item.createfirefightingadd.extension_ladder.tooltip.condition3": "在消防员手册上绑定编队时",
   "item.createfirefightingadd.extension_ladder.tooltip.behaviour3": "一定范围内存在队员可_加快消防拉梯的架设速度_。",
+  "item.createfirefightingadd.extension_ladder.tooltip.performance_warning": "该物品的实现可能导致性能问题，请谨慎使用！",
   "block.createfirefightingadd.traffic_cone.tooltip.summary": "一个路障，有些人总是_一味地向前_，但某些事物会令他_停下脚步_，捡起一个路障，将其_固实在自己脑袋上_。",
   "block.createfirefightingadd.traffic_cone.tooltip.condition1": "空手对放下的路障按下使用键时",
   "block.createfirefightingadd.traffic_cone.tooltip.behaviour1": "将路障_旋转到视角方向_。",

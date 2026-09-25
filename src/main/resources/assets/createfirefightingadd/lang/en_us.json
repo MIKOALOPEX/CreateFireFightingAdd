@@ -136,6 +136,7 @@
   "item.createfirefightingadd.extension_ladder.tooltip.behaviour2": "_Turn your view_ to rotate the ladder, and _scroll_ to adjust _its length_.",
   "item.createfirefightingadd.extension_ladder.tooltip.condition3": "When a team is bound through the Firefighter Handbook",
   "item.createfirefightingadd.extension_ladder.tooltip.behaviour3": "Having a teammate within range _speeds up the ladder setup_.",
+  "item.createfirefightingadd.extension_ladder.tooltip.performance_warning": "This item's implementation may cause performance issues. Use with caution!",
   "block.createfirefightingadd.traffic_cone.tooltip.summary": "A traffic cone. Some people always _press forward_, but some things make them _stop_. Pick up a cone and _fix it firmly upon your head_.",
   "block.createfirefightingadd.traffic_cone.tooltip.condition1": "When pressing the use key on a placed cone with an empty hand",
   "block.createfirefightingadd.traffic_cone.tooltip.behaviour1": "_Rotates the cone toward your view direction_.",
