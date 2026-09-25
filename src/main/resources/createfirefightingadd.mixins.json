@@ -8,7 +8,10 @@
     "BallCouplingKineticSaveMixin",
     "BallCouplingConflictMixin",
     "RopeItemMixin",
-    "SmartRopeTrackingMixin"
+    "SmartRopeTrackingMixin",
+    "RopeLatchPhysicsAccess",
+    "RopeLatchBoundsMixin",
+    "RopeLatchWinchMixin"
   ],
   "client": [
     "client.SmartRopeDataPacketMixin",

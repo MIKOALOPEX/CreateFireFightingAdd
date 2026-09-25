@@ -1,5 +1,6 @@
 {
 	"block.createfirefightingadd.smart_rope_connector": "Smart Rope Connector",
+	"block.createfirefightingadd.rope_latch": "Rope Latch (Experimental)",
   "ball_coupling.constraint": "Constraint",
   "ball_coupling.title": "Stress Joint",
   "ball_coupling.interface": "Interface",

@@ -24,6 +24,7 @@ import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseRen
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDynamicRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_pole.FirePoleBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.smart_rope_connector.SmartRopeCompatibility;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeLatchCompatibility;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlockEntity;
@@ -305,6 +306,11 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> SMART_ROPE_CONNECTOR_ITEM =
 		ITEMS.registerSimpleBlockItem("smart_rope_connector", SMART_ROPE_CONNECTOR);
 
+	public static final DeferredBlock<Block> ROPE_LATCH = BLOCKS.register("rope_latch",
+		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
+	public static final DeferredItem<BlockItem> ROPE_LATCH_ITEM = ITEMS.registerSimpleBlockItem("rope_latch", ROPE_LATCH);
+
 	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
 		() -> new PipelineTurbineBlock(fluidPipeProperties()));
 
@@ -494,6 +500,10 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("smart_rope_connector",
 			() -> BlockEntityType.Builder.of(SmartRopeCompatibility::createEntity, SMART_ROPE_CONNECTOR.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<net.minecraft.world.level.block.entity.BlockEntity>> ROPE_LATCH_BE =
+		BLOCK_ENTITY_TYPES.register("rope_latch",
+			() -> BlockEntityType.Builder.of(RopeLatchCompatibility::createEntity, ROPE_LATCH.get()).build(null));
+
 	public static final DeferredHolder<MountedFluidStorageType<?>, SprayDeviceMountedFluidStorageType> SPRAY_DEVICE_MOUNTED_FLUID_STORAGE =
 		MOUNTED_FLUID_STORAGE_TYPES.register("spray_device", SprayDeviceMountedFluidStorageType::new);
 
@@ -552,6 +562,7 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				if (ModList.get().isLoaded("simulated"))
 					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
+				if (RopeLatchCompatibility.available()) output.accept(ROPE_LATCH_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
