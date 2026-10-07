@@ -12,6 +12,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.ModList;
 import org.joml.Quaterniond;
 import org.joml.Quaterniondc;
@@ -102,10 +103,28 @@ public final class CouplingPhysics {
         catch (ReflectiveOperationException e) { report(e); }
     }
 
+    /** Removes a saved joint even when neither endpoint has recovered its runtime handle. */
+    public static boolean remove(ServerLevel level, ResourceLocation feature, UUID id) {
+        if (!available() || id == null) return false;
+        try {
+            Object constraints = api.access.invoke(null);
+            if (!api.hydrate.getDeclaringClass().isInstance(constraints)
+                    || ((Optional<?>) api.savedData.invoke(null, level)).isEmpty()) return false;
+            // remove() itself does not hydrate Synaxis's saved constraint mirror.
+            api.hydrate.invoke(constraints, level);
+            String result = api.remove.invoke(constraints, api.constraintKey(level.dimension(), feature, id)).toString();
+            return result.equals("APPLIED") || result.equals("NOT_FOUND");
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            report(e);
+            return false;
+        }
+    }
+
     private static final class Api {
         private static final String PHYSICS = "com.verr1.synaxis.foundation.physics.";
         private static final String WELD = "com.verr1.synaxis.compat.sableblueprint.weld.";
         final Method body, access, replace, remove, active, spec, orientation, ground, command, configuration;
+        final Method hydrate, savedData;
         final Constructor<?> bodyIdConstructor, definition, owner, key, contact;
         final Object[] modes;
 
@@ -140,6 +159,8 @@ public final class CouplingPhysics {
             access = physics.getMethod("constraints");
             Class<?> specClass = Class.forName(PHYSICS + "constraint.spec.ConstraintSpec");
             remove = accessClass.getMethod("remove", keyClass);
+            hydrate = Class.forName(PHYSICS + "sable.SableConstraintAccess").getMethod("ensureHydrated", ServerLevel.class);
+            savedData = Class.forName(PHYSICS + "constraint.graph.ConstraintMirrorSavedData").getMethod("getIfReady", ServerLevel.class);
             active = accessClass.getMethod("isActive", keyClass);
             Method newConfiguration;
             try { newConfiguration = Class.forName(WELD + "WeldConstraintService").getMethod("configuration", def); }
@@ -221,8 +242,7 @@ public final class CouplingPhysics {
             Object weld = definition.newInstance(values.toArray());
             Object specification = spec.invoke(null, weld);
             ResourceLocation name = request.feature();
-            Object constraintKey = key.newInstance(owner.newInstance(a.dimension(), name,
-                ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, id.toString())), name);
+            Object constraintKey = constraintKey(a.dimension(), name, id);
             Object constraints = access.invoke(null);
             Object config = configuration == null ? null : configuration.invoke(null, weld);
             if (config != null && contacts)
@@ -241,6 +261,12 @@ public final class CouplingPhysics {
             UUID subLevel = endpoint.body();
             UUID id = subLevel != null ? subLevel : new UUID(0, 0);
             return bodyIdConstructor.newInstance(endpoint.dimension(), id);
+        }
+
+        private Object constraintKey(ResourceKey<net.minecraft.world.level.Level> dimension,
+                ResourceLocation feature, UUID id) throws ReflectiveOperationException {
+            return key.newInstance(owner.newInstance(dimension, feature,
+                ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, id.toString())), feature);
         }
 
     }

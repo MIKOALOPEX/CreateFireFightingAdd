@@ -126,6 +126,29 @@ neoForge {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+// Standalone regression checks share the mapped Minecraft classes used by the mod.
+sourceSets.test {
+    compileClasspath += sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.runtimeClasspath
+}
+
+def regressionChecks = [
+    checkRopeSliding: 'com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideStateTest',
+    checkCouplingSavedData: 'com.mikoalopex.createfirefightingadd.content.kinetics.coupling.CouplingSavedDataTest',
+    checkCouplingBlueprint: 'com.mikoalopex.createfirefightingadd.integration.sableschematic.BallCouplingBlueprintMapperTest'
+]
+regressionChecks.each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        group = 'verification'
+        description = 'Runs standalone regression checks without launching Minecraft.'
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+        javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    }
+}
+tasks.named('check') { dependsOn regressionChecks.keySet() }
+
 
 dependencies {
     implementation("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }

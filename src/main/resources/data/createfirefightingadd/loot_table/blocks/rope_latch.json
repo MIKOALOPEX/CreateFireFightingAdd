@@ -2,7 +2,7 @@
   "type": "minecraft:block",
   "pools": [{
     "rolls": 1,
-    "entries": [{"type": "minecraft:item", "name": "createfirefightingadd:rope_latch"}],
+    "entries": [{"type": "minecraft:item", "name": "createfirefightingadd:rope_hook"}],
     "conditions": [{"condition": "minecraft:survives_explosion"}]
   }],
   "random_sequence": "createfirefightingadd:blocks/rope_latch"

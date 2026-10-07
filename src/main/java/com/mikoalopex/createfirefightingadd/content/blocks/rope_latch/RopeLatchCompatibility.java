@@ -5,13 +5,15 @@ import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
-/** Keeps the experimental physics integration out of installations without Sable 2. */
+/** Keeps rope physics classes out of installations without Sable 2 and Simulated. */
 public final class RopeLatchCompatibility {
     private RopeLatchCompatibility() {}
 
@@ -26,6 +28,18 @@ public final class RopeLatchCompatibility {
 
     public static BlockEntity createEntity(BlockPos pos, BlockState state) {
         return available() ? Loaded.entity(pos, state) : null;
+    }
+
+    public static void registerRenderer(EntityRenderersEvent.RegisterRenderers event) {
+        if (available()) Client.register(event);
+    }
+
+    private static final class Client {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        static void register(EntityRenderersEvent.RegisterRenderers event) {
+            event.registerBlockEntityRenderer((BlockEntityType)
+                CreateFireFightingAdd.ROPE_LATCH_BE.get(), RopeLatchRenderer::new);
+        }
     }
 
     private static final class Loaded {

@@ -244,11 +244,14 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
 		return last;
 	}
 
-	private List<UUID> allConnectionIds() {
+	public List<UUID> allConnectionIds() {
 		List<UUID> ids = new ArrayList<>(ownedRopes.keySet());
 		ids.addAll(externalRopes.keySet());
 		return ids;
 	}
+
+    /** Removes bookkeeping after an external, UUID-checked no-drop operation. */
+    public void forgetManagedConnection(UUID id) { removeConnection(id); }
 
 	public void receiveClientRope(int interpolationTick, List<org.joml.Vector3d> points, UUID id,
 			@Nullable BlockPos start, @Nullable BlockPos end) {

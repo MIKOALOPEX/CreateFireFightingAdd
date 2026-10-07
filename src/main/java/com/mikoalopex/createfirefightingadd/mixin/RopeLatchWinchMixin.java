@@ -16,6 +16,6 @@ public abstract class RopeLatchWinchMixin {
         target = "Ldev/simulated_team/simulated/content/blocks/rope/rope_winch/RopeWinchBlockEntity;getMovementSpeed()F"))
     private float firefighting$limitRetraction(float speed, @Local(argsOnly = true) ServerRopeStrand strand) {
         return ((RopeLatchPhysicsAccess) strand).firefighting$getHandle() instanceof PinnedRopeHandle pin
-            ? pin.limitWinchSpeed(speed) : speed;
+            ? pin.limitWinchSpeed(speed, strand.getExtension() + strand.getPoints().size() - 2) : speed;
     }
 }

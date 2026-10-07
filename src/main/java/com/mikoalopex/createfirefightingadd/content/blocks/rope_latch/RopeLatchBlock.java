@@ -4,13 +4,18 @@ import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mojang.serialization.MapCodec;
 import com.simibubi.create.foundation.block.IBE;
 import dev.ryanhcode.sable.api.block.BlockSubLevelCollisionShape;
+import dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener;
 import dev.simulated_team.simulated.content.blocks.util.AbstractDirectionalAxisBlock;
 import dev.simulated_team.simulated.util.DirectionalAxisShaper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DirectionalBlock;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -22,14 +27,13 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** Redstone pulses arm or release the latch; a steady signal never retriggers it. */
 public class RopeLatchBlock extends AbstractDirectionalAxisBlock
-        implements IBE<RopeLatchBlockEntity>, BlockSubLevelCollisionShape,
-        dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener {
+        implements IBE<RopeLatchBlockEntity>, BlockSubLevelCollisionShape, BlockSubLevelAssemblyListener {
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
     private static final MapCodec<RopeLatchBlock> CODEC = simpleCodec(RopeLatchBlock::new);
-    private static final DirectionalAxisShaper SHAPE = DirectionalAxisShaper.make(Shapes.or(
-        box(3, 0, 3, 13, 2, 13), box(6, 2, 3, 10, 6, 13)));
-    private static final DirectionalAxisShaper PHYSICS_SHAPE =
-        DirectionalAxisShaper.make(box(1, 0, 1, 15, 0.25, 15));
+    private static final DirectionalAxisShaper OUTLINE_SHAPE =
+        DirectionalAxisShaper.make(box(5, 0, 5, 11, 8, 11));
+    private static final DirectionalAxisShaper COLLISION_SHAPE =
+        DirectionalAxisShaper.make(box(5, 0, 5, 11, 3, 11));
 
     public RopeLatchBlock(Properties properties) {
         super(properties);
@@ -37,7 +41,15 @@ public class RopeLatchBlock extends AbstractDirectionalAxisBlock
     }
 
     @Override protected MapCodec<? extends DirectionalBlock> codec() { return CODEC; }
+    @Override public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.ENTITYBLOCK_ANIMATED;
+    }
     @Override public Class<RopeLatchBlockEntity> getBlockEntityClass() { return RopeLatchBlockEntity.class; }
+    @Override
+    public ItemStack getCloneItemStack(LevelReader level,
+            BlockPos pos, BlockState state) {
+        return new ItemStack(CreateFireFightingAdd.ROPE_HOOK_ITEM.get());
+    }
     @Override @SuppressWarnings({"unchecked", "rawtypes"})
     public BlockEntityType<? extends RopeLatchBlockEntity> getBlockEntityType() {
         return (BlockEntityType) CreateFireFightingAdd.ROPE_LATCH_BE.get();
@@ -58,12 +70,18 @@ public class RopeLatchBlock extends AbstractDirectionalAxisBlock
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE.get(state.getValue(FACING), state.getValue(AXIS_ALONG_FIRST_COORDINATE));
+        return OUTLINE_SHAPE.get(state.getValue(FACING), state.getValue(AXIS_ALONG_FIRST_COORDINATE));
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return COLLISION_SHAPE.get(state.getValue(FACING), state.getValue(AXIS_ALONG_FIRST_COORDINATE));
     }
 
     @Override
     public VoxelShape getSubLevelCollisionShape(BlockGetter level, BlockState state) {
-        return PHYSICS_SHAPE.get(state.getValue(FACING), state.getValue(AXIS_ALONG_FIRST_COORDINATE));
+        // Keep the hook out of Sable's collision solver without removing player collision.
+        return Shapes.empty();
     }
 
     @Override
@@ -74,13 +92,13 @@ public class RopeLatchBlock extends AbstractDirectionalAxisBlock
     }
 
     @Override
-    public void beforeMove(net.minecraft.server.level.ServerLevel origin, net.minecraft.server.level.ServerLevel target,
+    public void beforeMove(ServerLevel origin, ServerLevel target,
             BlockState state, BlockPos oldPos, BlockPos newPos) {
         if (origin.getBlockEntity(oldPos) instanceof RopeLatchBlockEntity latch) latch.beginMove();
     }
 
     @Override
-    public void afterMove(net.minecraft.server.level.ServerLevel origin, net.minecraft.server.level.ServerLevel target,
+    public void afterMove(ServerLevel origin, ServerLevel target,
             BlockState state, BlockPos oldPos, BlockPos newPos) {
         if (target.getBlockEntity(newPos) instanceof RopeLatchBlockEntity latch) latch.finishMove();
     }

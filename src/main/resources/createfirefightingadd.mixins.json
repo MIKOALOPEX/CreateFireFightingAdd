@@ -11,9 +11,13 @@
     "SmartRopeTrackingMixin",
     "RopeLatchPhysicsAccess",
     "RopeLatchBoundsMixin",
-    "RopeLatchWinchMixin"
+    "RopeLatchWinchMixin",
+    "RopeLatchSlideMixin"
   ],
   "client": [
+    "client.CreativeSectionTabMixin",
+    "client.CreativeSectionMenuAccessor",
+    "client.CreativeSectionScreenMixin",
     "client.SmartRopeDataPacketMixin",
     "client.SmartRopeStoppedPacketMixin"
   ],

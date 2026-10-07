@@ -13,7 +13,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-/** Creates mixed native/smart links without changing native connector capacity. */
+/** Connects smart and native rope endpoints without changing native connector capacity. */
 public final class SmartRopeConnections {
 	private SmartRopeConnections() {}
 
@@ -78,6 +78,7 @@ public final class SmartRopeConnections {
 			SmartRopeConnectorBlockEntity smart) {
 		if (nativeHolder == null || nativeHolder.isAttached())
 			return false;
+		// Keep native ownership so its existing attachment and removal behaviour remains available.
 		RopeStrandHolderBehavior smartTarget = new RopeStrandHolderBehavior(smart);
 		if (!createRope(nativeHolder, smartTarget))
 			return false;
@@ -96,7 +97,7 @@ public final class SmartRopeConnections {
 	}
 
     // Simulated 1.3 added the drop-item argument; neither call replaces an existing link here.
-    private static boolean createRope(RopeStrandHolderBehavior owner, RopeStrandHolderBehavior target) {
+    public static boolean createRope(RopeStrandHolderBehavior owner, RopeStrandHolderBehavior target) {
         try {
             try {
                 return (boolean) RopeStrandHolderBehavior.class.getMethod("createRope",

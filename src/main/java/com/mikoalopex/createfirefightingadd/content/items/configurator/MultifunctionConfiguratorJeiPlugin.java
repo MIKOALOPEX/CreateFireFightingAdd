@@ -35,6 +35,7 @@ public class MultifunctionConfiguratorJeiPlugin implements IModPlugin {
 		@Override
 		public <I> List<Target<I>> getTargetsTyped(MultifunctionConfiguratorScreen screen, ITypedIngredient<I> ingredient,
 			boolean doStart) {
+			if (!screen.acceptsFluidInput()) return List.of();
 			return ingredient.getIngredient(NeoForgeTypes.FLUID_STACK)
 				.<List<Target<I>>>map(fluid -> fluid.isEmpty() ? List.of() : List.of(cast(new FluidTarget(screen))))
 				.orElseGet(() -> ingredient.getItemStack()

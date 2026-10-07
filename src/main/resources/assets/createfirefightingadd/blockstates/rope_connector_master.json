@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=north,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 0,
+      "y": 0
+    },
+    "facing=north,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 0,
+      "y": 0
+    },
+    "facing=east,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 0,
+      "y": 90
+    },
+    "facing=east,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 0,
+      "y": 90
+    },
+    "facing=south,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 0,
+      "y": 180
+    },
+    "facing=south,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 0,
+      "y": 180
+    },
+    "facing=west,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 0,
+      "y": 270
+    },
+    "facing=west,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 0,
+      "y": 270
+    },
+    "facing=up,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 270,
+      "y": 0
+    },
+    "facing=up,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 270,
+      "y": 0
+    },
+    "facing=down,powered=false": {
+      "model": "createfirefightingadd:block/rope_connector_master/off",
+      "x": 90,
+      "y": 0
+    },
+    "facing=down,powered=true": {
+      "model": "createfirefightingadd:block/rope_connector_master/on",
+      "x": 90,
+      "y": 0
+    }
+  }
+}

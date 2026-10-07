@@ -6,6 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.ModelEvent;
 
 public class PartialModels {
+	public static final PartialModel ROPE_HOOK_MOVE = block("rope_latch/move");
+	public static final PartialModel ROPE_HOOK_BODY = block("rope_latch/block");
+	public static final PartialModel TAIL_HOOK_BASE = block("tail_hook/base");
+	public static final PartialModel TAIL_HOOK_ROD = block("tail_hook/rod");
 	public static final PartialModel HOSE_SETPOINT_Y = block("fire_hose/setpoint_y");
 	public static final PartialModel HOSE_SETPOINT_Z = block("fire_hose/setpoint_z");
 	public static final PartialModel HOSE_BRACKET_METAL = PartialModel.of(ResourceLocation.fromNamespaceAndPath("create", "block/bracket/pipe/ground_metal"));

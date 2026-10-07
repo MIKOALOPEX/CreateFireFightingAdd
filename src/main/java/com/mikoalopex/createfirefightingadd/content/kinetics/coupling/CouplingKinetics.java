@@ -59,7 +59,9 @@ public final class CouplingKinetics {
             if (sameNetwork(edge.a, be) || sameNetwork(edge.b, be)
                 || edge.a.getLevel() == be.getLevel() && edge.a.getBlockPos().distManhattan(be.getBlockPos()) <= 1
                 || edge.b.getLevel() == be.getLevel() && edge.b.getBlockPos().distManhattan(be.getBlockPos()) <= 1) {
-                service.conflicts.add(edge.a); service.conflicts.add(edge.b); found = true;
+                service.conflicts.add(edge.a);
+                service.conflicts.add(edge.b);
+                found = true;
             }
         }
         if (found) {
@@ -72,7 +74,7 @@ public final class CouplingKinetics {
         if (!StressCouplingCompatibility.enabled() || !a.active() || !b.active()
                 || a.getLevel() == null || a.getLevel().isClientSide) return;
         CouplingKinetics service = SERVERS.computeIfAbsent(a.getLevel().getServer(), s -> new CouplingKinetics());
-        service.edges.put(a, new Edge(a,b));
+        service.edges.put(a, new Edge(a, b));
     }
     public static void disconnect(BallCouplingBlockEntity endpoint) {
         CouplingKinetics service = of(endpoint);
@@ -98,19 +100,27 @@ public final class CouplingKinetics {
             networks.forEach(KineticNetwork::updateNetwork);
         }
     }
-    @SubscribeEvent public static void tick(ServerTickEvent.Post event) {
+    @SubscribeEvent
+    public static void tick(ServerTickEvent.Post event) {
         CouplingKinetics service = SERVERS.get(event.getServer());
         if (service != null) service.tick();
     }
-    @SubscribeEvent public static void stopped(ServerStoppedEvent event) {
+    @SubscribeEvent
+    public static void stopped(ServerStoppedEvent event) {
         com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingAlignment.clear();
         SERVERS.remove(event.getServer());
         BallCouplingIndex.clear(event.getServer());
     }
-    private static boolean same(float a, float b) { return Math.abs(a-b) <= Math.max(0.001f,Math.max(Math.abs(a),Math.abs(b))*0.0001f); }
-    private static boolean live(KineticBlockEntity be) { return !be.isRemoved() && be.getLevel()!=null && be.getLevel().getBlockEntity(be.getBlockPos())==be; }
-    private static boolean sameNetwork(KineticBlockEntity a,KineticBlockEntity b) {
-        return a==b || a.hasNetwork() && b.hasNetwork() && a.getOrCreateNetwork()==b.getOrCreateNetwork();
+    private static boolean same(float a, float b) {
+        return Math.abs(a - b) <= Math.max(0.001f, Math.max(Math.abs(a), Math.abs(b)) * 0.0001f);
+    }
+
+    private static boolean live(KineticBlockEntity be) {
+        return !be.isRemoved() && be.getLevel() != null && be.getLevel().getBlockEntity(be.getBlockPos()) == be;
+    }
+
+    private static boolean sameNetwork(KineticBlockEntity a, KineticBlockEntity b) {
+        return a == b || a.hasNetwork() && b.hasNetwork() && a.getOrCreateNetwork() == b.getOrCreateNetwork();
     }
     private boolean realPower(KineticBlockEntity be) {
         nativeRead = true;
@@ -121,16 +131,30 @@ public final class CouplingKinetics {
     private void drive(BallCouplingBlockEntity be,float speed) {
         float previous = drives.getOrDefault(be,0f);
         if (drives.containsKey(be) && same(previous,speed)) return;
-        be.detachKinetics(); be.setNetwork(null); be.clearKineticInformation();
-        drives.put(be,speed); be.setSpeed(speed); be.setNetwork(be.getBlockPos().asLong());
-        be.attachKinetics(); be.onSpeedChanged(previous); be.setChanged(); be.sendData();
+        be.detachKinetics();
+        be.setNetwork(null);
+        be.clearKineticInformation();
+        drives.put(be, speed);
+        be.setSpeed(speed);
+        be.setNetwork(be.getBlockPos().asLong());
+        be.attachKinetics();
+        be.onSpeedChanged(previous);
+        be.setChanged();
+        be.sendData();
     }
     private void stop(BallCouplingBlockEntity be) {
         Float previous = drives.get(be);
         if (previous == null) return;
         if (!live(be)) { drives.remove(be); return; }
-        be.detachKinetics(); be.setNetwork(null); drives.remove(be); be.clearKineticInformation();
-        be.setSpeed(0); be.attachKinetics(); be.onSpeedChanged(previous); be.setChanged(); be.sendData();
+        be.detachKinetics();
+        be.setNetwork(null);
+        drives.remove(be);
+        be.clearKineticInformation();
+        be.setSpeed(0);
+        be.attachKinetics();
+        be.onSpeedChanged(previous);
+        be.setChanged();
+        be.sendData();
     }
     private void tick() {
         updating = true;
@@ -144,9 +168,11 @@ public final class CouplingKinetics {
         Map<KineticNetwork, Totals> next = new IdentityHashMap<>();
         List<Edge> remaining = new ArrayList<>(edges.values());
         while (!remaining.isEmpty()) {
-            List<Edge> component = new ArrayList<>(); component.add(remaining.removeFirst());
+            List<Edge> component = new ArrayList<>();
+            component.add(remaining.removeFirst());
             Set<BallCouplingBlockEntity> nodes = new LinkedHashSet<>();
-            nodes.add(component.getFirst().a); nodes.add(component.getFirst().b);
+            nodes.add(component.getFirst().a);
+            nodes.add(component.getFirst().b);
             boolean expanded;
             do {
                 expanded = false;
@@ -157,9 +183,11 @@ public final class CouplingKinetics {
             update(component,nodes,keep,next);
         }
         for (var be : new ArrayList<>(drives.keySet())) if (!keep.contains(be)) stop(be);
-        Set<KineticNetwork> changed = new HashSet<>(additions.keySet()); changed.addAll(next.keySet());
+        Set<KineticNetwork> changed = new HashSet<>(additions.keySet());
+        changed.addAll(next.keySet());
         changed.removeIf(n -> Objects.equals(additions.get(n),next.get(n)));
-        additions.clear(); additions.putAll(next);
+        additions.clear();
+        additions.putAll(next);
         changed.forEach(KineticNetwork::updateNetwork);
     }
     private void update(List<Edge> links,Set<BallCouplingBlockEntity> nodes,Set<BallCouplingBlockEntity> keep,Map<KineticNetwork,Totals> totals) {
@@ -212,6 +240,7 @@ public final class CouplingKinetics {
         for(var n:nodes) if(drives.containsKey(n) && !realPower(n)) keep.add(n);
         Map<KineticNetwork,Totals> nativeTotals=new IdentityHashMap<>();
         float capacity=0,stress=0;
+        // Exclude bridged totals while collecting each native network's own capacity and stress.
         nativeRead=true;
         try {
             for(var n:nodes) if(n.hasNetwork()&&!nativeTotals.containsKey(n.getOrCreateNetwork())) {

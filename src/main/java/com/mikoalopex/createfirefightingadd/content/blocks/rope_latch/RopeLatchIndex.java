@@ -14,11 +14,10 @@ import net.createmod.catnip.data.WorldAttached;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 /** World-space broad phase shared by latches. No sublevel enumeration or chunk loading is needed. */
 public final class RopeLatchIndex {
-    public static final double RADIUS = 0.375;
+    public static final double RADIUS = 0.625;
     private static final WorldAttached<RopeLatchIndex> WORLDS = new WorldAttached<>(ignored -> new RopeLatchIndex());
     private final Map<UUID, Entry> entries = new HashMap<>();
     private final Map<Long, LinkedHashSet<Entry>> cells = new HashMap<>();
@@ -74,7 +73,7 @@ public final class RopeLatchIndex {
         if (entry != null && entry.rope.get() == rope) index.remove(entry);
     }
 
-    public static Hit search(ServerLevel level, Vec3 point) {
+    static Hit search(ServerLevel level, RopeCaptureArea area) {
         RopeLatchIndex index = WORLDS.get(level);
         if (index.searchTick != level.getGameTime()) {
             index.searchTick = level.getGameTime();
@@ -83,7 +82,7 @@ public final class RopeLatchIndex {
             index.captureBudget = 2;
         }
         if (index.pointBudget <= 0 || index.candidateBudget <= 0 || index.captureBudget <= 0) return null;
-        AABB query = new AABB(point, point).inflate(RADIUS);
+        AABB query = area.bounds();
         Set<UUID> visited = new HashSet<>();
         int candidates = 0, points = 0;
         for (int x = cell(query.minX); x <= cell(query.maxX); x++)
@@ -106,7 +105,7 @@ public final class RopeLatchIndex {
                             if (entry.cursor < 1 || entry.cursor >= size - 1) entry.cursor = 1;
                             int node = entry.cursor++;
                             var p = rope.getPoints().get(node);
-                            if (p.distanceSquared(point.x, point.y, point.z) <= RADIUS * RADIUS) {
+                            if (area.contains(p)) {
                                 index.captureBudget--;
                                 return new Hit(rope, node);
                             }

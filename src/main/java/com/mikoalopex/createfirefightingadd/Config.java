@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd;
 
 import java.util.List;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideSettings;
 
 import com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleGlobalSprayRules;
 
@@ -46,6 +47,7 @@ public class Config {
 	private static final ModConfigSpec.IntValue HOSE_MAX_LENGTH;
 	private static final ModConfigSpec.DoubleValue HOSE_SNAP_MULTIPLIER;
 	private static final ModConfigSpec.IntValue HOSE_TANK_CAPACITY;
+	private static final ModConfigSpec.IntValue HOSE_CONNECTOR_COOLDOWN_SECONDS;
 	private static final ModConfigSpec.IntValue HOSE_PUMP_SCAN_INTERVAL;
 	private static final ModConfigSpec.IntValue HOSE_TOPOLOGY_REFRESH_INTERVAL;
 	private static final ModConfigSpec.DoubleValue HOSE_INPUT_SMOOTHING;
@@ -63,6 +65,19 @@ public class Config {
 	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_SOURCE_SCAN_RANGE;
 	private static final ModConfigSpec.IntValue NOZZLE_SPRAY_BUILDUP_TICKS;
 	private static final ModConfigSpec.BooleanValue NOZZLE_THRUST_ENABLED;
+	private static final ModConfigSpec.BooleanValue ROPE_LATCH_SLIDING_ENABLED;
+	private static final ModConfigSpec.BooleanValue ROPE_LATCH_DEBUG_SLIDING;
+	private static final ModConfigSpec.IntValue ROPE_LATCH_SCAN_INTERVAL;
+	private static final ModConfigSpec.IntValue ROPE_LATCH_SEARCH_DURATION;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_FRICTION;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_GEOMETRIC_FRICTION;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_RESPONSE_GAIN;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_MAX_SPEED;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_GRAVITY_ACCELERATION;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_GRAVITY_RETENTION;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_TAUT_RATIO;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_SWING_DAMPING;
+	private static final ModConfigSpec.DoubleValue ROPE_LATCH_UPPER_SWING_DAMPING;
 	private static final ModConfigSpec.DoubleValue NOZZLE_THRUST_MULTIPLIER;
 	private static final ModConfigSpec.ConfigValue<List<? extends String>> NOZZLE_GLOBAL_FLUID_RULES;
 	private static final ModConfigSpec.DoubleValue MIST_SPREAD_RADIUS;
@@ -80,6 +95,47 @@ public class Config {
 	private static final ModConfigSpec.BooleanValue FIREFIGHTER_EXTINGUISH_RECORDS_ENABLED;
 
 	static {
+		BUILDER.push("RopeLatch");
+		ROPE_LATCH_UPPER_SWING_DAMPING = BUILDER.comment("Attached tailhook pitch damping in the 70-30 degree range (0-0.99). Higher values slow the response.")
+			.translation("createfirefightingadd.configuration.RopeLatch.UpperSwingDamping")
+			.defineInRange("UpperSwingDamping", RopeSlideSettings.DEFAULT.upperSwingDamping(), 0.0, 0.99);
+		ROPE_LATCH_SWING_DAMPING = BUILDER.comment("Attached tailhook pitch damping in the 30-0 degree range (0-0.99). Higher values slow the response; deployment is unaffected.")
+			.translation("createfirefightingadd.configuration.RopeLatch.SwingDamping")
+			.defineInRange("SwingDamping", RopeSlideSettings.DEFAULT.swingDamping(), 0.0, 0.99);
+		ROPE_LATCH_SCAN_INTERVAL = BUILDER.comment("Scan once every N ticks while armed. Shared per-tick work budgets still apply.")
+			.translation("createfirefightingadd.configuration.RopeLatch.ScanIntervalTicks")
+			.defineInRange("ScanIntervalTicks", 10, 1, 60);
+		ROPE_LATCH_SEARCH_DURATION = BUILDER.comment("Search window in seconds after a redstone trigger. Applies to the next trigger.")
+			.translation("createfirefightingadd.configuration.RopeLatch.SearchDurationSeconds")
+			.defineInRange("SearchDurationSeconds", 30, 5, 60);
+		ROPE_LATCH_SLIDING_ENABLED = BUILDER
+			.comment("Default mode for newly placed rope hooks: true for sliding, false for locked. Each block's empty-hand mode dial can override this.")
+			.define("SlidingEnabled", true);
+		ROPE_LATCH_DEBUG_SLIDING = BUILDER
+			.comment("Log loaded latch state and sliding measurements every five seconds for troubleshooting. Disabled by default.")
+			.define("DebugSliding", false);
+		ROPE_LATCH_FRICTION = BUILDER.comment("Stretch difference dead zone. Lower values respond to smaller differences.")
+			.translation("createfirefightingadd.configuration.RopeLatch.Friction")
+			.defineInRange("Friction", RopeSlideSettings.DEFAULT.friction(), 0.0, 1.0);
+		ROPE_LATCH_GEOMETRIC_FRICTION = BUILDER.comment("Geometric tautness difference dead zone. Lower values are more sensitive.")
+			.translation("createfirefightingadd.configuration.RopeLatch.GeometricFriction")
+			.defineInRange("GeometricFriction", RopeSlideSettings.DEFAULT.geometricFriction(), 0.0, 1.0);
+		ROPE_LATCH_RESPONSE_GAIN = BUILDER.comment("Length-transfer response to stretch and geometric differences.")
+			.translation("createfirefightingadd.configuration.RopeLatch.ResponseGain")
+			.defineInRange("ResponseGain", RopeSlideSettings.DEFAULT.responseGain(), 0.0, 10000.0);
+		ROPE_LATCH_MAX_SPEED = BUILDER.comment("Maximum length transfer in blocks per second. High values may cause solver jolts.")
+			.translation("createfirefightingadd.configuration.RopeLatch.MaxSpeed")
+			.defineInRange("MaxSpeed", RopeSlideSettings.DEFAULT.maxSpeed(), 0.0, 100.0);
+		ROPE_LATCH_GRAVITY_ACCELERATION = BUILDER.comment("Approximate downhill acceleration for a moving latch in blocks per second squared.")
+			.translation("createfirefightingadd.configuration.RopeLatch.GravityAcceleration")
+			.defineInRange("GravityAcceleration", RopeSlideSettings.DEFAULT.gravityAcceleration(), 0.0, 100.0);
+		ROPE_LATCH_GRAVITY_RETENTION = BUILDER.comment("Gravity velocity retained each tick. Closer to one means less damping.")
+			.translation("createfirefightingadd.configuration.RopeLatch.GravityVelocityRetention")
+			.defineInRange("GravityVelocityRetention", RopeSlideSettings.DEFAULT.gravityRetention(), 0.0, 1.0);
+		ROPE_LATCH_TAUT_RATIO = BUILDER.comment("Endpoint distance divided by rest length required to treat a rope as taut.")
+			.translation("createfirefightingadd.configuration.RopeLatch.TautRatio")
+			.defineInRange("TautRatio", RopeSlideSettings.DEFAULT.tautRatio(), 0.5, 1.0);
+		BUILDER.pop();
 		BUILDER.push("ConeNozzle");
 		CONE_MAX_DISTANCE = BUILDER
 			.comment("Maximum effective spray distance of the cone firefighting nozzle in blocks (1-512). Clamped to the physical limit imposed by projectile speed and friction.")
@@ -168,6 +224,9 @@ public class Config {
 		HOSE_TANK_CAPACITY = BUILDER
 			.comment("Shared internal fluid buffer of one fire hose pair (100-64000 mB). Larger buffers tolerate high-flow custom pumps and long hose chains better.")
 			.defineInRange("hoseTankCapacity", 1000, 100, 64000);
+		HOSE_CONNECTOR_COOLDOWN_SECONDS = BUILDER
+			.comment("Easy Connector cooldown after connecting or disconnecting, in seconds (0-30). Set to 0 to disable the cooldown.")
+			.defineInRange("connectorCooldownSeconds", 5, 0, 30);
 		BUILDER.pop();
 
 		BUILDER.push("FireHosePressure");
@@ -327,6 +386,7 @@ public class Config {
 	public static int hoseMaxLength;
 	public static double hoseSnapMultiplier;
 	public static int hoseTankCapacity;
+	public static int hoseConnectorCooldownSeconds = 5;
 	public static int hosePumpScanInterval;
 	public static int hoseTopologyRefreshInterval;
 	public static float hoseInputSmoothing;
@@ -354,6 +414,28 @@ public class Config {
 	public static int sprayMaxActiveNozzlesBeforeDegrade;
 	public static int nozzleIgnitionChance;
 	public static boolean nozzleThrustEnabled;
+	public static boolean ropeLatchSlidingEnabled = true;
+	public static boolean ropeLatchDebugSliding;
+	public static volatile RopeSlideSettings ropeLatchSlideSettings = RopeSlideSettings.DEFAULT;
+
+	public static boolean saveRopeSlideSettings(RopeSlideSettings settings) {
+		if (settings.scanIntervalTicks() < 1 || settings.scanIntervalTicks() > 60
+				|| settings.searchDurationSeconds() < 5 || settings.searchDurationSeconds() > 60) return false;
+		double[] values = {settings.friction(), settings.geometricFriction(), settings.responseGain(),
+			settings.maxSpeed(), settings.gravityAcceleration(), settings.gravityRetention(), settings.tautRatio(), settings.swingDamping(), settings.upperSwingDamping()};
+		ModConfigSpec.DoubleValue[] entries = {ROPE_LATCH_FRICTION, ROPE_LATCH_GEOMETRIC_FRICTION,
+			ROPE_LATCH_RESPONSE_GAIN, ROPE_LATCH_MAX_SPEED, ROPE_LATCH_GRAVITY_ACCELERATION,
+			ROPE_LATCH_GRAVITY_RETENTION, ROPE_LATCH_TAUT_RATIO, ROPE_LATCH_SWING_DAMPING, ROPE_LATCH_UPPER_SWING_DAMPING};
+		for (int i = 0; i < values.length; i++)
+			if (!Double.isFinite(values[i]) || !SPEC.getSpec().<ModConfigSpec.ValueSpec>get(entries[i].getPath()).test(values[i]))
+				return false;
+		for (int i = 0; i < values.length; i++) entries[i].set(values[i]);
+		ROPE_LATCH_SCAN_INTERVAL.set(settings.scanIntervalTicks());
+		ROPE_LATCH_SEARCH_DURATION.set(settings.searchDurationSeconds());
+		SPEC.save();
+		ropeLatchSlideSettings = settings;
+		return true;
+	}
 	public static double nozzleThrustMultiplier;
 	public static List<? extends String> nozzleGlobalFluidRules = List.of();
 	public static boolean cdgIgnitionEnabled;
@@ -392,6 +474,7 @@ public class Config {
 		hoseMaxLength = HOSE_MAX_LENGTH.get();
 		hoseSnapMultiplier = HOSE_SNAP_MULTIPLIER.get();
 		hoseTankCapacity = HOSE_TANK_CAPACITY.get();
+		hoseConnectorCooldownSeconds = HOSE_CONNECTOR_COOLDOWN_SECONDS.get();
 		hosePumpScanInterval = HOSE_PUMP_SCAN_INTERVAL.get();
 		hoseTopologyRefreshInterval = HOSE_TOPOLOGY_REFRESH_INTERVAL.get();
 		hoseInputSmoothing = HOSE_INPUT_SMOOTHING.get().floatValue();
@@ -420,6 +503,16 @@ public class Config {
 		sprayMaxActiveNozzlesBeforeDegrade = SPRAY_MAX_ACTIVE_NOZZLES_BEFORE_DEGRADE.get();
 		nozzleIgnitionChance = NOZZLE_IGNITION_CHANCE.get();
 		nozzleThrustEnabled = NOZZLE_THRUST_ENABLED.get();
+		ropeLatchSlidingEnabled = ROPE_LATCH_SLIDING_ENABLED.get();
+		ropeLatchDebugSliding = ROPE_LATCH_DEBUG_SLIDING.get();
+		ropeLatchSlideSettings = new RopeSlideSettings(
+			ROPE_LATCH_FRICTION.get(),
+			ROPE_LATCH_GEOMETRIC_FRICTION.get(),
+			ROPE_LATCH_RESPONSE_GAIN.get(),
+			ROPE_LATCH_MAX_SPEED.get(),
+			ROPE_LATCH_GRAVITY_ACCELERATION.get(),
+			ROPE_LATCH_GRAVITY_RETENTION.get(),
+			ROPE_LATCH_TAUT_RATIO.get(), ROPE_LATCH_SCAN_INTERVAL.get(), ROPE_LATCH_SEARCH_DURATION.get(), ROPE_LATCH_SWING_DAMPING.get(), ROPE_LATCH_UPPER_SWING_DAMPING.get());
 		nozzleThrustMultiplier = NOZZLE_THRUST_MULTIPLIER.get();
 		nozzleGlobalFluidRules = List.copyOf(NOZZLE_GLOBAL_FLUID_RULES.get());
 		NozzleGlobalSprayRules.reloadFromConfig(nozzleGlobalFluidRules);

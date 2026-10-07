@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "simulated"
+    }
+  ],
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "create:precision_mechanism" },
+    "E": { "item": "create:shaft" },
+    "H": { "item": "simulated:swivel_bearing" }
+  },
+  "result": {
+    "id": "createfirefightingadd:stress_coupling",
+    "count": 1
+  }
+}

@@ -1,5 +1,11 @@
 package com.mikoalopex.createfirefightingadd;
 
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterCompatibility;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterMenu;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterScreen;
+
 import java.util.EnumMap;
 import java.util.List;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
@@ -306,6 +312,23 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> SMART_ROPE_CONNECTOR_ITEM =
 		ITEMS.registerSimpleBlockItem("smart_rope_connector", SMART_ROPE_CONNECTOR);
 
+    public static final DeferredBlock<RopeMasterBlock> ROPE_MASTER = BLOCKS.register("rope_connector_master",
+        () -> RopeMasterCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+            .strength(3.0f).sound(SoundType.METAL).noOcclusion()));
+    public static final DeferredItem<BlockItem> ROPE_MASTER_ITEM =
+        ITEMS.registerSimpleBlockItem("rope_connector_master", ROPE_MASTER);
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RopeMasterBlockEntity>> ROPE_MASTER_BE =
+        BLOCK_ENTITY_TYPES.register("rope_connector_master",
+            () -> BlockEntityType.Builder.of(RopeMasterBlockEntity::new, ROPE_MASTER.get()).build(null));
+    public static final DeferredHolder<MenuType<?>, MenuType<RopeMasterMenu>> ROPE_MASTER_MENU =
+        MENU_TYPES.register("rope_connector_master", () -> IMenuTypeExtension.create(RopeMasterMenu::new));
+
+	public static final DeferredBlock<Block> ROPE_HOOK = BLOCKS.register("rope_hook",
+		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
+	public static final DeferredItem<BlockItem> ROPE_HOOK_ITEM = ITEMS.registerSimpleBlockItem("rope_hook", ROPE_HOOK);
+
+	// Keep legacy registrations readable without replacing live rope attachments in existing worlds.
 	public static final DeferredBlock<Block> ROPE_LATCH = BLOCKS.register("rope_latch",
 		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
 			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
@@ -502,7 +525,7 @@ public class CreateFireFightingAdd {
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<net.minecraft.world.level.block.entity.BlockEntity>> ROPE_LATCH_BE =
 		BLOCK_ENTITY_TYPES.register("rope_latch",
-			() -> BlockEntityType.Builder.of(RopeLatchCompatibility::createEntity, ROPE_LATCH.get()).build(null));
+			() -> BlockEntityType.Builder.of(RopeLatchCompatibility::createEntity, ROPE_LATCH.get(), ROPE_HOOK.get()).build(null));
 
 	public static final DeferredHolder<MountedFluidStorageType<?>, SprayDeviceMountedFluidStorageType> SPRAY_DEVICE_MOUNTED_FLUID_STORAGE =
 		MOUNTED_FLUID_STORAGE_TYPES.register("spray_device", SprayDeviceMountedFluidStorageType::new);
@@ -562,7 +585,8 @@ public class CreateFireFightingAdd {
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				if (ModList.get().isLoaded("simulated"))
 					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
-				if (RopeLatchCompatibility.available()) output.accept(ROPE_LATCH_ITEM.get());
+				if (RopeLatchCompatibility.available()) output.accept(ROPE_HOOK_ITEM.get());
+                if (RopeLatchCompatibility.available()) output.accept(ROPE_MASTER_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
@@ -652,6 +676,8 @@ public class CreateFireFightingAdd {
 	}
 
 	private void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ROPE_MASTER_BE.get(),
+            (be, side) -> be.getItemHandler());
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			CONE_NOZZLE_BE.get(),
@@ -809,6 +835,9 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onClientSetup(FMLClientSetupEvent event) {
+			var container = ModList.get().getModContainerById(MODID).orElseThrow();
+			container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+				(mc, parent) -> new net.neoforged.neoforge.client.gui.ConfigurationScreen(container, parent));
 			BoundBlockHighlightHandler.init();
 			PartialModels.init();
 			PonderIndex.addPlugin(new CreateFireFightingPonderPlugin());
@@ -831,6 +860,7 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLUID_FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HOSE.get(), RenderType.cutout());
+            ItemBlockRenderTypes.setRenderLayer(ROPE_MASTER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_EXTINGUISHER.get(), RenderType.cutout());
@@ -868,6 +898,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
+            event.register(ROPE_MASTER_MENU.get(), RopeMasterScreen::new);
 			event.register(BallCouplings.MENU.get(), BallCouplingScreen::new);
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
 			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
@@ -876,6 +907,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+			RopeLatchCompatibility.registerRenderer(event);
 			event.registerBlockEntityRenderer(BallCouplings.BLOCK_ENTITY.get(), BallCouplingRenderer::new);
 			event.registerEntityRenderer(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntityRenderer::new);
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());

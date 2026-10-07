@@ -24,18 +24,18 @@ import net.neoforged.fml.ModList;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-/** Two solver ropes behind one native strand: ownership, UUID, packets and drops are unchanged. */
-public final class PinnedRopeHandle implements RopeHandle {
+/** Splits one native strand into two solver ropes without changing ownership, UUID, packets or drops. */
+public class PinnedRopeHandle implements RopeHandle {
     private static final Method STEEL_FLAG = findSteelFlag();
-    private final RopeHandle first;
-    private final RopeHandle second;
-    private final List<Vector3d> firstPoints;
-    private final List<Vector3d> secondPoints;
-    private final Vector3dc pinAnchor;
-    private final ServerSubLevel pinBody;
+    protected final RopeHandle first;
+    protected final RopeHandle second;
+    protected final List<Vector3d> firstPoints;
+    protected final List<Vector3d> secondPoints;
+    protected volatile Vector3dc pinAnchor;
+    protected final ServerSubLevel pinBody;
     private boolean removed;
 
-    private PinnedRopeHandle(RopeHandle first, RopeHandle second, List<Vector3d> a, List<Vector3d> b,
+    protected PinnedRopeHandle(RopeHandle first, RopeHandle second, List<Vector3d> a, List<Vector3d> b,
             Vector3dc anchor, ServerSubLevel body) {
         this.first = first;
         this.second = second;
@@ -125,8 +125,8 @@ public final class PinnedRopeHandle implements RopeHandle {
     public int pinnedNode() { return firstPoints.size() - 1; }
     public int tailSegments() { return secondPoints.size() - 1; }
 
-    /** Leave at least one solver segment between the winch and the fixed material point. */
-    public float limitWinchSpeed(float speed) {
+    /** Keeps at least one solver segment between the winch and the fixed material point. */
+    public float limitWinchSpeed(float speed, double totalLength) {
         return firstPoints.size() <= 2 ? Math.max(0, speed) : speed;
     }
 
@@ -173,13 +173,13 @@ public final class PinnedRopeHandle implements RopeHandle {
         (point == AttachmentPoint.START ? first : second).setAttachment(point, position, body);
     }
 
-    private static List<Vector3d> copy(List<Vector3d> points) {
+    protected static List<Vector3d> copy(List<Vector3d> points) {
         List<Vector3d> result = new ArrayList<>(points.size());
         for (Vector3d point : points) result.add(new Vector3d(point));
         return result;
     }
 
-    private static Anchor endpoint(ServerLevel level, RopeAttachment attachment) {
+    protected static Anchor endpoint(ServerLevel level, RopeAttachment attachment) {
         if (attachment == null || !level.isLoaded(attachment.blockAttachment())) return null;
         var be = level.getBlockEntity(attachment.blockAttachment());
         if (!(be instanceof RopeConnectorBlockEntity) && !(be instanceof SmartRopeConnectorBlockEntity)
@@ -205,7 +205,7 @@ public final class PinnedRopeHandle implements RopeHandle {
         } catch (ReflectiveOperationException exception) { return null; }
     }
 
-    private record Anchor(Vector3dc point, ServerSubLevel body) {
+    protected record Anchor(Vector3dc point, ServerSubLevel body) {
         void apply(RopeHandle handle, AttachmentPoint end) { handle.setAttachment(end, point, body); }
     }
 }

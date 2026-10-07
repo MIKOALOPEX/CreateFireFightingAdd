@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "simulated"
+    }
+  ],
+  "pattern": [
+    "   ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "E": { "item": "simulated:rope_connector" },
+    "H": { "item": "create:brass_sheet" }
+  },
+  "result": {
+    "id": "createfirefightingadd:smart_rope_connector",
+    "count": 1
+  }
+}

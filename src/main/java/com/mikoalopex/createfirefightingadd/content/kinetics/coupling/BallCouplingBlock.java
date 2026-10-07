@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -149,6 +150,23 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
                 Math.max(a.x,b.x)+8, Math.max(a.y,b.y)+8, Math.max(a.z,b.z)+8));
         }
         return shape;
+    }
+
+    @Override public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        VoxelShape shape = getShape(state, level, pos, context);
+        if (shape.isEmpty()) return shape;
+        var bounds = shape.bounds();
+        Direction facing = state.getValue(FACING);
+        double clearance = 4.0 / 16.0;
+        // Keep the model and selection outline intact; only the tip is excluded from collision.
+        VoxelShape clippedBounds = Shapes.box(
+            bounds.minX + (facing == Direction.WEST ? clearance : 0),
+            bounds.minY + (facing == Direction.DOWN ? clearance : 0),
+            bounds.minZ + (facing == Direction.NORTH ? clearance : 0),
+            bounds.maxX - (facing == Direction.EAST ? clearance : 0),
+            bounds.maxY - (facing == Direction.UP ? clearance : 0),
+            bounds.maxZ - (facing == Direction.SOUTH ? clearance : 0));
+        return Shapes.join(shape, clippedBounds, BooleanOp.AND);
     }
 
     @Override protected VoxelShape getBlockSupportShape(BlockState state, BlockGetter level, BlockPos pos) {

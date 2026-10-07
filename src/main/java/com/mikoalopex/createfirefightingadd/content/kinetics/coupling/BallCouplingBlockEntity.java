@@ -14,9 +14,11 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -30,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuProvider, StressCouplingEndpoint {
     /** Centers of the named ball element in each top model, measured in model pixels. */
     private static final double[] BALL_CENTERS = {5, 9, 13, 17, 20};
+    private static final int RECOVERY_TIMEOUT_TICKS = 200;
 
     private UUID endpoint = UUID.randomUUID();
     private UUID partner;
@@ -37,6 +40,9 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     private UUID previousPartner;
     private Object constraint;
     private Object savedReference;
+    private boolean restoringPair;
+    private boolean recoveryCleaned;
+    private int recoveryTicks;
     private CouplingAlignment.Session alignment;
     private long alignmentRetryUntil;
     private boolean searching;
@@ -111,8 +117,9 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
     private Object createConstraint(BallCouplingBlockEntity other, UUID id) {
         if (!StressCouplingCompatibility.enabled()) return null;
+        if (CouplingSavedData.get(level.getServer()).removalPending(worldLevel().dimension(), id)) return null;
         return CouplingPhysics.update(constraint != null ? constraint : savedReference, new CouplingPhysics.Request(
-            com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.path("ball_coupling"), id,
+            CouplingSavedData.FEATURE, id,
             physicsEndpoint(), other.physicsEndpoint(), mode, lowerAngle, upperAngle, flipRange));
     }
 
@@ -221,6 +228,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             partner = null;
             pair = null;
             savedReference = null;
+            restoringPair = false;
             searching = false;
             setActive(false);
             setChanged();
@@ -246,6 +254,7 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             return;
         }
 
+        if (restoringPair) return;
         boolean next = level.hasNeighborSignal(worldPosition);
         boolean changed = next != powered;
         powered = next;
@@ -311,16 +320,18 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         if (pair != null && CouplingSavedData.get(level.getServer()).consume(pair)) {
             if (alignment != null) { alignment.close(); alignment = null; }
             CouplingKinetics.disconnect(this);
-            CouplingPhysics.remove(constraint);
-            constraint = null;
+            releaseConstraint();
             partner = null;
             pair = null;
             savedReference = null;
+            restoringPair = false;
+            connectionEstablished = false;
             setActive(false);
             beginSearch(true);
             notifyUpdate();
         }
 
+        if (restoringPair && !recoverConnection()) return;
         updateSignal();
         if (!searches())
             return;
@@ -334,15 +345,60 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         searchForPartner();
     }
 
+    /** Reconciles saved pairing before neighbor notifications can discard its constraint identity. */
+    private boolean recoverConnection() {
+        if (!recoveryCleaned) {
+            releaseConstraint();
+            CouplingKinetics.disconnect(this);
+            setActive(false);
+            recoveryCleaned = true;
+        }
+        if (++recoveryTicks > RECOVERY_TIMEOUT_TICKS) {
+            disconnect();
+            return false;
+        }
+        BallCouplingBlockEntity other = partner();
+        if (other == null || other.isRemoved() || !signalNeighborhoodLoaded() || !other.signalNeighborhoodLoaded())
+            return false;
+        if (!endpoint.equals(other.partner) || !Objects.equals(pair, other.pair)
+                || !interfaceMode.accepts(other.interfaceMode)) {
+            disconnect();
+            return false;
+        }
+        // Read both inputs together; the other endpoint may not have received its first tick yet.
+        powered = level.hasNeighborSignal(worldPosition);
+        other.powered = other.level.hasNeighborSignal(other.worldPosition);
+        setPoweredState(powered);
+        other.setPoweredState(other.powered);
+        restoringPair = other.restoringPair = false;
+        return true;
+    }
+
+    private boolean signalNeighborhoodLoaded() {
+        // A sublevel's sparse local storage is not the main world's chunk-loading boundary.
+        if (SableStructureCompat.containingSubLevelId(this) != null) return true;
+        for (Direction side : Direction.values())
+            if (!level.hasChunkAt(worldPosition.relative(side))) return false;
+        return true;
+    }
+
+    private void releaseConstraint() {
+        if (constraint != null) savedReference = constraint;
+        // Persist a removal before clearing the runtime handle or the pair identity.
+        if (pair != null && worldLevel() instanceof ServerLevel serverLevel)
+            CouplingSavedData.get(serverLevel.getServer()).removeConstraint(serverLevel, pair);
+        else
+            CouplingPhysics.remove(constraint);
+        constraint = null;
+    }
+
     private void maintainConnection() {
         BallCouplingBlockEntity other = partner();
         if (other == null) {
             if (alignment != null) { cancelAlignment(); return; }
             setActive(false);
             CouplingKinetics.disconnect(this);
-            if (constraint != null) savedReference = constraint;
-            CouplingPhysics.remove(constraint);
-            constraint = null;
+            if (constraint != null) releaseConstraint();
             return;
         }
         if (!powered || (!other.powered && (interfaceMode == CouplingInterfaceMode.FREE || !connectionEstablished))
@@ -479,14 +535,15 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
 
         CouplingKinetics.disconnect(this);
         if (alignment != null) { alignment.close(); alignment = null; }
-        CouplingPhysics.remove(constraint);
-        constraint = null;
+        UUID disconnectedPair = pair;
+        releaseConstraint();
         if (partner != null && other == null)
             CouplingSavedData.get(level.getServer()).invalidate(pair);
         previousPartner = partner;
         partner = null;
         pair = null;
         savedReference = null;
+        restoringPair = false;
         searching = false;
         pendingTicks = 0;
         connectionEstablished = false;
@@ -494,13 +551,13 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         beginSearch(true);
         notifyUpdate();
 
-        if (other != null && endpoint.equals(other.partner)) {
+        if (other != null && endpoint.equals(other.partner) && Objects.equals(disconnectedPair, other.pair)) {
             if (other.alignment != null) { other.alignment.close(); other.alignment = null; }
-            CouplingPhysics.remove(other.constraint);
-            other.constraint = null;
+            other.releaseConstraint();
             other.partner = null;
             other.pair = null;
             other.savedReference = null;
+            other.restoringPair = false;
             other.searching = false;
             other.connectionEstablished = false;
             other.setActive(false);
@@ -603,14 +660,10 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
         if (StressCouplingCompatibility.enabled() && level != null && !level.isClientSide) {
             if (alignment != null) disconnect();
             CouplingKinetics.disconnect(this);
-            if (constraint != null) savedReference = constraint;
-            CouplingPhysics.remove(constraint);
-            constraint = null;
+            releaseConstraint();
             BallCouplingBlockEntity other = partner();
             if (other != null) {
-                if (other.constraint != null) other.savedReference = other.constraint;
-                CouplingPhysics.remove(other.constraint);
-                other.constraint = null;
+                other.releaseConstraint();
                 other.setActive(false);
             }
             BallCouplingIndex.of(worldLevel()).remove(this);
@@ -666,13 +719,12 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean packet) {
         boolean enabled = StressCouplingCompatibility.enabled();
         if (!enabled) {
-            // Disabled compatibility keeps settings but discards runtime-only connection state.
+            // Keep the saved key until clearDisabledConnection can record its removal safely.
             tag = tag.copy();
             tag.remove("Network");
             tag.remove("Source");
             tag.putFloat("Speed", 0);
             tag.remove("CouplingPartner");
-            tag.remove("CouplingPair");
             tag.remove("RenderLink");
         }
         super.read(tag, registries, packet);
@@ -691,6 +743,11 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
             guiPairCooldownUntil = tag.getLong("CouplingGuiPairCooldown");
         if (!packet)
             savedReference = pair == null ? null : CouplingPhysics.restoreReference(tag.getCompound("CouplingReference"));
+        if (!packet) {
+            restoringPair = pair != null;
+            recoveryCleaned = false;
+            recoveryTicks = 0;
+        }
         if (tag.contains("CouplingConfig")) {
             CompoundTag config = tag.getCompound("CouplingConfig");
             interfaceMode = CouplingInterfaceMode.values()[Math.clamp(config.getInt("Interface"), 0, 2)];
@@ -725,9 +782,11 @@ public class BallCouplingBlockEntity extends KineticBlockEntity implements MenuP
     private void clearDisabledConnection() {
         boolean changed = partner != null || pair != null || searching || connectionEstablished
             || getBlockState().getValue(BallCouplingBlock.CONNECTED);
+        if (level != null && !level.isClientSide) releaseConstraint();
         partner = pair = previousPartner = null;
         savedReference = null;
         searching = connectionEstablished = false;
+        restoringPair = false;
         if (alignment != null) { alignment.close(); alignment = null; }
         if (constraint != null) { CouplingPhysics.remove(constraint); constraint = null; }
         CouplingKinetics.disconnect(this);

@@ -1,6 +1,8 @@
 package com.mikoalopex.createfirefightingadd.content.items.configurator;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.Config;
+import com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideSettings;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.Container;
@@ -23,16 +25,22 @@ public class MultifunctionConfiguratorMenu extends AbstractContainerMenu {
 
 	private final InteractionHand hand;
 	private final Container input = new SimpleContainer(1);
+	private boolean ropePage;
+	private RopeSlideSettings ropeSettings = Config.ropeLatchSlideSettings;
 
 	public MultifunctionConfiguratorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf buffer) {
 		this(containerId, inventory, readHand(buffer));
+		ropeSettings = new RopeSlideSettings(buffer.readDouble(), buffer.readDouble(), buffer.readDouble(),
+			buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readVarInt(), buffer.readVarInt(), buffer.readDouble(), buffer.readDouble());
 	}
 
 	public MultifunctionConfiguratorMenu(int containerId, Inventory inventory, InteractionHand hand) {
 		super(CreateFireFightingAdd.MULTIFUNCTION_CONFIGURATOR_MENU.get(), containerId);
 		this.hand = hand;
 
-		addSlot(new Slot(input, 0, INPUT_SLOT_X, INPUT_SLOT_Y));
+		addSlot(new Slot(input, 0, INPUT_SLOT_X, INPUT_SLOT_Y) {
+			@Override public boolean isActive() { return !ropePage; }
+		});
 
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++)
@@ -45,6 +53,27 @@ public class MultifunctionConfiguratorMenu extends AbstractContainerMenu {
 
 	public InteractionHand getHand() {
 		return hand;
+	}
+
+	public RopeSlideSettings ropeSettings() { return ropeSettings; }
+
+	public void setRopePage(boolean ropePage) { this.ropePage = ropePage; }
+
+	@Override public boolean clickMenuButton(Player player, int id) {
+		if (!stillValid(player) || id < 0 || id > 1) return false;
+		ropePage = id == 1;
+		return true;
+	}
+
+	public static void writeOpeningData(RegistryFriendlyByteBuf buffer, InteractionHand hand) {
+		buffer.writeVarInt(hand.ordinal());
+		var s = Config.ropeLatchSlideSettings;
+		buffer.writeDouble(s.friction()); buffer.writeDouble(s.geometricFriction()); buffer.writeDouble(s.responseGain());
+		buffer.writeDouble(s.maxSpeed()); buffer.writeDouble(s.gravityAcceleration());
+		buffer.writeDouble(s.gravityRetention()); buffer.writeDouble(s.tautRatio());
+		buffer.writeVarInt(s.scanIntervalTicks()); buffer.writeVarInt(s.searchDurationSeconds());
+		buffer.writeDouble(s.swingDamping());
+		buffer.writeDouble(s.upperSwingDamping());
 	}
 
 	public ItemStack getToolStack(Player player) {
@@ -62,6 +91,7 @@ public class MultifunctionConfiguratorMenu extends AbstractContainerMenu {
 
 	@Override
 	public ItemStack quickMoveStack(Player player, int index) {
+		if (ropePage) return ItemStack.EMPTY;
 		ItemStack result = ItemStack.EMPTY;
 		Slot slot = slots.get(index);
 		if (slot == null || !slot.hasItem())

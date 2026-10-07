@@ -1,7 +1,9 @@
 {
   "replace": false,
   "values": [
+    "createfirefightingadd:rope_connector_master",
     "createfirefightingadd:rope_latch",
+    "createfirefightingadd:rope_hook",
     "createfirefightingadd:fire_hose_connector",
     "createfirefightingadd:hydraulic_ram",
     "createfirefightingadd:pipeline_turbine",

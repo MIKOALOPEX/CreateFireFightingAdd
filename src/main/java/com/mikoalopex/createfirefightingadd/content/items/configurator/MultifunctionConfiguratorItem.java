@@ -117,7 +117,7 @@ public class MultifunctionConfiguratorItem extends Item {
 			serverPlayer.openMenu(new SimpleMenuProvider(
 				(containerId, inventory, menuPlayer) -> new MultifunctionConfiguratorMenu(containerId, inventory, hand),
 				Component.translatable("item.createfirefightingadd.multifunction_configurator")),
-				buf -> buf.writeVarInt(hand.ordinal()));
+				buf -> MultifunctionConfiguratorMenu.writeOpeningData(buf, hand));
 		}
 		return InteractionResultHolder.consume(stack);
 	}
