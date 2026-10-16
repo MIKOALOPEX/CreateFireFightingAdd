@@ -19,6 +19,7 @@
     "client.CreativeSectionMenuAccessor",
     "client.CreativeSectionScreenMixin",
     "client.SmartRopeDataPacketMixin",
+    "client.SmartRopeShearsMixin",
     "client.SmartRopeStoppedPacketMixin"
   ],
   "injectors": {

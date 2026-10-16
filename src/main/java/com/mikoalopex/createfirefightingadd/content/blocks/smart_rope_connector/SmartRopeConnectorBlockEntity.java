@@ -46,6 +46,7 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
 	private final LinkedHashMap<UUID, RopeStrandHolderBehavior> clientRopes = new LinkedHashMap<>();
 	private int auditTicks;
 	private int clientConnectionCount;
+	private final List<UUID> clientConnectionIds = new ArrayList<>();
 	private boolean moving;
 
 	public SmartRopeConnectorBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -184,9 +185,9 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
         if (changed) notifyUpdate();
 	}
 
-	public boolean cutLastConnection(ServerPlayer player) {
-		UUID id = lastConnection();
-		return id != null && destroyConnection(id, player, true);
+	public boolean cutConnection(UUID id, ServerPlayer player) {
+		return (ownedRopes.containsKey(id) || externalRopes.containsKey(id))
+			&& destroyConnection(id, player, true);
 	}
 
 	public void destroyAllConnections(@Nullable ServerPlayer player, boolean returnItems) {
@@ -198,6 +199,8 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
 		RopeStrandHolderBehavior owner = ownedRopes.get(id);
 		if (owner != null) {
 			ServerRopeStrand strand = owner.getOwnedStrand();
+			if (strand == null || !id.equals(strand.getUUID()))
+				return false;
 			SmartRopeConnections.destroyRope(owner, player, getAttachmentPoint(), returnItem);
 			removeRemoteRecord(strand, id);
 			removeConnection(id);
@@ -214,12 +217,15 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
 		RopeAttachment start = strand.getAttachment(RopeAttachmentPoint.START);
 		if (start == null)
 			return false;
+		if (!level.isLoaded(start.blockAttachment()))
+			return false;
 		BlockEntity ownerBe = level.getBlockEntity(start.blockAttachment());
 		if (ownerBe instanceof SmartRopeConnectorBlockEntity smartOwner)
 			return smartOwner.destroyConnection(id, player, returnItem);
 		if (ownerBe instanceof SmartBlockEntity smartBe) {
 			RopeStrandHolderBehavior nativeOwner = smartBe.getBehaviour(RopeStrandHolderBehavior.TYPE);
-			if (nativeOwner != null) {
+			if (nativeOwner != null && nativeOwner.getOwnedStrand() != null
+					&& id.equals(nativeOwner.getOwnedStrand().getUUID())) {
 				SmartRopeConnections.destroyRope(nativeOwner, player, getAttachmentPoint(), returnItem);
 				removeConnection(id);
 				return true;
@@ -236,15 +242,9 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
 			remote.removeConnection(id);
 	}
 
-	@Nullable
-	private UUID lastConnection() {
-		UUID last = null;
-		for (UUID id : allConnectionIds())
-			last = id;
-		return last;
-	}
-
 	public List<UUID> allConnectionIds() {
+		if (level != null && level.isClientSide)
+			return List.copyOf(clientConnectionIds);
 		List<UUID> ids = new ArrayList<>(ownedRopes.keySet());
 		ids.addAll(externalRopes.keySet());
 		return ids;
@@ -313,6 +313,13 @@ public class SmartRopeConnectorBlockEntity extends SmartBlockEntity implements R
             clientConnectionCount = tag.getInt("ConnectionCount");
             java.util.Set<UUID> ids = new java.util.HashSet<>();
             for (Tag raw : tag.getList(TAG_OWNED, Tag.TAG_COMPOUND)) ids.add(((CompoundTag) raw).getUUID(TAG_ID));
+			clientConnectionIds.clear();
+			clientConnectionIds.addAll(ids);
+			for (Tag raw : tag.getList(TAG_EXTERNAL, Tag.TAG_COMPOUND)) {
+				UUID id = ((CompoundTag) raw).getUUID(TAG_ID);
+				if (!clientConnectionIds.contains(id)) clientConnectionIds.add(id);
+			}
+			clientConnectionIds.sort(UUID::compareTo);
             clientRopes.entrySet().removeIf(entry -> {
                 if (ids.contains(entry.getKey())) return false;
                 entry.getValue().unload();

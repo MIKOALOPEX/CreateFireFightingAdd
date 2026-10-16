@@ -1,28 +1,36 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.UnaryOperator;
 
 public class FanSprayShape implements SprayShape {
 
 	private final int range;
 	private final double halfAngleHRad;
 	private final double halfAngleVRad;
+	private final Vec3 widthAxis;
 
 	public FanSprayShape(int range, double halfAngleHDeg, double halfAngleVDeg) {
+		this(range, halfAngleHDeg, halfAngleVDeg, null);
+	}
+
+	public FanSprayShape(int range, double halfAngleHDeg, double halfAngleVDeg, Vec3 widthAxis) {
 		this.range = range;
 		this.halfAngleHRad = Math.toRadians(halfAngleHDeg);
 		this.halfAngleVRad = Math.toRadians(halfAngleVDeg);
+		this.widthAxis = widthAxis;
 	}
 
 	@Override
 	public Vec3 randomSprayDirection(Vec3 baseDirection, RandomSource random) {
-		Vec3[] axes = fanAxes(baseDirection);
+		Vec3[] axes = fanAxes(baseDirection, widthAxis);
 		double r = random.nextDouble();
 		double theta = random.nextDouble() * 2.0 * Math.PI;
 		double h = Math.cos(theta) * r * Math.tan(halfAngleHRad);
@@ -32,7 +40,7 @@ public class FanSprayShape implements SprayShape {
 
 	@Override
 	public Vec3 randomSprayDirection(Vec3 baseDirection, Random random) {
-		Vec3[] axes = fanAxes(baseDirection);
+		Vec3[] axes = fanAxes(baseDirection, widthAxis);
 		double r = random.nextDouble();
 		double theta = random.nextDouble() * 2.0 * Math.PI;
 		double h = Math.cos(theta) * r * Math.tan(halfAngleHRad);
@@ -42,7 +50,7 @@ public class FanSprayShape implements SprayShape {
 
 	@Override
 	public void forEachPosition(Vec3 origin, Vec3 direction, PositionAction action) {
-		Vec3[] axes = fanAxes(direction);
+		Vec3[] axes = fanAxes(direction, widthAxis);
 		Vec3 axisH = axes[0];
 		Vec3 axisV = axes[1];
 
@@ -93,7 +101,7 @@ public class FanSprayShape implements SprayShape {
 		double along = offset.dot(streamDir);
 		if (along < -1.0)
 			return false;
-		Vec3[] axes = fanAxes(streamDir);
+		Vec3[] axes = fanAxes(streamDir, widthAxis);
 		double hDist = offset.dot(axes[0]);
 		double vDist = offset.dot(axes[1]);
 		double maxH = axialDist * Math.tan(halfAngleHRad);
@@ -108,7 +116,7 @@ public class FanSprayShape implements SprayShape {
 	@Override
 	public List<Vec3> stratifiedDirections(Vec3 baseDirection, int count, long tick, Random random) {
 		List<Vec3> dirs = new ArrayList<>(count);
-		Vec3[] axes = fanAxes(baseDirection);
+		Vec3[] axes = fanAxes(baseDirection, widthAxis);
 		double tanH = Math.tan(halfAngleHRad);
 		double tanV = Math.tan(halfAngleVRad);
 		double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
@@ -135,5 +143,29 @@ public class FanSprayShape implements SprayShape {
 		Vec3 axisH = facing.cross(ref).normalize();
 		Vec3 axisV = facing.cross(axisH).normalize();
 		return new Vec3[] { axisH, axisV };
+	}
+
+	static Vec3 nozzleWidth(Direction facing) {
+		// The model opens along X; flat_nozzle.json rotates that axis onto Z for east/west.
+		return facing.getAxis() == Direction.Axis.X ? new Vec3(0, 0, 1) : new Vec3(1, 0, 0);
+	}
+
+	static Vec3[] fanAxes(Vec3 facing, Vec3 widthAxis) {
+		if (widthAxis == null)
+			return fanAxes(facing);
+		Vec3 forward = facing.normalize();
+		// Project the model's width onto the curved stream's cross-section, retaining its roll.
+		Vec3 width = widthAxis.subtract(forward.scale(widthAxis.dot(forward)));
+		if (width.lengthSqr() < 1e-8)
+			return fanAxes(facing);
+		width = width.normalize();
+		return new Vec3[] { width, forward.cross(width).normalize() };
+	}
+
+	static SprayShape transformWidth(SprayShape shape, UnaryOperator<Vec3> transform) {
+		if (!(shape instanceof FanSprayShape fan) || fan.widthAxis == null)
+			return shape;
+		return new FanSprayShape(fan.range, Math.toDegrees(fan.halfAngleHRad),
+			Math.toDegrees(fan.halfAngleVRad), transform.apply(fan.widthAxis));
 	}
 }

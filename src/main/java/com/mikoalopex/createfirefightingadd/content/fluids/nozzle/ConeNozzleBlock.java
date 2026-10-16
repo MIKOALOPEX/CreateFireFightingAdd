@@ -1,27 +1,20 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.mikoalopex.createfirefightingadd.content.blocks.FireFightingWrenchableBlock;
+import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
 import com.simibubi.create.foundation.block.IBE;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class ConeNozzleBlock extends Block implements IBE<ConeNozzleBlockEntity>, FireFightingWrenchableBlock {
-
-	public static final DirectionProperty FACING = BlockStateProperties.FACING;
+public class ConeNozzleBlock extends WrenchableDirectionalBlock implements IBE<ConeNozzleBlockEntity> {
 
 	private static final VoxelShape SHAPE_UP = box(4, 0, 4, 12, 16, 12);
 	private static final VoxelShape SHAPE_DOWN = box(4, 0, 4, 12, 16, 12);
@@ -45,18 +38,6 @@ public class ConeNozzleBlock extends Block implements IBE<ConeNozzleBlockEntity>
 			case EAST -> SHAPE_EAST;
 			case WEST -> SHAPE_WEST;
 		};
-	}
-
-	@Override
-	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-		builder.add(FACING);
-		super.createBlockStateDefinition(builder);
-	}
-
-	@Override
-	public BlockState getStateForPlacement(BlockPlaceContext context) {
-		Direction direction = context.getNearestLookingDirection().getOpposite();
-		return defaultBlockState().setValue(FACING, direction);
 	}
 
 	@Override

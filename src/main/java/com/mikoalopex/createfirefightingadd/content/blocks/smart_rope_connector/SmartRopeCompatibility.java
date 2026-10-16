@@ -17,6 +17,26 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 public final class SmartRopeCompatibility {
     private SmartRopeCompatibility() {}
 
+    public static void clientTick() {
+        if (ModList.get().isLoaded("simulated")) SmartRopeSelection.tick();
+    }
+
+    public static boolean scroll(double delta) {
+        return ModList.get().isLoaded("simulated") && SmartRopeSelection.scroll(delta);
+    }
+
+    public static boolean use() {
+        return ModList.get().isLoaded("simulated") && SmartRopeSelection.use();
+    }
+
+    public static boolean selecting() {
+        return ModList.get().isLoaded("simulated") && SmartRopeSelection.hasTarget();
+    }
+
+    public static void cut(net.minecraft.server.level.ServerPlayer player, SmartRopeCutPacket packet) {
+        if (ModList.get().isLoaded("simulated")) Loaded.cut(player, packet);
+    }
+
     public static Block createBlock(BlockBehaviour.Properties properties) {
         return ModList.get().isLoaded("simulated") ? Loaded.createBlock(properties) : new InertBlock(properties);
     }
@@ -30,6 +50,21 @@ public final class SmartRopeCompatibility {
     }
 
     private static final class Loaded {
+        static void cut(net.minecraft.server.level.ServerPlayer player, SmartRopeCutPacket packet) {
+            var level = player.serverLevel();
+            if (!level.dimension().location().equals(packet.dimension()) || player.isSpectator()
+                || !player.getAbilities().mayBuild || !level.isLoaded(packet.pos())
+                || !level.mayInteract(player, packet.pos())
+                || !player.getItemInHand(packet.hand()).is(dev.simulated_team.simulated.index.SimTags.Items.DESTROYS_ROPE))
+                return;
+            if (!(level.getBlockEntity(packet.pos()) instanceof SmartRopeConnectorBlockEntity connector)) return;
+            var center = com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat
+                .transformPositionToWorld(connector, packet.pos().getCenter());
+            double range = player.blockInteractionRange() + 1.0;
+            if (player.getEyePosition().distanceToSqr(center) > range * range) return;
+            connector.cutConnection(packet.rope(), player);
+        }
+
         static Block createBlock(BlockBehaviour.Properties properties) {
             return new SmartRopeConnectorBlock(properties);
         }

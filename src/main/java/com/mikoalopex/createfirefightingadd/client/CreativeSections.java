@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
+import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoorBlock;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -43,7 +44,8 @@ public final class CreativeSections {
             boolean transmission = stack.is(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_ITEM.get())
                 || stack.is(CreateFireFightingAdd.ROPE_HOOK_ITEM.get())
                 || stack.is(CreateFireFightingAdd.ROPE_MASTER_ITEM.get())
-                || stack.is(BallCouplings.ITEM.get());
+                || stack.is(BallCouplings.ITEM.get())
+                || stack.getItem() instanceof net.minecraft.world.item.BlockItem item && item.getBlock() instanceof CopycatDoorBlock;
             (transmission ? power : fire).add(stack);
         }
         HEADERS.clear();

@@ -5,6 +5,8 @@ import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master
 import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterMenu;
 import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterScreen;
+import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoors;
+import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoorClient;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -600,10 +602,14 @@ public class CreateFireFightingAdd {
 				output.accept(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 				output.accept(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
 				output.accept(FIREFIGHTER_HANDBOOK_ITEM.get());
+				output.accept(CopycatDoors.TRAPDOOR_ITEM.get());
+				output.accept(CopycatDoors.SLIDING_ITEM.get());
+				output.accept(CopycatDoors.FOLDING_ITEM.get());
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
 		BallCouplings.init();
+		CopycatDoors.init();
 		modEventBus.addListener(this::commonSetup);
 		modEventBus.addListener(this::registerCapabilities);
 		modEventBus.addListener(this::registerEntityAttributes);
@@ -647,6 +653,7 @@ public class CreateFireFightingAdd {
 	}
 
 	private static void registerCreateContraptionCompat() {
+		CopycatDoors.registerBehaviours();
 		MovementBehaviour.REGISTRY.register(CONE_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
@@ -948,6 +955,8 @@ public class CreateFireFightingAdd {
 		public static void onClientTick(ClientTickEvent.Post event) {
 			var mc = net.minecraft.client.Minecraft.getInstance();
 			NozzleSprayClientSounds.clientTick();
+			SmartRopeCompatibility.clientTick();
+			CopycatDoorClient.tick();
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 				ExtensionLadderItemHandler.INSTANCE.clientTick();
@@ -959,6 +968,11 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
+			if (event.isUseItem() && SmartRopeCompatibility.use()) {
+				event.setSwingHand(false);
+				event.setCanceled(true);
+				return;
+			}
 			if (event.isUseItem() && ExtensionLadderClientInputHandler.isAdjusting()) {
 				event.setSwingHand(false);
 				event.setCanceled(true);
@@ -1019,6 +1033,10 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+			if (SmartRopeCompatibility.scroll(event.getScrollDeltaY())) {
+				event.setCanceled(true);
+				return;
+			}
 			if (ExtensionLadderClientInputHandler.onMouseScroll(event.getScrollDeltaY()))
 				event.setCanceled(true);
 		}

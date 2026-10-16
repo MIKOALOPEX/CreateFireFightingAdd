@@ -135,7 +135,9 @@ sourceSets.test {
 def regressionChecks = [
     checkRopeSliding: 'com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideStateTest',
     checkCouplingSavedData: 'com.mikoalopex.createfirefightingadd.content.kinetics.coupling.CouplingSavedDataTest',
-    checkCouplingBlueprint: 'com.mikoalopex.createfirefightingadd.integration.sableschematic.BallCouplingBlueprintMapperTest'
+    checkCouplingBlueprint: 'com.mikoalopex.createfirefightingadd.integration.sableschematic.BallCouplingBlueprintMapperTest',
+    checkNozzleOrientation: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleOrientationTest',
+    checkCopycatDoors: 'com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.DoorGeometryTest'
 ]
 regressionChecks.each { taskName, entryPoint ->
     tasks.register(taskName, JavaExec) {

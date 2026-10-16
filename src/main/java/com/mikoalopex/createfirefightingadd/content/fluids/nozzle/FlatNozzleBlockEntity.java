@@ -5,6 +5,7 @@ import java.util.function.BiConsumer;
 import com.mikoalopex.createfirefightingadd.Config;
 import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -45,12 +46,29 @@ public class FlatNozzleBlockEntity extends AbstractSprayDeviceBlockEntity {
 
 	@Override
 	protected SprayShape getSprayShape() {
-		return new FanSprayShape(getEffectiveRange(), EXTINGUISH_HALF_ANGLE_H, EXTINGUISH_HALF_ANGLE_V);
+		return new FanSprayShape(getEffectiveRange(), EXTINGUISH_HALF_ANGLE_H, EXTINGUISH_HALF_ANGLE_V,
+			getWorldFanWidth());
 	}
 
 	@Override
 	protected SprayShape getProjectileSprayShape() {
-		return new FanSprayShape(getEffectiveRange(), PROJECTILE_HALF_ANGLE_H, PROJECTILE_HALF_ANGLE_V);
+		return new FanSprayShape(getEffectiveRange(), PROJECTILE_HALF_ANGLE_H, PROJECTILE_HALF_ANGLE_V,
+			FanSprayShape.nozzleWidth(getFacing()));
+	}
+
+	@Override
+	protected SprayShape getWorldProjectileSprayShape() {
+		return new FanSprayShape(getEffectiveRange(), PROJECTILE_HALF_ANGLE_H, PROJECTILE_HALF_ANGLE_V,
+			getWorldFanWidth());
+	}
+
+	private Vec3 getWorldFanWidth() {
+		return SableStructureCompat.transformNormalToWorld(this, FanSprayShape.nozzleWidth(getFacing()));
+	}
+
+	@Override
+	protected SprayShape getStreamCrossSection() {
+		return new FanSprayShape(getEffectiveRange(), ENTITY_HALF_ANGLE_H, ENTITY_HALF_ANGLE_V, getWorldFanWidth());
 	}
 
 	@Override
@@ -101,7 +119,7 @@ public class FlatNozzleBlockEntity extends AbstractSprayDeviceBlockEntity {
 		double dx = point.x - streamPos.x;
 		double dy = point.y - streamPos.y;
 		double dz = point.z - streamPos.z;
-		Vec3[] axes = FanSprayShape.fanAxes(streamDir);
+		Vec3[] axes = FanSprayShape.fanAxes(streamDir, getWorldFanWidth());
 		double hDist = dx * axes[0].x + dy * axes[0].y + dz * axes[0].z;
 		double vDist = dx * axes[1].x + dy * axes[1].y + dz * axes[1].z;
 		double maxH = axialDist * Math.tan(Math.toRadians(ENTITY_HALF_ANGLE_H));
@@ -117,7 +135,7 @@ public class FlatNozzleBlockEntity extends AbstractSprayDeviceBlockEntity {
 	protected void spawnClientParticles() {
 		Vec3 origin = getWorldSprayOrigin();
 		Vec3 direction = getWorldSprayDirection();
-		Vec3[] axes = FanSprayShape.fanAxes(direction);
+		Vec3[] axes = FanSprayShape.fanAxes(direction, getWorldFanWidth());
 		RandomSource random = RandomSource.create();
 		double tanH = Math.tan(Math.toRadians(PARTICLE_HALF_ANGLE_H));
 		double tanV = Math.tan(Math.toRadians(PARTICLE_HALF_ANGLE_V));

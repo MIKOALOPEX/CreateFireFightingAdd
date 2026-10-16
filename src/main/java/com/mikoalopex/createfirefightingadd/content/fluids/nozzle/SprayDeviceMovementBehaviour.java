@@ -119,7 +119,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 					SprayDebugRenderer.submitDynamicSpray(SprayKey.of(context).hashCode(), origin, direction,
 						profile.mode() == ParticleMode.CONE, profile.range(), profile.projectileSpeed(),
 						profile.projectileGravity(), profile.projectileFriction(), projectileLifetime(profile),
-						context.world.getGameTime() + 2);
+						context.world.getGameTime() + 2, debugFanWidth(context));
 					spawnNozzleProjectileParticles(context, origin, direction, profile, state);
 				}
 				return;
@@ -149,7 +149,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 				SprayDebugRenderer.submitDynamicSpray(SprayKey.of(context).hashCode(), origin, direction,
 					profile.mode() == ParticleMode.CONE, profile.range(), profile.projectileSpeed(),
 					profile.projectileGravity(), profile.projectileFriction(), projectileLifetime(profile),
-					context.world.getGameTime() + 2);
+					context.world.getGameTime() + 2, debugFanWidth(context));
 				spawnNozzleProjectileParticles(context, origin, direction, profile,
 					ClientSprayState.fromFluid(context, clientBehavior, clientFluid, clientRule));
 			}
@@ -226,8 +226,10 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		if (state.getBlock() instanceof FlatNozzleBlock) {
 			Direction facing = state.getValue(FlatNozzleBlock.FACING);
 			int range = Config.flatNozzleMaxDistance;
+			Vec3 width = rotatedDirection(context, FanSprayShape.nozzleWidth(facing));
 			return new SprayProfile(Vec3.atLowerCornerOf(facing.getNormal()), range, NOZZLE_CONSUMPTION,
-				NOZZLE_MOVEMENT_SCAN_INTERVAL, new FanSprayShape(range, 60.0, 4.0), new FanSprayShape(range, 60.0, 4.0),
+				NOZZLE_MOVEMENT_SCAN_INTERVAL, new FanSprayShape(range, 60.0, 4.0, width),
+				new FanSprayShape(range, 60.0, 4.0, width),
 				ParticleMode.FLAT, Config.flatNozzleSpeed, Config.flatNozzleGravity,
 				Config.flatNozzleFriction, 4);
 		}
@@ -255,6 +257,12 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		if (rotated.lengthSqr() < 1e-6)
 			return localDirection;
 		return rotated;
+	}
+
+	private static Vec3 debugFanWidth(MovementContext context) {
+		return context.state.getBlock() instanceof FlatNozzleBlock
+			? rotatedDirection(context, FanSprayShape.nozzleWidth(context.state.getValue(FlatNozzleBlock.FACING)))
+			: null;
 	}
 
 	private static boolean alreadyHandledServerTick(MovementContext context) {
@@ -414,8 +422,10 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			if (stack.isEmpty() || !type.canProcess(stack, level))
 				return 0;
 			Vec3 itemPos = Vec3.atCenterOf(depotPos).add(0, 0.55, 0);
+			SprayShape crossSection = FanSprayShape.transformWidth(profile.projectileShape(),
+				width -> SableStructureCompat.transformNormalToLocal(depot, width));
 			AbstractSprayDeviceBlockEntity.CenterlineSample sample =
-				findClosestSample(itemPos, centerline, profile.projectileShape(), profile.range());
+				findClosestSample(itemPos, centerline, crossSection, profile.range());
 			if (sample == null || isPointBlockedByWall(level, origin, itemPos))
 				return SprayDepotScanner.PROCESSABLE;
 			DepotKey key = new DepotKey(subLevelId, depotPos);
@@ -497,6 +507,9 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 				continue;
 			AABB localScanArea = centerlineAabb(localCenterline).inflate(4.0);
 
+			Vec3 localZero = contraptionEntity.toLocalVector(Vec3.ZERO, 1.0f);
+			SprayShape crossSection = FanSprayShape.transformWidth(profile.projectileShape(),
+				width -> contraptionEntity.toLocalVector(width, 1.0f).subtract(localZero));
 			for (Map.Entry<BlockPos, MountedItemStorage> entry : itemStorages.entrySet()) {
 				if (!(entry.getValue() instanceof DepotMountedStorage depotStorage))
 					continue;
@@ -508,7 +521,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 				if (stack.isEmpty() || !type.canProcess(stack, worldLevel))
 					continue;
 				AbstractSprayDeviceBlockEntity.CenterlineSample sample =
-					findClosestSample(localItemPos, localCenterline, profile.projectileShape(), profile.range());
+					findClosestSample(localItemPos, localCenterline, crossSection, profile.range());
 				if (sample == null)
 					continue;
 				Vec3 worldItemPos = contraptionEntity.toGlobalVector(localItemPos, 1.0f);

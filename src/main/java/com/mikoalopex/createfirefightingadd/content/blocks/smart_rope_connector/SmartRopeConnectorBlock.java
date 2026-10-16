@@ -9,7 +9,6 @@ import dev.simulated_team.simulated.content.blocks.util.AbstractDirectionalAxisB
 import dev.simulated_team.simulated.util.DirectionalAxisShaper;
 import dev.simulated_team.simulated.index.SimTags;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -75,11 +74,8 @@ public class SmartRopeConnectorBlock extends AbstractDirectionalAxisBlock
 	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
 			Player player, InteractionHand hand, BlockHitResult hit) {
 		if (stack.is(SimTags.Items.DESTROYS_ROPE)) {
-			if (level.isClientSide())
-				return ItemInteractionResult.SUCCESS;
-			if (level.getBlockEntity(pos) instanceof SmartRopeConnectorBlockEntity connector)
-				return connector.cutLastConnection((ServerPlayer) player)
-					? ItemInteractionResult.SUCCESS : ItemInteractionResult.FAIL;
+			// Cutting is handled by the UUID-selected packet, never by connection order.
+			return ItemInteractionResult.SUCCESS;
 		}
 		return super.useItemOn(stack, state, level, pos, player, hand, hit);
 	}

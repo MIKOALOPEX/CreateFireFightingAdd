@@ -1,4 +1,7 @@
 {
+  "block.createfirefightingadd.copycat_multidirectional_trapdoor": "Copycat Multidirectional Trapdoor",
+  "block.createfirefightingadd.copycat_short_sliding_door": "Copycat Short Sliding Door",
+  "block.createfirefightingadd.copycat_short_folding_door": "Copycat Short Folding Door",
   "createfirefightingadd.creative_section.firefighting": "Fire Fighting",
   "createfirefightingadd.creative_section.power_train": "Power Train",
   "block.createfirefightingadd.rope_connector_master": "Rope Connector Manager",
@@ -386,5 +389,8 @@
   "createfirefightingadd.extension_ladder.invalid_direction": "The ladder cannot be placed in this direction.",
   "createfirefightingadd.extension_ladder.first_point_floor": "Choose the top face of a floor block.",
   "createfirefightingadd.extension_ladder.anchor_blocked": "There is no room for the ladder anchor.",
-  "createfirefightingadd.extension_ladder.anchor_failed": "The ladder could not be placed."
+  "createfirefightingadd.extension_ladder.anchor_failed": "The ladder could not be placed.",
+  "smart_rope.selection": "Rope %s / %s - Scroll to select, use to cut",
+  "smart_rope.selection.empty": "No ropes connected",
+  "smart_rope.selection.loading": "Waiting for rope synchronization before cutting"
 }

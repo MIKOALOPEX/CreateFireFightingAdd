@@ -475,6 +475,11 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return getSprayShape();
 	}
 
+	/** World-space counterpart for effect sampling; projectiles remain in the block's local space. */
+	protected SprayShape getWorldProjectileSprayShape() {
+		return getProjectileSprayShape();
+	}
+
 	/** Creates projectiles using a seeded Random for server-client deterministic sync without network packets. */
 	protected void spawnSprayProjectiles(FluidStack fluidForProjectile) {
 		long perfStart = SprayPerformanceDebug.start();
@@ -962,7 +967,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		int[] notified = {0};
 		int[] effects = {0};
 		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
-		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), range,
+		SprayEffectSampler.traceRays(level, origin, direction, getWorldProjectileSprayShape(), range,
 			rays, tick, seed, 0.5,
 			(pos, state, samplePos, rayDirection, distance) -> {
 				visited[0]++;
@@ -1658,6 +1663,11 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return false;
 	}
 
+	/** Optional oriented cross-section for scans projected into another structure's coordinates. */
+	protected SprayShape getStreamCrossSection() {
+		return null;
+	}
+
 	/** Traces a single reference projectile to map the curved stream path for entity scanning. */
 	public List<CenterlineSample> computeStreamCenterline() {
 		List<CenterlineSample> samples = new ArrayList<>();
@@ -1734,6 +1744,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	/** Finds the centerline sample closest to the entity's AABB surface that lies within the stream tube. */
 	private CenterlineSample findClosestSample(Entity entity, List<CenterlineSample> centerline) {
+		SprayShape crossSection = FanSprayShape.transformWidth(getStreamCrossSection(),
+			width -> SableStructureCompat.transformNormalToLocal(entity.level(), entity.blockPosition(), width));
 		AABB aabb = entity.getBoundingBox();
 		double cx = (aabb.minX + aabb.maxX) / 2.0;
 		double cy = (aabb.minY + aabb.maxY) / 2.0;
@@ -1751,7 +1763,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			for (CenterlineSample cs : centerline) {
 				if (cs.axialDist <= 0 || cs.axialDist > getEffectiveRange())
 					continue;
-				if (isPointInStream(pt, cs.position, cs.direction, cs.axialDist)) {
+				if (crossSection == null ? isPointInStream(pt, cs.position, cs.direction, cs.axialDist)
+						: crossSection.containsPoint(pt, cs.position, cs.direction, cs.axialDist)) {
 					double score = pt.distanceToSqr(cs.position);
 					if (score < bestScore) {
 						bestScore = score;
@@ -1864,7 +1877,9 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				if (stack.isEmpty() || !type.canProcess(stack, depotLevel))
 					return 0;
 				Vec3 itemPos = Vec3.atCenterOf(depotPos).add(0, 0.55, 0);
-				CenterlineSample sample = findClosestSample(itemPos, centerline);
+				SprayShape crossSection = FanSprayShape.transformWidth(getStreamCrossSection(),
+					width -> SableStructureCompat.transformNormalToLocal(depot, width));
+				CenterlineSample sample = findClosestSample(itemPos, centerline, crossSection);
 				if (sample == null || isPointBlockedByWall(depotLevel, origin, itemPos))
 					return SprayDepotScanner.PROCESSABLE;
 				DepotKey key = new DepotKey(subLevelId, depotPos);
@@ -1945,6 +1960,9 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				continue;
 			AABB localScanArea = computeCenterlineAABB(localCenterline).inflate(4.0);
 
+			Vec3 localZero = contraptionEntity.toLocalVector(Vec3.ZERO, 1.0f);
+			SprayShape crossSection = FanSprayShape.transformWidth(getStreamCrossSection(),
+				width -> contraptionEntity.toLocalVector(width, 1.0f).subtract(localZero));
 			for (Map.Entry<BlockPos, MountedItemStorage> entry : itemStorages.entrySet()) {
 				if (!(entry.getValue() instanceof DepotMountedStorage depotStorage))
 					continue;
@@ -1955,7 +1973,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				ItemStack stack = depotStorage.getItem();
 				if (stack.isEmpty() || !type.canProcess(stack, worldLevel))
 					continue;
-				CenterlineSample sample = findClosestSample(localItemPos, localCenterline);
+				CenterlineSample sample = findClosestSample(localItemPos, localCenterline, crossSection);
 				if (sample == null)
 					continue;
 				Vec3 worldItemPos = contraptionEntity.toGlobalVector(localItemPos, 1.0f);
@@ -2007,13 +2025,14 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return rebuilt;
 	}
 
-	private CenterlineSample findClosestSample(Vec3 point, List<CenterlineSample> centerline) {
+	private CenterlineSample findClosestSample(Vec3 point, List<CenterlineSample> centerline, SprayShape crossSection) {
 		CenterlineSample best = null;
 		double bestScore = Double.MAX_VALUE;
 		for (CenterlineSample sample : centerline) {
 			if (sample.axialDist <= 0 || sample.axialDist > getEffectiveRange())
 				continue;
-			if (!isPointInStream(point, sample.position, sample.direction, sample.axialDist))
+			if (!(crossSection == null ? isPointInStream(point, sample.position, sample.direction, sample.axialDist)
+					: crossSection.containsPoint(point, sample.position, sample.direction, sample.axialDist)))
 				continue;
 			double score = point.distanceToSqr(sample.position);
 			if (score < bestScore) {
@@ -2264,7 +2283,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		int[] notified = {0};
 		int[] effects = {0};
 		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
-		SprayEffectSampler.traceRays(level, origin, direction, getProjectileSprayShape(), getEffectiveRange(),
+		SprayEffectSampler.traceRays(level, origin, direction, getWorldProjectileSprayShape(), getEffectiveRange(),
 			rays, tick, seed, 0.75,
 			(pos, state, samplePos, rayDirection, distance) -> {
 				visited[0]++;

@@ -1,4 +1,7 @@
 {
+  "block.createfirefightingadd.copycat_multidirectional_trapdoor": "伪装多向活扳门",
+  "block.createfirefightingadd.copycat_short_sliding_door": "伪装矮推拉门",
+  "block.createfirefightingadd.copycat_short_folding_door": "伪装矮折叠门",
   "createfirefightingadd.creative_section.firefighting": "消防附加",
   "createfirefightingadd.creative_section.power_train": "传动集成",
   "block.createfirefightingadd.rope_connector_master": "绳索连接管理器",
@@ -387,5 +390,8 @@
   "createfirefightingadd.extension_ladder.invalid_direction": "这个方向无法放置拉梯。",
   "createfirefightingadd.extension_ladder.first_point_floor": "请选择地面方块的顶部面。",
   "createfirefightingadd.extension_ladder.anchor_blocked": "拉梯锚定位置没有足够空间。",
-  "createfirefightingadd.extension_ladder.anchor_failed": "拉梯放置失败。"
+  "createfirefightingadd.extension_ladder.anchor_failed": "拉梯放置失败。",
+  "smart_rope.selection": "绳索 %s / %s · 滚轮选择，使用键剪断",
+  "smart_rope.selection.empty": "连接器未连接绳索",
+  "smart_rope.selection.loading": "等待绳索同步后再剪断"
 }

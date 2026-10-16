@@ -32,11 +32,16 @@ public class SprayDebugRenderer {
 
 	public static void submitDynamicSpray(int key, Vec3 origin, Vec3 direction, boolean cone, int range,
 			double speed, double gravity, double friction, int lifetime, long expiresAt) {
+		submitDynamicSpray(key, origin, direction, cone, range, speed, gravity, friction, lifetime, expiresAt, null);
+	}
+
+	public static void submitDynamicSpray(int key, Vec3 origin, Vec3 direction, boolean cone, int range,
+			double speed, double gravity, double friction, int lifetime, long expiresAt, Vec3 widthAxis) {
 		Minecraft minecraft = Minecraft.getInstance();
 		if (!minecraft.getEntityRenderDispatcher().shouldRenderHitBoxes())
 			return;
 		DYNAMIC_SPRAYS.put(key, new DynamicSprayDebug(origin, direction.normalize(), cone, range, speed, gravity,
-			friction, lifetime, expiresAt));
+			friction, lifetime, expiresAt, widthAxis));
 	}
 
 	public static void renderDynamicSprays(RenderLevelStageEvent event) {
@@ -183,7 +188,7 @@ public class SprayDebugRenderer {
 		int lifetime = nozzle.getProjectileLifetime();
 		double range = nozzle.getEffectiveRange();
 
-		Vec3[] axes = FanSprayShape.fanAxes(baseDir);
+		Vec3[] axes = FanSprayShape.fanAxes(baseDir, FanSprayShape.nozzleWidth(facing));
 		double tanH = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_H_DEG));
 		double tanV = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_V_DEG));
 
@@ -342,7 +347,7 @@ public class SprayDebugRenderer {
 	}
 
 	private static List<List<Vec3>> buildDynamicFanRings(DynamicSprayDebug debug) {
-		Vec3[] axes = FanSprayShape.fanAxes(debug.direction());
+		Vec3[] axes = FanSprayShape.fanAxes(debug.direction(), debug.widthAxis());
 		double tanH = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_H_DEG));
 		double tanV = Math.tan(Math.toRadians(FLAT_HALF_ANGLE_V_DEG));
 		List<List<Vec3>> trajectories = new ArrayList<>(RING_SEGMENTS);
@@ -398,6 +403,6 @@ public class SprayDebugRenderer {
 	}
 
 	private record DynamicSprayDebug(Vec3 origin, Vec3 direction, boolean cone, int range, double speed,
-			double gravity, double friction, int lifetime, long expiresAt) {
+			double gravity, double friction, int lifetime, long expiresAt, Vec3 widthAxis) {
 	}
 }

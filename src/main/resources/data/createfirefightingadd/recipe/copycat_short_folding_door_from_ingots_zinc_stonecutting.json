@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": {
+    "tag": "c:ingots/zinc"
+  },
+  "result": {
+    "count": 4,
+    "id": "createfirefightingadd:copycat_short_folding_door"
+  }
+}
