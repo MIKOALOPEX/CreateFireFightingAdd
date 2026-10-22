@@ -51,6 +51,7 @@ public final class FireHoseConnections {
 	public static Result tryConnect(FireHoseBlockEntity first, FireHoseBlockEntity second) {
 		if (first == null || second == null)
 			return Result.MISSING_ENDPOINT;
+		if (!first.allowsHoseConnection() || !second.allowsHoseConnection()) return Result.MISSING_ENDPOINT;
 		if (first == second || first.getFireHoseEndpointId().equals(second.getFireHoseEndpointId()))
 			return Result.SAME_ENDPOINT;
 		if (!isWithinRange(first, second))

@@ -22,6 +22,7 @@ public record SmartRopeStopPacket(BlockPos pos, UUID id) implements CustomPacket
     static void register(RegisterPayloadHandlersEvent event) {
         event.registrar(CreateFireFightingAdd.MODID).playToClient(TYPE, CODEC, (packet, context) ->
             context.enqueueWork(() -> {
+                if (!SmartRopeCompatibility.available()) return;
                 if (context.player().level().getBlockEntity(packet.pos) instanceof SmartRopeConnectorBlockEntity smart)
                     smart.stopClientRope(packet.id);
             }));

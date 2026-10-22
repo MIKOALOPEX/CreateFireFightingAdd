@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "createfirefightingadd:block/fluid_coupling/base_item" }
+  }
+}

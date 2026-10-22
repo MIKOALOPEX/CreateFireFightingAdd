@@ -38,10 +38,15 @@ public final class CouplingAlignment {
     }
 
     public static Session begin(CouplingPhysics.Endpoint a, CouplingPhysics.Endpoint b, int mode, boolean free) {
+        return begin(a, b, mode, free, 1.5);
+    }
+
+    public static Session begin(CouplingPhysics.Endpoint a, CouplingPhysics.Endpoint b, int mode, boolean free, double maxError) {
+        if (!Double.isFinite(maxError) || maxError <= 0) return null;
         if (!StressCouplingCompatibility.enabled())
             return null;
         try {
-            return api == null ? null : api.begin(a, b, mode, free);
+            return api == null ? null : api.begin(a, b, mode, free, maxError);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             report(e);
             return null;
@@ -68,13 +73,14 @@ public final class CouplingAlignment {
         private final Vector3d movingAnchor, fixedAnchor, movingNormal, fixedNormal;
         private final Quaterniond relativeOrientation;
         private final int mode;
+        private final double maxError;
         private final Vector3d integral = new Vector3d();
         private boolean closed;
         private double elapsed;
         private volatile boolean failed;
 
         private Session(Api bridge, Object moving, Object fixed, Object runtime, Set<Object> bodies,
-                CouplingPhysics.Endpoint m, CouplingPhysics.Endpoint f, Object mv, Object fv, int mode)
+                CouplingPhysics.Endpoint m, CouplingPhysics.Endpoint f, Object mv, Object fv, int mode, double maxError)
                 throws ReflectiveOperationException {
             this.bridge = bridge;
             this.moving = moving;
@@ -82,6 +88,7 @@ public final class CouplingAlignment {
             this.runtime = runtime;
             this.bodies = bodies;
             this.mode = mode;
+            this.maxError = maxError;
             movingAnchor = new Vector3d(m.anchor());
             fixedAnchor = new Vector3d(f.anchor());
             Quaterniond mq = bridge.rotation(mv), fq = bridge.rotation(fv);
@@ -110,7 +117,7 @@ public final class CouplingAlignment {
                 }
                 Vector3d mp = bridge.position(mv, movingAnchor), fp = bridge.position(fv, fixedAnchor);
                 Vector3d error = fp.sub(mp);
-                if (!error.isFinite() || Math.abs(error.x) > 1.5 || Math.abs(error.y) > 1.5 || Math.abs(error.z) > 1.5) {
+                if (!error.isFinite() || Math.abs(error.x) > maxError || Math.abs(error.y) > maxError || Math.abs(error.z) > maxError) {
                     failed = true;
                     return;
                 }
@@ -217,7 +224,7 @@ public final class CouplingAlignment {
             inertia = view.getMethod("inertiaTensor");
         }
 
-        Session begin(CouplingPhysics.Endpoint a, CouplingPhysics.Endpoint b, int mode, boolean free)
+        Session begin(CouplingPhysics.Endpoint a, CouplingPhysics.Endpoint b, int mode, boolean free, double maxError)
                 throws ReflectiveOperationException {
             if (!a.dimension().equals(b.dimension())) return null;
             Object aid = id(a), bid = id(b);
@@ -248,7 +255,7 @@ public final class CouplingAlignment {
             Object fv = ((Optional<?>) body.invoke(null, fixed)).orElse(null);
             if (mv == null || fv == null && !(boolean) ground.invoke(fixed)) return null;
             Object rt = runtime.invoke(null);
-            Session session = new Session(this, moving, fixed, rt, members, moveA ? a : b, moveA ? b : a, mv, fv, mode);
+            Session session = new Session(this, moving, fixed, rt, members, moveA ? a : b, moveA ? b : a, mv, fv, mode, maxError);
             Object callback = Proxy.newProxyInstance(control.getClassLoader(), new Class<?>[] {control}, (proxy, method, args) -> {
                 if (method.getName().equals("tick")) { session.step(args[0]); return null; }
                 if (method.getName().equals("hashCode")) return System.identityHashCode(proxy);

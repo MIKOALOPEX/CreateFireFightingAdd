@@ -231,7 +231,8 @@ public class RopeLatchBlockEntity extends SmartBlockEntity implements RopeHookMo
         } catch (RuntimeException exception) {
             searchUntil = 0;
             notifyUpdate();
-            CreateFireFightingAdd.LOGGER.warn("Rope latch at {} could not capture a rope; search stopped.", worldPosition, exception);
+            CreateFireFightingAdd.LOGGER.warn("Rope latch at {} could not capture a rope; search stopped.", worldPosition);
+            CreateFireFightingAdd.LOGGER.debug("Rope latch capture failure", exception);
         }
     }
 
@@ -284,7 +285,8 @@ public class RopeLatchBlockEntity extends SmartBlockEntity implements RopeHookMo
             attach(server, rope, node);
         } catch (RuntimeException exception) {
             release();
-            CreateFireFightingAdd.LOGGER.warn("Rope latch at {} could not restore its attachment; released.", worldPosition, exception);
+            CreateFireFightingAdd.LOGGER.warn("Rope latch at {} could not restore its attachment; released.", worldPosition);
+            CreateFireFightingAdd.LOGGER.debug("Rope latch attachment restore failure", exception);
         }
     }
 
@@ -392,7 +394,8 @@ public class RopeLatchBlockEntity extends SmartBlockEntity implements RopeHookMo
             } catch (RuntimeException exception) {
                 // Never leave a live solver attachment pointing at a removed block.
                 if (boundRope.isActive()) SubLevelPhysicsSystem.get(server).removeObject(boundRope);
-                CreateFireFightingAdd.LOGGER.warn("Rope latch at {} released its physics object after a restore failure.", worldPosition, exception);
+                CreateFireFightingAdd.LOGGER.warn("Rope latch at {} released its physics object after a restore failure.", worldPosition);
+                CreateFireFightingAdd.LOGGER.debug("Rope latch physics restore failure", exception);
             }
         }
         pin = null;

@@ -29,7 +29,8 @@ public abstract class RopeLatchSlideMixin {
                 exception.addSuppressed(restoreFailure);
                 if (rope.isActive()) system.removeObject(rope);
             }
-            CreateFireFightingAdd.LOGGER.warn("Sliding rope latch released rope {} after a physics update failure.", rope.getUUID(), exception);
+            CreateFireFightingAdd.LOGGER.warn("Sliding rope latch released rope {} after a physics update failure.", rope.getUUID());
+            CreateFireFightingAdd.LOGGER.debug("Sliding rope latch physics update failure", exception);
         }
     }
 }

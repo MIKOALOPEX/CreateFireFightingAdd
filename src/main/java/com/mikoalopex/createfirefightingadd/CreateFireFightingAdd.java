@@ -11,6 +11,9 @@ import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatD
 import java.util.EnumMap;
 import java.util.List;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings;
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingRenderer;
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingClient;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingScreen;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingRenderer;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
@@ -312,13 +315,13 @@ public class CreateFireFightingAdd {
 			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
 
 	public static final DeferredItem<BlockItem> SMART_ROPE_CONNECTOR_ITEM =
-		ITEMS.registerSimpleBlockItem("smart_rope_connector", SMART_ROPE_CONNECTOR);
+		ITEMS.register("smart_rope_connector", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(SMART_ROPE_CONNECTOR.get(), new Item.Properties()));
 
     public static final DeferredBlock<RopeMasterBlock> ROPE_MASTER = BLOCKS.register("rope_connector_master",
         () -> RopeMasterCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
             .strength(3.0f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredItem<BlockItem> ROPE_MASTER_ITEM =
-        ITEMS.registerSimpleBlockItem("rope_connector_master", ROPE_MASTER);
+        ITEMS.register("rope_connector_master", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_MASTER.get(), new Item.Properties()));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RopeMasterBlockEntity>> ROPE_MASTER_BE =
         BLOCK_ENTITY_TYPES.register("rope_connector_master",
             () -> BlockEntityType.Builder.of(RopeMasterBlockEntity::new, ROPE_MASTER.get()).build(null));
@@ -328,13 +331,13 @@ public class CreateFireFightingAdd {
 	public static final DeferredBlock<Block> ROPE_HOOK = BLOCKS.register("rope_hook",
 		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
 			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-	public static final DeferredItem<BlockItem> ROPE_HOOK_ITEM = ITEMS.registerSimpleBlockItem("rope_hook", ROPE_HOOK);
+	public static final DeferredItem<BlockItem> ROPE_HOOK_ITEM = ITEMS.register("rope_hook", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_HOOK.get(), new Item.Properties()));
 
 	// Keep legacy registrations readable without replacing live rope attachments in existing worlds.
 	public static final DeferredBlock<Block> ROPE_LATCH = BLOCKS.register("rope_latch",
 		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
 			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-	public static final DeferredItem<BlockItem> ROPE_LATCH_ITEM = ITEMS.registerSimpleBlockItem("rope_latch", ROPE_LATCH);
+	public static final DeferredItem<BlockItem> ROPE_LATCH_ITEM = ITEMS.register("rope_latch", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_LATCH.get(), new Item.Properties()));
 
 	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
 		() -> new PipelineTurbineBlock(fluidPipeProperties()));
@@ -585,13 +588,15 @@ public class CreateFireFightingAdd {
 				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
-				if (ModList.get().isLoaded("simulated"))
+				if (SmartRopeCompatibility.available())
 					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
 				if (RopeLatchCompatibility.available()) output.accept(ROPE_HOOK_ITEM.get());
-                if (RopeLatchCompatibility.available()) output.accept(ROPE_MASTER_ITEM.get());
+                if (RopeMasterCompatibility.available()) output.accept(ROPE_MASTER_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
+			if (StressCouplingCompatibility.visible()) output.accept(FluidCouplings.ITEM.get());
+			output.accept(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
@@ -608,7 +613,10 @@ public class CreateFireFightingAdd {
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
+		com.mikoalopex.createfirefightingadd.compatibility.CapabilityCondition.register(modEventBus);
 		BallCouplings.init();
+		FluidCouplings.init();
+		com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.init();
 		CopycatDoors.init();
 		modEventBus.addListener(this::commonSetup);
 		modEventBus.addListener(this::registerCapabilities);
@@ -640,7 +648,7 @@ public class CreateFireFightingAdd {
 	}
 
 	private void commonSetup(final FMLCommonSetupEvent event) {
-		if (ModList.get().isLoaded("sable"))
+		if (ModList.get().getModContainerById("sable").map(mod -> mod.getModInfo().getVersion().getMajorVersion() == 1).orElse(false))
 			LOGGER.warn("Sable 1.x compatibility is deprecated and will no longer be maintained starting with the next Create Firefighting Add release. Please migrate to Sable 2.x.");
 
 		BlockStressValues.IMPACTS.register(HIGH_PRESSURE_PUMP.get(), () -> 8.0);
@@ -648,7 +656,7 @@ public class CreateFireFightingAdd {
 		BlockStressValues.IMPACTS.register(MULTIPURPOSE_BACKTANK.get(), () -> 4.0);
 		BlockStressValues.CAPACITIES.register(PIPELINE_TURBINE.get(), () -> 4.0);
 		event.enqueueWork(CreateFireFightingAdd::registerCreateContraptionCompat);
-		if (ModList.get().isLoaded("sable_schematic_api"))
+		if (SableStructureCompat.available() && ModList.get().isLoaded("sable_schematic_api"))
 			event.enqueueWork(CreateFireFightingAdd::registerSableSchematicCompat);
 	}
 
@@ -715,6 +723,8 @@ public class CreateFireFightingAdd {
 			FIRE_HOSE_BE.get(),
 			(be, context) -> be.getFluidHandler(context)
 		);
+		event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, FluidCouplings.BLOCK_ENTITY.get(),
+			(be, context) -> be.getFluidHandler(context));
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			FLOW_METER_BE.get(),
@@ -833,6 +843,8 @@ public class CreateFireFightingAdd {
 		@SubscribeEvent
 		public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
 			PartialModels.registerAdditional(event);
+			FluidCouplingRenderer.models(event);
+			com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerRenderer.models(event);
 		}
 
 		@SubscribeEvent
@@ -907,6 +919,7 @@ public class CreateFireFightingAdd {
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
             event.register(ROPE_MASTER_MENU.get(), RopeMasterScreen::new);
 			event.register(BallCouplings.MENU.get(), BallCouplingScreen::new);
+			event.register(FluidCouplings.MENU.get(), BallCouplingScreen::new);
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
 			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
 			event.register(FIREFIGHTER_HANDBOOK_MENU.get(), FirefighterHandbookScreen::new);
@@ -916,6 +929,8 @@ public class CreateFireFightingAdd {
 		public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
 			RopeLatchCompatibility.registerRenderer(event);
 			event.registerBlockEntityRenderer(BallCouplings.BLOCK_ENTITY.get(), BallCouplingRenderer::new);
+			event.registerBlockEntityRenderer(FluidCouplings.BLOCK_ENTITY.get(), FluidCouplingRenderer::new);
+			event.registerBlockEntityRenderer(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.BLOCK_ENTITY.get(), com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerRenderer::new);
 			event.registerEntityRenderer(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntityRenderer::new);
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());
@@ -957,6 +972,8 @@ public class CreateFireFightingAdd {
 			NozzleSprayClientSounds.clientTick();
 			SmartRopeCompatibility.clientTick();
 			CopycatDoorClient.tick();
+			FluidCouplingClient.tick();
+			com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerClient.tick();
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 				ExtensionLadderItemHandler.INSTANCE.clientTick();

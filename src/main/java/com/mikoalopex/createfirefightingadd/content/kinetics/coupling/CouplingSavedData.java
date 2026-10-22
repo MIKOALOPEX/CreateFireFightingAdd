@@ -39,53 +39,70 @@ public final class CouplingSavedData extends SavedData {
     private final Set<UUID> disconnected = new HashSet<>();
     private final LinkedHashSet<Removal> removals = new LinkedHashSet<>();
     private boolean ready;
+    private final ResourceLocation feature;
+
+    public CouplingSavedData() { this(FEATURE); }
+
+    private CouplingSavedData(ResourceLocation feature) { this.feature = feature; }
+
+    private static final ResourceLocation[] FEATURES = {FEATURE,
+        ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, "fluid_coupling")};
 
     static CouplingSavedData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(new Factory<>(CouplingSavedData::new,
-            (tag, registries) -> load(tag)), "createfirefightingadd_couplings");
+        return get(server, FEATURE);
     }
-    void invalidate(UUID pair) {
+
+    public static CouplingSavedData get(MinecraftServer server, ResourceLocation feature) {
+        return server.overworld().getDataStorage().computeIfAbsent(new Factory<>(() -> new CouplingSavedData(feature),
+            (tag, registries) -> load(tag, feature)), FEATURE.equals(feature) ? "createfirefightingadd_couplings"
+                : "createfirefightingadd_" + feature.getPath() + "_couplings");
+    }
+    public void invalidate(UUID pair) {
         if (pair != null && disconnected.add(pair)) setDirty();
     }
 
-    boolean consume(UUID pair) {
+    public boolean consume(UUID pair) {
         if (pair != null && disconnected.remove(pair)) { setDirty(); return true; }
         return false;
     }
 
-    void removeConstraint(ServerLevel level, UUID pair) {
+    public void removeConstraint(ServerLevel level, UUID pair) {
         if (pair == null) return;
         Removal removal = new Removal(level.dimension(), pair);
         if (removals.add(removal)) setDirty();
-        if (ready && CouplingPhysics.remove(level, FEATURE, pair)) {
+        if (ready && CouplingPhysics.remove(level, feature, pair)) {
             removals.remove(removal);
             setDirty();
         }
     }
 
-    boolean removalPending(ResourceKey<Level> dimension, UUID pair) {
+    public boolean removalPending(ResourceKey<Level> dimension, UUID pair) {
         return removals.contains(new Removal(dimension, pair));
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void started(ServerStartedEvent event) {
-        if (StressCouplingCompatibility.enabled()) get(event.getServer()).ready = true;
+        if (StressCouplingCompatibility.enabled())
+            for (var feature : FEATURES) get(event.getServer(), feature).ready = true;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void stopping(ServerStoppingEvent event) {
-        if (StressCouplingCompatibility.enabled()) get(event.getServer()).ready = false;
+        if (StressCouplingCompatibility.enabled())
+            for (var feature : FEATURES) get(event.getServer(), feature).ready = false;
     }
 
     @SubscribeEvent
     public static void tick(ServerTickEvent.Post event) {
         if (event.getServer().getTickCount() % RETRY_INTERVAL_TICKS != 0 || !StressCouplingCompatibility.enabled()) return;
-        CouplingSavedData data = get(event.getServer());
-        if (!data.ready) return;
-        data.retryRemovals((dimension, pair) -> {
-            ServerLevel level = event.getServer().getLevel(dimension);
-            return level != null && CouplingPhysics.remove(level, FEATURE, pair);
-        });
+        for (var feature : FEATURES) {
+            CouplingSavedData data = get(event.getServer(), feature);
+            if (!data.ready) continue;
+            data.retryRemovals((dimension, pair) -> {
+                ServerLevel level = event.getServer().getLevel(dimension);
+                return level != null && CouplingPhysics.remove(level, feature, pair);
+            });
+        }
     }
 
     void retryRemovals(BiPredicate<ResourceKey<Level>, UUID> remove) {
@@ -99,7 +116,11 @@ public final class CouplingSavedData extends SavedData {
     }
 
     private static CouplingSavedData load(CompoundTag tag) {
-        var data = new CouplingSavedData();
+        return load(tag, FEATURE);
+    }
+
+    private static CouplingSavedData load(CompoundTag tag, ResourceLocation feature) {
+        var data = new CouplingSavedData(feature);
         for (var entry : tag.getList("Disconnected", 8)) {
             try { data.disconnected.add(UUID.fromString(entry.getAsString())); }
             catch (IllegalArgumentException ignored) {}

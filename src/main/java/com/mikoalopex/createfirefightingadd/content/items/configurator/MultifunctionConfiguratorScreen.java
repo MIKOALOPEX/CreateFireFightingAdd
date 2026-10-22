@@ -740,6 +740,11 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 		if (!inside(x, y, FEATURE_X, FEATURE_Y, FEATURE_VISIBLE_WIDTH, Feature.values().length * FEATURE_ROW))
 			return false;
 		int index = (y - FEATURE_Y) / FEATURE_ROW;
+		if (Feature.values()[index] == Feature.ROPE && !com.mikoalopex.createfirefightingadd.compatibility.CompatibilitySnapshot
+			.visible(com.mikoalopex.createfirefightingadd.compatibility.Capability.ROPE_CAPTURE)) {
+			minecraft.player.displayClientMessage(Component.translatable("createfirefightingadd.compatibility.disabled"), true);
+			return true;
+		}
 		selectedFeature = Feature.values()[index];
 		draggingEntryScroll = false;
 		setFocused(null);

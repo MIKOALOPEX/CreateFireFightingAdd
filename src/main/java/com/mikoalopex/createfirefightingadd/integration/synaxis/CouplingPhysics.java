@@ -25,9 +25,14 @@ public final class CouplingPhysics {
     public record Endpoint(ResourceKey<net.minecraft.world.level.Level> dimension, UUID body,
             Vector3dc anchor, Vector3dc normal, Vector3dc tangent) {}
     public record Request(ResourceLocation feature, UUID id, Endpoint a, Endpoint b,
-            int mode, double lowerDegrees, double upperDegrees, boolean flipRange) {}
+            int mode, double lowerDegrees, double upperDegrees, boolean flipRange, boolean alignHingeTangents) {
+        public Request(ResourceLocation feature, UUID id, Endpoint a, Endpoint b,
+                int mode, double lowerDegrees, double upperDegrees, boolean flipRange) {
+            this(feature, id, a, b, mode, lowerDegrees, upperDegrees, flipRange, false);
+        }
+    }
     private record Connection(Object key, Quaterniond orientationA, Quaterniond orientationB,
-            Vector3d normalA, Vector3d normalB) {}
+            Vector3d normalA, Vector3d normalB, Quaterniond hingeTarget) {}
     private static Api api;
     private static boolean inspected;
     private static boolean reported;
@@ -74,6 +79,12 @@ public final class CouplingPhysics {
             c.orientationB.x, c.orientationB.y, c.orientationB.z, c.orientationB.w,
             c.normalA.x, c.normalA.y, c.normalA.z, c.normalB.x, c.normalB.y, c.normalB.z};
         for (int i = 0; i < values.length; i++) tag.putDouble("V" + i, values[i]);
+        if (c.hingeTarget != null) {
+            tag.putDouble("HingeX", c.hingeTarget.x);
+            tag.putDouble("HingeY", c.hingeTarget.y);
+            tag.putDouble("HingeZ", c.hingeTarget.z);
+            tag.putDouble("HingeW", c.hingeTarget.w);
+        }
         return tag;
     }
 
@@ -88,7 +99,16 @@ public final class CouplingPhysics {
         Vector3d na = new Vector3d(v[8], v[9], v[10]), nb = new Vector3d(v[11], v[12], v[13]);
         if (a.lengthSquared() < 1e-10 || b.lengthSquared() < 1e-10
                 || na.lengthSquared() < 1e-10 || nb.lengthSquared() < 1e-10) return null;
-        return new Connection(null, a.normalize(), b.normalize(), na.normalize(), nb.normalize());
+        Quaterniond target = null;
+        if (tag.contains("HingeX")) {
+            for (String key : new String[] {"HingeX", "HingeY", "HingeZ", "HingeW"})
+                if (!tag.contains(key, net.minecraft.nbt.Tag.TAG_DOUBLE) || !Double.isFinite(tag.getDouble(key))) return null;
+            target = new Quaterniond(tag.getDouble("HingeX"), tag.getDouble("HingeY"),
+                tag.getDouble("HingeZ"), tag.getDouble("HingeW"));
+            if (!Double.isFinite(target.lengthSquared()) || target.lengthSquared() < 1e-10) return null;
+            target.normalize();
+        }
+        return new Connection(null, a.normalize(), b.normalize(), na.normalize(), nb.normalize(), target);
     }
 
     public static boolean active(Object key) {
@@ -110,7 +130,7 @@ public final class CouplingPhysics {
             Object constraints = api.access.invoke(null);
             if (!api.hydrate.getDeclaringClass().isInstance(constraints)
                     || ((Optional<?>) api.savedData.invoke(null, level)).isEmpty()) return false;
-            // remove() itself does not hydrate Synaxis's saved constraint mirror.
+            // Load the saved constraint mirror before removing the joint.
             api.hydrate.invoke(constraints, level);
             String result = api.remove.invoke(constraints, api.constraintKey(level.dimension(), feature, id)).toString();
             return result.equals("APPLIED") || result.equals("NOT_FOUND");
@@ -211,6 +231,14 @@ public final class CouplingPhysics {
             Quaterniond targetB = mode == 0 ? new Quaterniond(qb)
                 : mode == 2 ? snappedFixedTarget(qb, otherAxis, axis, b.tangent(), a.tangent())
                 : new Quaterniond().rotationTo(otherAxis, new Vector3d(axis).negate()).mul(qb).normalize();
+            Quaterniond hingeTarget = null;
+            if (mode == 1 && request.alignHingeTangents()) {
+                // Docking hinges use the model's neutral pose, not the angle at first contact.
+                hingeTarget = previous != null && previous.hingeTarget() != null
+                    ? new Quaterniond(previous.hingeTarget())
+                    : alignedHingeTarget(qb, otherAxis, axis, b.tangent(), a.tangent());
+                targetB.set(hingeTarget);
+            }
             Object limit = null;
             if (mode == 1 && definition.getParameterCount() == 14) {
                 Class<?> arc = Class.forName(WELD + "WeldAngularLimit$ArcSelection");
@@ -254,7 +282,7 @@ public final class CouplingPhysics {
                 try { command.invoke(constraints, constraintKey, contact.newInstance(contacts)); }
                 catch (ReflectiveOperationException e) { remove.invoke(constraints, constraintKey); throw e; }
             }
-            return new Connection(constraintKey, qa, qb, axis, otherAxis);
+            return new Connection(constraintKey, qa, qb, axis, otherAxis, hingeTarget);
         }
 
         private Object bodyId(Endpoint endpoint) throws ReflectiveOperationException {
@@ -269,6 +297,19 @@ public final class CouplingPhysics {
                 ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, id.toString())), feature);
         }
 
+    }
+
+    static Quaterniond alignedHingeTarget(Quaterniondc movingOrientation, Vector3dc movingNormal,
+            Vector3dc fixedNormal, Vector3dc movingTangent, Vector3dc fixedTangent) {
+        Vector3d axis = new Vector3d(fixedNormal).negate().normalize();
+        Quaterniond correction = new Quaterniond().rotationTo(movingNormal, axis);
+        Vector3d current = correction.transform(new Vector3d(movingTangent));
+        Vector3d reference = new Vector3d(fixedTangent);
+        projectOntoPlane(current, axis);
+        projectOntoPlane(reference, axis);
+        double angle = signedAngle(current, reference, axis);
+        return new Quaterniond().rotationAxis(angle, axis.x, axis.y, axis.z)
+            .mul(correction).mul(movingOrientation).normalize();
     }
 
     static Quaterniond snappedFixedTarget(Quaterniondc movingOrientation, Vector3dc movingNormal,

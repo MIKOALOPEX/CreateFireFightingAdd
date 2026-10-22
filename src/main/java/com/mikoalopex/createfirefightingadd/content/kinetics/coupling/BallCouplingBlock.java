@@ -113,7 +113,7 @@ public class BallCouplingBlock extends KineticBlock implements IBE<BallCouplingB
 
     @Override
     public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
-        return new ItemStack(BallCouplings.ITEM.get());
+        return StressCouplingCompatibility.enabled() ? new ItemStack(BallCouplings.ITEM.get()) : ItemStack.EMPTY;
     }
 
     /** Matches the +Y model's blockstate rotation, including horizontal roll. */

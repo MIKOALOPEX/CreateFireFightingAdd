@@ -61,6 +61,8 @@ public class MultifunctionConfiguratorMenu extends AbstractContainerMenu {
 
 	@Override public boolean clickMenuButton(Player player, int id) {
 		if (!stillValid(player) || id < 0 || id > 1) return false;
+		if (id == 1 && !com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager
+			.available(com.mikoalopex.createfirefightingadd.compatibility.Capability.ROPE_CAPTURE)) return false;
 		ropePage = id == 1;
 		return true;
 	}

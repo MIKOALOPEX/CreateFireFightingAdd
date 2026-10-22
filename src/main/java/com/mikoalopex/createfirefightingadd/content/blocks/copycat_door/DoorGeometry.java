@@ -94,7 +94,7 @@ public final class DoorGeometry {
             .translate(-.5f, -.5f, -.5f);
     }
 
-    // User models run along X; Create's door partials run along Z.
+    // Door models run along X; Create's door partials run along Z.
     private static Matrix4f sourceFrame() {
         return new Matrix4f().m00(0).m02(1).m20(1).m22(0);
     }

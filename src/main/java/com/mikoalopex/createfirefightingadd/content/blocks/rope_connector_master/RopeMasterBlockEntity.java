@@ -16,6 +16,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
@@ -55,6 +56,7 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
     private boolean moving;
     private UUID managedRope;
     private boolean selected;
+    private ListTag unresolvedInventory;
     private final IItemHandler itemHandler = new InvWrapper(inventory);
 
     public IItemHandler getItemHandler() { return itemHandler; }
@@ -79,6 +81,7 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
     FireHoseConnectorMode mode() { return mode.get(); }
 
     public void sampleSignal() {
+        if (!RopeMasterCompatibility.available()) return;
         if (!(level instanceof ServerLevel) || moving) return;
         boolean powered = level.hasNeighborSignal(worldPosition);
         if (getBlockState().getValue(RopeMasterBlock.POWERED) != powered)
@@ -96,6 +99,7 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
     }
 
     @Override public void tick() {
+        if (!RopeMasterCompatibility.available()) { pending = null; return; }
         super.tick();
         if (level == null) return;
         if (!level.isClientSide && !moving) {
@@ -144,7 +148,7 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
         if (!(SableStructureCompat.worldLevel(this) instanceof ServerLevel server)) return;
         Vec3 center = SableStructureCompat.transformPositionToWorld(this, endpointPos().getCenter());
         int color = successful ? SUCCESS_LIME : FAILURE_RED;
-        // Match the hose connector's particle feedback, always around our local endpoint.
+        // Show connector feedback around the local endpoint.
         DustParticleOptions particle = new DustParticleOptions(new net.createmod.catnip.theme.Color(color).asVectorF(), 1);
         for (int i = 0; i < 24; i++) {
             double ox = (server.random.nextDouble() - 0.5) * 0.9;
@@ -179,6 +183,7 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
     public void finishMove() { moving = false; refreshClaim(); }
 
     void refreshClaim() {
+        if (!RopeMasterCompatibility.available()) return;
         if (claimed != null && !claimed.equals(endpointPos())) {
             releaseClaim();
             selected = false;
@@ -232,7 +237,8 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
         tag.putUUID("Identity", identity);
         tag.putBoolean("Selected", selected);
         if (managedRope != null) tag.putUUID("ManagedRope", managedRope);
-        tag.put("Inventory", inventory.createTag(registries));
+        tag.put("Inventory", unresolvedInventory != null && inventory.isEmpty()
+            ? unresolvedInventory.copy() : inventory.createTag(registries));
         tag.putBoolean("LastSignal", lastSignal);
         tag.putString("Failure", failure);
         tag.putLong("HighlightUntil", highlightUntil);
@@ -248,7 +254,11 @@ public class RopeMasterBlockEntity extends SmartBlockEntity implements MenuProvi
         selected = tag.getBoolean("Selected");
         managedRope = tag.hasUUID("ManagedRope") ? tag.getUUID("ManagedRope") : null;
         inventory.removeAllItems();
-        inventory.fromTag(tag.getList("Inventory", 10), registries);
+        ListTag savedInventory = tag.getList("Inventory", 10);
+        inventory.fromTag(savedInventory, registries);
+        // Retain unresolved item data without restoring stacks already extracted.
+        unresolvedInventory = !RopeMasterCompatibility.available() && inventory.isEmpty() && !savedInventory.isEmpty()
+            ? savedInventory.copy() : null;
         lastSignal = tag.getBoolean("LastSignal");
         failure = tag.getString("Failure");
         highlightUntil = tag.getLong("HighlightUntil");

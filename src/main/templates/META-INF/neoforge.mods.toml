@@ -32,7 +32,7 @@ side = "BOTH"
 modId = "create"
 type = "required"
 versionRange = "[6.0.10,6.1.0)"
-ordering = "NONE"
+ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies."${mod_id}"]]
@@ -52,7 +52,7 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId = "sable"
 type = "optional"
-versionRange = "[1.2.2,)"
+versionRange = "[0,)"
 ordering = "AFTER"
 side = "BOTH"
 
@@ -66,14 +66,14 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId = "simulated"
 type = "optional"
-versionRange = "[1.2.1,)"
+versionRange = "[0,)"
 ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies."${mod_id}"]]
 modId = "synaxis"
 type = "optional"
-versionRange = "[1.2.1,)"
+versionRange = "[0,)"
 ordering = "AFTER"
 side = "BOTH"
 

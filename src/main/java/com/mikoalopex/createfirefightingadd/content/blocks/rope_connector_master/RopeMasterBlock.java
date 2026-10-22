@@ -25,6 +25,11 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class RopeMasterBlock extends WrenchableDirectionalBlock implements IBE<RopeMasterBlockEntity> {
     public static final MapCodec<RopeMasterBlock> CODEC = simpleCodec(RopeMasterBlock::new);
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
+    @Override public net.minecraft.world.item.ItemStack getCloneItemStack(net.minecraft.world.level.LevelReader level,
+            BlockPos pos, BlockState state) {
+        return RopeMasterCompatibility.available() ? new net.minecraft.world.item.ItemStack(CreateFireFightingAdd.ROPE_MASTER_ITEM.get())
+            : net.minecraft.world.item.ItemStack.EMPTY;
+    }
 
     public RopeMasterBlock(Properties properties) {
         super(properties);

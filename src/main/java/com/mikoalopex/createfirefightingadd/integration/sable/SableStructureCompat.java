@@ -350,6 +350,8 @@ public final class SableStructureCompat {
     }
 
     private static StructureBackend loadBackend() {
+        if (!com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager
+                .versions(com.mikoalopex.createfirefightingadd.compatibility.Capability.SABLE_SPATIAL).available()) return null;
         try {
             ClassLoader loader = SableStructureCompat.class.getClassLoader();
             if (!hasSableBackendApi(loader))

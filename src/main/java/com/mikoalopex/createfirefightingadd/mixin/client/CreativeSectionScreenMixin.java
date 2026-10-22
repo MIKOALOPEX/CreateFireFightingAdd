@@ -33,7 +33,7 @@ public abstract class CreativeSectionScreenMixin extends AbstractContainerScreen
             return;
         }
         int row = ((CreativeSectionMenuAccessor) menu).firefighting$rowForScroll(scrollOffs);
-        // Like Simulated, draw above empty slots with depth testing. Tooltips are drawn afterwards.
+        // Draw above empty slots with depth testing, before tooltips.
         graphics.flush();
         RenderSystem.enableDepthTest();
         RenderSystem.setShaderColor(1, 1, 1, 1);

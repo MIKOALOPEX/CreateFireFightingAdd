@@ -98,6 +98,7 @@ public final class SableStructureClientCompat {
 	}
 
 	private static ClientStructureBackend loadBackend() {
+		if (!SableStructureCompat.available()) return null;
 		try {
 			ClassLoader loader = SableStructureClientCompat.class.getClassLoader();
 			if (!hasSableClientBackendApi(loader))

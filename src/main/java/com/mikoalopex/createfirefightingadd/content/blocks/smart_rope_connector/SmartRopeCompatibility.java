@@ -1,52 +1,55 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.smart_rope_connector;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.neoforged.fml.ModList;
+import com.mikoalopex.createfirefightingadd.compatibility.Capability;
+import com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager;
+import com.mikoalopex.createfirefightingadd.compatibility.InertPhysicsBlock;
+import com.mikoalopex.createfirefightingadd.compatibility.InertPhysicsBlockEntity;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
-/** Keeps optional Simulated classes behind a mod-presence check. */
+/** Keeps optional Simulated classes behind the rope capability checks. */
 public final class SmartRopeCompatibility {
     private SmartRopeCompatibility() {}
 
+    public static boolean available() { return CompatibilityManager.available(Capability.ROPE_CONNECT); }
+
     public static void clientTick() {
-        if (ModList.get().isLoaded("simulated")) SmartRopeSelection.tick();
+        if (available()) SmartRopeSelection.tick();
     }
 
     public static boolean scroll(double delta) {
-        return ModList.get().isLoaded("simulated") && SmartRopeSelection.scroll(delta);
+        return available() && SmartRopeSelection.scroll(delta);
     }
 
     public static boolean use() {
-        return ModList.get().isLoaded("simulated") && SmartRopeSelection.use();
+        return available() && SmartRopeSelection.use();
     }
 
     public static boolean selecting() {
-        return ModList.get().isLoaded("simulated") && SmartRopeSelection.hasTarget();
+        return available() && SmartRopeSelection.hasTarget();
     }
 
     public static void cut(net.minecraft.server.level.ServerPlayer player, SmartRopeCutPacket packet) {
-        if (ModList.get().isLoaded("simulated")) Loaded.cut(player, packet);
+        if (available()) Loaded.cut(player, packet);
     }
 
     public static Block createBlock(BlockBehaviour.Properties properties) {
-        return ModList.get().isLoaded("simulated") ? Loaded.createBlock(properties) : new InertBlock(properties);
+        return available() ? Loaded.createBlock(properties) : InertPhysicsBlock.create(properties, false);
     }
 
     public static BlockEntity createEntity(BlockPos pos, BlockState state) {
-        return ModList.get().isLoaded("simulated") ? Loaded.createEntity(pos, state) : null;
+        return available() ? Loaded.createEntity(pos, state)
+            : new InertPhysicsBlockEntity(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_BE.get(), pos, state);
     }
 
     public static void registerRenderer(EntityRenderersEvent.RegisterRenderers event) {
-        if (ModList.get().isLoaded("simulated")) Client.register(event);
+        if (available()) Client.register(event);
     }
 
     private static final class Loaded {
@@ -71,18 +74,6 @@ public final class SmartRopeCompatibility {
 
         static BlockEntity createEntity(BlockPos pos, BlockState state) {
             return new SmartRopeConnectorBlockEntity(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_BE.get(), pos, state);
-        }
-    }
-
-    private static final class InertBlock extends WrenchableDirectionalBlock {
-        private static final BooleanProperty AXIS = BooleanProperty.create("axis_along_first");
-
-        InertBlock(BlockBehaviour.Properties properties) { super(properties); }
-
-        @Override
-        protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-            super.createBlockStateDefinition(builder);
-            builder.add(AXIS);
         }
     }
 

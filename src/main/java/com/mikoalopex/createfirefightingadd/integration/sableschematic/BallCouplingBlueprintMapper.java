@@ -10,6 +10,8 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -32,8 +34,10 @@ final class BallCouplingBlueprintMapper implements InvocationHandler {
         return switch (method.getName()) {
             case "save" -> {
                 CompoundTag tag = args[1] == null ? null : ((CompoundTag) args[1]).copy();
-                if (tag != null && api.saveBlockEntity().invoke(args[0]) instanceof BallCouplingBlockEntity be) {
-                    BallCouplingBlockEntity other = be.partner();
+                Object entity = api.saveBlockEntity().invoke(args[0]);
+                if (tag != null && (entity instanceof BallCouplingBlockEntity || entity instanceof FluidCouplingBlockEntity)) {
+                    BlockEntity other = entity instanceof BallCouplingBlockEntity be ? be.partner()
+                        : ((FluidCouplingBlockEntity) entity).partner();
                     Object ref = other == null ? null : api.blockRef().invoke(args[0], other.getBlockPos());
                     if (ref instanceof Optional<?> value && value.isPresent()) {
                         CompoundTag partner = new CompoundTag();
@@ -55,6 +59,8 @@ final class BallCouplingBlueprintMapper implements InvocationHandler {
                     tag.putBoolean("CouplingSearch", false);
                     tag.remove("CouplingGuiPairCooldown");
                     tag.remove("RenderLink");
+                    tag.remove("FluidRenderLink");
+                    tag.remove("FluidConnected");
                     clearKinetics(tag);
                 }
                 yield null;
@@ -68,6 +74,18 @@ final class BallCouplingBlueprintMapper implements InvocationHandler {
                     // This callback runs after all copied block entities have received their remapped data.
                     if (!(mapped instanceof BlockPos pos) || be.getLevel() == null
                             || !(be.getLevel().getBlockEntity(pos) instanceof BallCouplingBlockEntity other)
+                            || !be.endpointId().equals(other.partnerId())
+                            || !other.endpointId().equals(be.partnerId())
+                            || be.pairId() == null || !be.pairId().equals(other.pairId()))
+                        be.disconnect();
+                    be.setChanged();
+                }
+                if (args[1] instanceof FluidCouplingBlockEntity be && tag != null && tag.contains(PARTNER_REF, 10)) {
+                    CompoundTag ref = tag.getCompound(PARTNER_REF);
+                    Object mapped = api.mapBlock().invoke(args[0],
+                        api.newBlockRef(ref.getInt("SubLevel"), BlockPos.of(ref.getLong("Pos"))));
+                    if (!(mapped instanceof BlockPos pos) || be.getLevel() == null
+                            || !(be.getLevel().getBlockEntity(pos) instanceof FluidCouplingBlockEntity other)
                             || !be.endpointId().equals(other.partnerId())
                             || !other.endpointId().equals(be.partnerId())
                             || be.pairId() == null || !be.pairId().equals(other.pairId()))

@@ -1,0 +1,4 @@
+{
+  "parent": "createfirefightingadd:block/fluid_coupling/receptacle_pitch",
+  "textures": { "1": "createfirefightingadd:block/fluid_coupling/receptacle_c" }
+}

@@ -35,6 +35,9 @@ public final class SableSchematicCompat {
 			api.registerMethod().invoke(null,
 				com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings.BLOCK_ENTITY.get(),
 				BallCouplingBlueprintMapper.create(api.mapperApi()));
+			api.registerMethod().invoke(null,
+				com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.BLOCK_ENTITY.get(),
+				BallCouplingBlueprintMapper.create(api.mapperApi()));
 			registered = true;
 			LOGGER.debug("Registered Create Firefighting Add Sable Blueprint compatibility");
 		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {

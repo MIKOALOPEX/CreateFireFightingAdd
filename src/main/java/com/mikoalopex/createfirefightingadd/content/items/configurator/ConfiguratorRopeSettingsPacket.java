@@ -38,6 +38,8 @@ public record ConfiguratorRopeSettingsPacket(int containerId, RopeSlideSettings 
 
     private static void handle(ConfiguratorRopeSettingsPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
+            if (!com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager
+                    .available(com.mikoalopex.createfirefightingadd.compatibility.Capability.ROPE_CAPTURE)) return;
             if (!(context.player() instanceof ServerPlayer player)
                     || !(player.containerMenu instanceof MultifunctionConfiguratorMenu menu)
                     || menu.containerId != packet.containerId || !menu.stillValid(player)) return;

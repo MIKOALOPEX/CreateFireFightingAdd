@@ -50,6 +50,19 @@ public final class CouplingSavedDataTest {
         data.invalidate(unloadedPartner);
         data = load(data.save(new CompoundTag(), null));
         check(data.consume(unloadedPartner) && !data.consume(unloadedPartner), "Partner tombstone must survive reload");
+        ResourceLocation fluid = ResourceLocation.fromNamespaceAndPath("createfirefightingadd", "fluid_coupling");
+        var featureLoad = CouplingSavedData.class.getDeclaredMethod("load", CompoundTag.class, ResourceLocation.class);
+        featureLoad.setAccessible(true);
+        CouplingSavedData fluidData = (CouplingSavedData) featureLoad.invoke(null, tag, fluid);
+        var feature = CouplingSavedData.class.getDeclaredField("feature");
+        feature.setAccessible(true);
+        check(fluid.equals(feature.get(fluidData)), "Fluid removals must use their own constraint feature");
+        check(CouplingSavedData.FEATURE.equals(feature.get(data)), "Stress removals must keep the original feature");
+        UUID fluidPair = UUID.randomUUID();
+        fluidData.invalidate(fluidPair);
+        check(!data.consume(fluidPair), "Fluid tombstones must not leak into stress coupling data");
+        fluidData = (CouplingSavedData) featureLoad.invoke(null, fluidData.save(new CompoundTag(), null), fluid);
+        check(fluidData.consume(fluidPair), "Fluid tombstones must survive reload");
         System.out.println("CouplingSavedData: persistence, deduplication and bounded retries passed");
     }
 

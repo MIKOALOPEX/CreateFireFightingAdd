@@ -103,6 +103,13 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        compatibilitySmoke {
+            type = "gameTestServer"
+            gameDirectory.set(layout.buildDirectory.dir("compatibility-smoke-${providers.gradleProperty('compatibilityProfile').getOrElse('base')}"))
+            systemProperty 'createfirefightingadd.compatibilityProfile', providers.gradleProperty('compatibilityProfile').getOrElse('base')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
         data {
             data()
 
@@ -120,6 +127,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            if (project.hasProperty('compatibilitySmoke')) sourceSet(sourceSets.test)
         }
     }
 }
@@ -133,11 +141,15 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.CompatibilityRulesTest',
+    checkRockerMotion: 'com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerMotionTest',
     checkRopeSliding: 'com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideStateTest',
     checkCouplingSavedData: 'com.mikoalopex.createfirefightingadd.content.kinetics.coupling.CouplingSavedDataTest',
     checkCouplingBlueprint: 'com.mikoalopex.createfirefightingadd.integration.sableschematic.BallCouplingBlueprintMapperTest',
     checkNozzleOrientation: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleOrientationTest',
-    checkCopycatDoors: 'com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.DoorGeometryTest'
+    checkCopycatDoors: 'com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.DoorGeometryTest',
+    checkFluidCouplingGeometry: 'com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingGeometryTest',
+    checkCouplingHingeFrame: 'com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingHingeFrameTest'
 ]
 regressionChecks.each { taskName, entryPoint ->
     tasks.register(taskName, JavaExec) {

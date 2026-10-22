@@ -21,6 +21,7 @@ public final class StressCouplingJeiPlugin implements IModPlugin {
     public void onRuntimeAvailable(IJeiRuntime runtime) {
         if (!StressCouplingCompatibility.visible())
             runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK,
-                List.of(new ItemStack(BallCouplings.ITEM.get())));
+                List.of(new ItemStack(BallCouplings.ITEM.get()), new ItemStack(
+                    com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.ITEM.get())));
     }
 }

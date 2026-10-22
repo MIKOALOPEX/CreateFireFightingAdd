@@ -204,19 +204,25 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     public void tick() {
         super.tick();
 
-        if (level == null) return;
+        if (prepareTransportTick()) tickConnectedTransport();
+    }
+
+    /** Connection owners may supply their own lifecycle while retaining the hose pressure engine. */
+    protected boolean prepareTransportTick() {
+
+        if (level == null) return false;
 
         if (level.isClientSide) {
             HoseRouteRenderer.track(this, route);
             renderLength.chase(getCurrentLength(), 0.5, LerpedFloat.Chaser.EXP);
             renderLength.tickChaser();
-            return;
+            return false;
         }
 
         HoseRoutes.tick(this);
         if (partnerPos == null) {
             updateDisconnectedEndpoint();
-            return;
+            return false;
         }
 
         if (level.isLoaded(partnerPos)) {
@@ -227,7 +233,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
                     ticksWithoutPartner++;
                     if (ticksWithoutPartner > 20) {
                         FireHoseConnections.disconnect(this);
-                        return;
+                        return false;
                     }
                 }
             } else {
@@ -237,7 +243,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         if (isWaitingForMovingPartner()) {
             snappingTime = 0;
-            return;
+            return false;
         }
 
         double distance = getHoseDistance();
@@ -249,9 +255,13 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         }
         if (snappingTime > TIME_TO_SNAP) {
             FireHoseConnections.disconnect(this);
-            return;
+            return false;
         }
 
+        return true;
+    }
+
+    protected void tickConnectedTransport() {
         Direction back = getBlockState().getValue(FireHoseBlock.FACING).getOpposite();
         FireHoseBlockEntity partner = getPairedHose();
         int tickTankBefore = getSharedTankRawAmount();
@@ -357,7 +367,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         cacheValid = false;
     }
 
-    private void updateDisconnectedEndpoint() {
+    protected void updateDisconnectedEndpoint() {
         ticksWithoutPartner = 0;
         snappingTime = 0;
         pumpSide = PUMP_SIDE_NONE;
@@ -1285,19 +1295,32 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     // Capability
     //
-    // Fire hose endpoints intentionally expose fluid access only through the two
-    // directions defined by FireHoseBlock.FACING. This mapping has been verified
-    // in the hose's supported runtime environments, including Create pipe
-    // networks and the mod's own hose transfer logic. External integrations
-    // should treat this block-state facing as the authoritative endpoint axis,
-    // even when the rendered model or placement context appears to suggest a
-    // different visual orientation.
+    // Fluid access uses the two directions along FireHoseBlock.FACING.
+    // Integrations must use this axis rather than infer it from the rendered model.
 
     public IFluidHandler getFluidHandler(@Nullable Direction side) {
         Direction facing = getBlockState().getValue(FireHoseBlock.FACING);
         if (side == facing || side == facing.getOpposite())
             return new HoseFluidHandler(this, side);
         return null;
+    }
+
+    public boolean allowsHoseConnection() { return true; }
+
+    protected boolean transportEnabled() { return true; }
+
+    protected void onFluidTransferred(int amount) {}
+
+    /** Preserve each endpoint's retained buffer when a new controller is elected. */
+    protected void mergeBufferedFluid(FireHoseBlockEntity controller) {
+        if (controller == this || tank == null || controller.tank == null) return;
+        IFluidHandler source = tank.getPrimaryHandler(), target = controller.tank.getPrimaryHandler();
+        FluidStack available = source.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
+        int accepted = target.fill(available, IFluidHandler.FluidAction.EXECUTE);
+        if (accepted > 0) {
+            source.drain(accepted, IFluidHandler.FluidAction.EXECUTE);
+            setChanged(); controller.setChanged();
+        }
     }
 
     // Public accessors
@@ -1723,7 +1746,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     Direction getBack() {
         BlockState state = getBlockState();
-        if (!(state.getBlock() instanceof FireHoseBlock))
+        if (!state.hasProperty(FireHoseBlock.FACING))
             return Direction.NORTH;
         return state.getValue(FireHoseBlock.FACING).getOpposite();
     }
@@ -1755,14 +1778,14 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     boolean shouldDriveBackPressure() {
-        if (level == null || pumpSide == PUMP_SIDE_NONE || getActivePumpSpeed() <= 0)
+        if (!transportEnabled() || level == null || pumpSide == PUMP_SIDE_NONE || getActivePumpSpeed() <= 0)
             return false;
         // The source side stays open, whether the source is a real pump or an upstream virtual hose.
         return pumpSide != PUMP_SIDE_BACK;
     }
 
     private boolean canRelayVirtualPressure() {
-        return level != null
+        return transportEnabled() && level != null
             && pumpSide != PUMP_SIDE_NONE
             && pumpSide != PUMP_SIDE_BACK
             && getActivePumpSpeed() > 0;
@@ -1841,6 +1864,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         BlockEntity be = level.getBlockEntity(backPos);
         if (!(be instanceof FireHoseBlockEntity targetHose))
             return;
+        if (!transportEnabled() || !targetHose.transportEnabled()) return;
         if (!targetHose.isPulling())
             return;
 
@@ -1870,6 +1894,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         }
 
         source.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+        onFluidTransferred(filled);
         notifyDirectHoseTransferChanged(targetHose);
         FireHoseDebugLog.logTransfer(this, "direct hose execute", this, targetHose,
             worldPosition, targetHose.getBlockPos(), drained, filled,
@@ -1957,6 +1982,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         int filled = container.fill(drained, IFluidHandler.FluidAction.EXECUTE);
         if (filled > 0) {
             tank.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+            onFluidTransferred(filled);
             FireHoseDebugLog.logTransfer(this, "container push execute", this, null,
                 worldPosition, getBlockPos().relative(getBack()), drained, filled,
                 tankBefore, getSharedTankRawAmount(), -1, -1);
@@ -2194,6 +2220,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         @Override
         public int fill(FluidStack resource, FluidAction action) {
+            if (!owner.transportEnabled()) return 0;
             resource = SafeFluidStacks.normalize(resource);
             boolean externalBackInput = side == owner.getBack();
             if (!owner.isPulling() && !externalBackInput)
@@ -2220,6 +2247,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         @Override
         public @NotNull FluidStack drain(FluidStack resource, FluidAction action) {
+            if (!owner.transportEnabled()) return FluidStack.EMPTY;
             resource = SafeFluidStacks.normalize(resource);
             boolean externalBackOutput = side == owner.getBack();
             if (!externalBackOutput && (owner.pumpSide == PUMP_SIDE_NONE || owner.isPulling()))
@@ -2234,6 +2262,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         @Override
         public @NotNull FluidStack drain(int maxDrain, FluidAction action) {
+            if (!owner.transportEnabled()) return FluidStack.EMPTY;
             boolean externalBackOutput = side == owner.getBack();
             if (!externalBackOutput && (owner.pumpSide == PUMP_SIDE_NONE || owner.isPulling()))
                 return FluidStack.EMPTY;
@@ -2248,6 +2277,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         private void logDrain(FluidStack drained, FluidAction action) {
             if (drained.isEmpty())
                 return;
+            if (action.execute()) owner.onFluidTransferred(drained.getAmount());
             FireHoseDebugLog.logRaw("capability drain pos={} amount={} type={} action={} pull={} side={} tank={}",
                 owner.worldPosition.toShortString(),
                 drained.getAmount(),

@@ -2,8 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
-      "modid": "simulated"
+      "type": "createfirefightingadd:capability",
+      "capability": "COUPLING"
     }
   ],
   "pattern": [

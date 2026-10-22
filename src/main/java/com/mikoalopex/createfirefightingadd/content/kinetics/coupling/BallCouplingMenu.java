@@ -1,5 +1,8 @@
 package com.mikoalopex.createfirefightingadd.content.kinetics.coupling;
 
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -13,9 +16,19 @@ public class BallCouplingMenu extends AbstractContainerMenu {
     private final BallCouplingBlockEntity owner;
     private final BlockPos pos;
     private final ContainerData values;
+    private FluidCouplingBlockEntity fluidOwner;
+    private final boolean fluid;
 
     public BallCouplingMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buffer) {
         this(id, inventory, buffer.readBlockPos(), null);
+    }
+
+    public BallCouplingMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buffer, boolean fluid) {
+        this(id, inventory, buffer.readBlockPos(), null, null, fluid);
+    }
+
+    public BallCouplingMenu(int id, Inventory inventory, FluidCouplingBlockEntity owner) {
+        this(id, inventory, owner.getBlockPos(), null, owner, true);
     }
 
     public BallCouplingMenu(int id, Inventory inventory, BallCouplingBlockEntity owner) {
@@ -23,12 +36,29 @@ public class BallCouplingMenu extends AbstractContainerMenu {
     }
 
     private BallCouplingMenu(int id, Inventory inventory, BlockPos pos, BallCouplingBlockEntity owner) {
-        super(BallCouplings.MENU.get(), id);
+        this(id, inventory, pos, owner, null, false);
+    }
+
+    private BallCouplingMenu(int id, Inventory inventory, BlockPos pos, BallCouplingBlockEntity owner,
+            FluidCouplingBlockEntity fluidOwner, boolean fluid) {
+        super(fluid ? FluidCouplings.MENU.get() : BallCouplings.MENU.get(), id);
+        this.fluid = fluid;
+        this.fluidOwner = fluidOwner;
         this.owner = owner;
         this.pos = pos;
-        values = owner == null ? new SimpleContainerData(8) : new ContainerData() {
+        values = owner == null && fluidOwner == null ? new SimpleContainerData(8) : new ContainerData() {
             @Override
             public int get(int index) {
+                if (fluidOwner != null) return switch (index) {
+                    case 0 -> fluidOwner.settings().freeMode();
+                    case 1 -> fluidOwner.status();
+                    case 2 -> fluidOwner.settings().type().ordinal();
+                    case 3 -> fluidOwner.settings().lower();
+                    case 4 -> fluidOwner.settings().upper();
+                    case 6 -> fluidOwner.partnerId() != null ? 1 : 0;
+                    case 7 -> fluidOwner.settings().flipRange() ? 1 : 0;
+                    default -> 1;
+                };
                 return switch (index) {
                     case 0 -> owner.mode();
                     case 1 -> owner.status();
@@ -57,6 +87,8 @@ public class BallCouplingMenu extends AbstractContainerMenu {
         return values.get(0);
     }
 
+    public boolean fluid() { return fluid; }
+
     public int status() {
         return values.get(1);
     }
@@ -69,12 +101,20 @@ public class BallCouplingMenu extends AbstractContainerMenu {
     public boolean flipRange() { return values.get(7) == 1; }
 
     public void applySettings(Player player, int mode, int role, int lower, int upper, boolean flip) {
+        if (fluidOwner != null) {
+            if (stillValid(player) && !player.isSpectator()) fluidOwner.applySettings(mode, role, lower, upper, flip);
+            broadcastChanges(); return;
+        }
         if (owner == null || !stillValid(player) || player.isSpectator()) return;
         owner.applySettings(mode, role, lower, upper, flip);
         broadcastChanges();
     }
 
     public void disconnectFromGui(Player player) {
+        if (fluidOwner != null) {
+            if (stillValid(player) && !player.isSpectator() && fluidOwner.partnerId() != null) fluidOwner.disconnectFromGui();
+            broadcastChanges(); return;
+        }
         if (owner == null || !stillValid(player) || player.isSpectator() || owner.partnerId() == null)
             return;
         owner.disconnectFromGui();
@@ -93,6 +133,8 @@ public class BallCouplingMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         if (!StressCouplingCompatibility.enabled()) return false;
+        if (fluidOwner != null) return !fluidOwner.isRemoved() && player.level() == fluidOwner.worldLevel()
+            && player.position().distanceToSqr(fluidOwner.worldAnchor()) <= 64;
         if (owner == null)
             return true;
         return !owner.isRemoved() && player.level() == owner.worldLevel()

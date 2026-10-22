@@ -41,7 +41,12 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
         updateFields();
     }
 
-    private static Component text(String key) { return Component.translatable("ball_coupling." + key); }
+    private Component text(String key) {
+        return Component.translatable((menu.fluid() && (key.equals("title") || key.startsWith("interface."))
+            ? "fluid_coupling." : "ball_coupling.") + key);
+    }
+
+    private boolean hardBoom() { return menu.fluid() && selectedRole != 0; }
 
     private void updateFields() {
         lowerInput.setValue(Integer.toString(lower));
@@ -76,7 +81,8 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
         if (!menu.connected()) switchDisconnected = false;
         g.blit(SWITCH, leftPos + 199, topPos + 157, 6, menu.connected() && !switchDisconnected ? 34 : 2,
             40, 24, 128, 128);
-        modeButton.setMessage(text("mode." + selectedMode));
+        modeButton.active = !hardBoom();
+        modeButton.setMessage(hardBoom() ? Component.translatable("fluid_coupling.pitch_joint") : text("mode." + selectedMode));
         roleButton.setMessage(text("interface." + selectedRole));
         g.drawString(font, text("title").copy().withStyle(net.minecraft.ChatFormatting.BOLD),
             leftPos + 8, topPos + 6, 0xffffff, false);
@@ -84,9 +90,15 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             leftPos + 10, topPos + 26, 0x353535, false);
         g.drawString(font, text("interface").copy().withStyle(net.minecraft.ChatFormatting.BOLD),
             leftPos + 143, topPos + 26, 0x353535, false);
-        lowerInput.visible = upperInput.visible = selectedMode == 1;
-        flipButton.visible = selectedMode == 1;
-        if (selectedMode == 1) {
+        lowerInput.visible = upperInput.visible = selectedMode == 1 && !hardBoom();
+        flipButton.visible = selectedMode == 1 && !hardBoom();
+        if (hardBoom()) {
+            g.drawCenteredString(font, Component.literal(
+                com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingGeometry.MIN_PITCH + "° / +"
+                    + com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingGeometry.MAX_PITCH + "°"),
+                leftPos + 96, topPos + 120, 0xffffff);
+        }
+        if (selectedMode == 1 && !hardBoom()) {
             int cx = leftPos + 96, cy = topPos + 127;
             for (int degree = -180; degree < 180; degree++) {
                 double angle = Math.toRadians(degree);
@@ -130,7 +142,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             }
             g.pose().popPose();
         }
-        if (selectedMode == 1) {
+        if (selectedMode == 1 && !hardBoom()) {
             g.fill(leftPos + 261, topPos + 142, leftPos + 266, topPos + 147,
                 flipRange ? 0xff75a66a : 0xff72746d);
         }
@@ -168,7 +180,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             PacketDistributor.sendToServer(new BallCouplingDisconnectPacket(menu.containerId));
             return true;
         }
-        if (button == 0 && selectedMode == 1) {
+        if (button == 0 && selectedMode == 1 && !hardBoom()) {
             double dx = x - leftPos - 96, dy = y - topPos - 127;
             double distance = dx * dx + dy * dy;
             if (distance >= 25 && distance <= 2500) {

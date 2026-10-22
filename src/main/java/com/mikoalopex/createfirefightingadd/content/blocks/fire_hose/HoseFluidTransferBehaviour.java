@@ -26,10 +26,11 @@ public class HoseFluidTransferBehaviour extends FluidTransportBehaviour {
 
     @Override
     public boolean canHaveFlowToward(BlockState state, Direction direction) {
-        if (!(state.getBlock() instanceof FireHoseBlock))
+        if (!state.hasProperty(FireHoseBlock.FACING))
             return false;
         if (!(blockEntity instanceof FireHoseBlockEntity hose))
             return false;
+        if (!hose.transportEnabled()) return false;
         if (direction != state.getValue(FireHoseBlock.FACING).getOpposite())
             return false;
         return hose.shouldDriveBackPressure();
@@ -66,6 +67,8 @@ public class HoseFluidTransferBehaviour extends FluidTransportBehaviour {
     public FluidStack getProvidedOutwardFluid(Direction side) {
         if (!(blockEntity instanceof FireHoseBlockEntity hose))
             return FluidStack.EMPTY;
+        if (!hose.transportEnabled())
+            return FluidStack.EMPTY;
         if (side != hose.getBack())
             return FluidStack.EMPTY;
         return hose.getSharedTankFluidForPipeOutput();
@@ -75,7 +78,7 @@ public class HoseFluidTransferBehaviour extends FluidTransportBehaviour {
         if (hose == null || hose.getLevel() == null)
             return;
         BlockState state = hose.getBlockState();
-        if (!(state.getBlock() instanceof FireHoseBlock))
+        if (!state.hasProperty(FireHoseBlock.FACING))
             return;
         Direction facing = state.getValue(FireHoseBlock.FACING);
         if (side.getAxis() != facing.getAxis())

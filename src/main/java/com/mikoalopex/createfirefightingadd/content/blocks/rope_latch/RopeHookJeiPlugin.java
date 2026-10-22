@@ -19,7 +19,10 @@ public final class RopeHookJeiPlugin implements IModPlugin {
         var hidden = new ArrayList<ItemStack>();
         hidden.add(new ItemStack(CreateFireFightingAdd.ROPE_LATCH_ITEM.get()));
         if (!RopeLatchCompatibility.available()) hidden.add(new ItemStack(CreateFireFightingAdd.ROPE_HOOK_ITEM.get()));
-        if (!RopeLatchCompatibility.available()) hidden.add(new ItemStack(CreateFireFightingAdd.ROPE_MASTER_ITEM.get()));
+        if (!com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterCompatibility.available())
+            hidden.add(new ItemStack(CreateFireFightingAdd.ROPE_MASTER_ITEM.get()));
+        if (!com.mikoalopex.createfirefightingadd.content.blocks.smart_rope_connector.SmartRopeCompatibility.available())
+            hidden.add(new ItemStack(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_ITEM.get()));
         runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK, hidden);
     }
 }

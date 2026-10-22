@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "createfirefightingadd:fluid_coupling",
     "createfirefightingadd:copycat_multidirectional_trapdoor",
     "createfirefightingadd:copycat_short_sliding_door",
     "createfirefightingadd:copycat_short_folding_door",

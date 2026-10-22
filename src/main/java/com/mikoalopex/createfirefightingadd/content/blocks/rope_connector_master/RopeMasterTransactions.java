@@ -46,6 +46,7 @@ final class RopeMasterTransactions {
     }
 
     static Request capture(RopeMasterBlockEntity master) {
+        if (!RopeMasterCompatibility.available()) return null;
         ServerLevel level = (ServerLevel) master.getLevel();
         BlockEntity endpoint = loaded(level, master.endpointPos());
         if (endpoint == null) { master.fail("no_endpoint"); return null; }
@@ -63,6 +64,7 @@ final class RopeMasterTransactions {
     }
 
     static void execute(RopeMasterBlockEntity master, Request request) {
+        if (!RopeMasterCompatibility.available()) return;
         ServerLevel level = (ServerLevel) master.getLevel();
         BlockEntity first = loaded(level, request.endpoint());
         if (level.getGameTime() > request.expires() || !request.endpoint().equals(master.endpointPos())
@@ -82,7 +84,8 @@ final class RopeMasterTransactions {
                 if (!adapter.remove(level, link)) { master.fail("failed"); return; }
             } catch (RuntimeException error) {
                 CreateFireFightingAdd.LOGGER.error(
-                    "Rope removal failed at {} for {}; no refund was issued", master.getBlockPos(), link.id(), error);
+                    "Rope removal failed at {} for {}; no refund was issued", master.getBlockPos(), link.id());
+                CreateFireFightingAdd.LOGGER.debug("Rope manager removal failure", error);
                 master.fail("failed");
                 return;
             }
@@ -108,17 +111,18 @@ final class RopeMasterTransactions {
         if (!eligible(level, adapter, first, second)) second = null;
         if (second == null && request.mode() == FireHoseConnectorMode.FREE) second = find(level, adapter, first);
         if (second == null) { master.fail("no_target"); return; }
-        // No inventory or network work is deferred beyond this point.
+        // Complete inventory and rope updates synchronously.
         stamp(level, first, second);
         ItemStack reserved = master.inventory.removeItem(0, 1);
         if (reserved.isEmpty()) { master.fail("no_material"); return; }
         Link created;
         try { created = adapter.create(level, first, second, reserved); }
         catch (RuntimeException error) {
-            // An adapter exception may have happened after creation. Never refund an unproven failure.
+            // Creation may have succeeded before the exception; refunding could duplicate material.
             CreateFireFightingAdd.LOGGER.error(
                 "Rope creation failed at {} using {}; material was not refunded to avoid duplication",
-                master.getBlockPos(), adapter.id(), error);
+                master.getBlockPos(), adapter.id());
+            CreateFireFightingAdd.LOGGER.debug("Rope manager creation failure", error);
             master.fail("failed");
             return;
         }

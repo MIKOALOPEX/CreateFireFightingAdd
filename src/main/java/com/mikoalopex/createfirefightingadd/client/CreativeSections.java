@@ -40,11 +40,13 @@ public final class CreativeSections {
         List<ItemStack> fire = new ArrayList<>();
         List<ItemStack> power = new ArrayList<>();
         for (ItemStack stack : original) {
-            if (stack.isEmpty()) continue;
+            if (stack.isEmpty() || !com.mikoalopex.createfirefightingadd.compatibility.ComponentPolicies.visible(stack)) continue;
             boolean transmission = stack.is(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_ITEM.get())
                 || stack.is(CreateFireFightingAdd.ROPE_HOOK_ITEM.get())
                 || stack.is(CreateFireFightingAdd.ROPE_MASTER_ITEM.get())
                 || stack.is(BallCouplings.ITEM.get())
+                || stack.is(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.ITEM.get())
+                || stack.is(com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.ITEM.get())
                 || stack.getItem() instanceof net.minecraft.world.item.BlockItem item && item.getBlock() instanceof CopycatDoorBlock;
             (transmission ? power : fire).add(stack);
         }

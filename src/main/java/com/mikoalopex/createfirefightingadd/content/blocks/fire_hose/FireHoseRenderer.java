@@ -404,6 +404,32 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         return list;
     }
 
+    /** Draws a short hose between explicit square faces without creating endpoint blocks. */
+    public void renderConnection(PoseStack pose, MultiBufferSource buffers, int light,
+            Vec3 start, Vec3 end, Vec3 normalA, Vec3 normalB, Vec3 edgeA, Vec3 edgeB) {
+        if (start.distanceToSqr(end) < 1e-10) return;
+        var points = generateSpline(vector(start), vector(end), vector(normalA), vector(normalB),
+            Math.min(0.5, start.distanceTo(end) / 3));
+        var buffer = buffers.getBuffer(DEFAULT_HOSE_RENDER_TYPE);
+        float distance = 0;
+        Vector3d previousEdge = vector(edgeA);
+        for (int i = 0; i < points.size() - 1; i++) {
+            var a = points.get(i); var b = points.get(i + 1);
+            Vector3d nextEdge = vector(edgeA).lerp(vector(edgeB), (i + 1.0) / (points.size() - 1));
+            nextEdge.fma(-nextEdge.dot(b.normal), b.normal);
+            if (nextEdge.lengthSquared() < 1e-10) {
+                nextEdge.set(Math.abs(b.normal.y()) < 0.9 ? new Vector3d(0, 1, 0) : new Vector3d(1, 0, 0));
+                nextEdge.fma(-nextEdge.dot(b.normal), b.normal);
+            }
+            nextEdge.normalize();
+            float nextDistance = distance + (float) a.point.distance(b.point);
+            renderSegment(pose, a.normal, b.normal, previousEdge, nextEdge, a.point, b.point,
+                distance, nextDistance, light, 0xffffffff, buffer, TUBE_WIDTH, TEXTURE_WIDTH);
+            distance = nextDistance;
+            previousEdge.set(nextEdge);
+        }
+    }
+
     private void renderSegment(PoseStack ms, Vector3dc startDirection, Vector3dc endDirection,
                                 Vector3dc inputStartUp, Vector3dc inputEndUp,
                                 Vector3dc startPos, Vector3dc endPos,

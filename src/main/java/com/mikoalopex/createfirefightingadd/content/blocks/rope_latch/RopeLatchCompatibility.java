@@ -1,16 +1,16 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.rope_latch;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.neoforged.fml.ModList;
+import com.mikoalopex.createfirefightingadd.compatibility.Capability;
+import com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager;
+import com.mikoalopex.createfirefightingadd.compatibility.InertPhysicsBlock;
+import com.mikoalopex.createfirefightingadd.compatibility.InertPhysicsBlockEntity;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
 /** Keeps rope physics classes out of installations without Sable 2 and Simulated. */
@@ -18,16 +18,16 @@ public final class RopeLatchCompatibility {
     private RopeLatchCompatibility() {}
 
     public static boolean available() {
-        return ModList.get().isLoaded("simulated") && ModList.get().getModContainerById("sable")
-            .map(mod -> mod.getModInfo().getVersion().getMajorVersion() == 2).orElse(false);
+        return CompatibilityManager.available(Capability.ROPE_CAPTURE);
     }
 
     public static Block createBlock(BlockBehaviour.Properties properties) {
-        return available() ? Loaded.block(properties) : new InertBlock(properties);
+        return available() ? Loaded.block(properties) : InertPhysicsBlock.create(properties, true);
     }
 
     public static BlockEntity createEntity(BlockPos pos, BlockState state) {
-        return available() ? Loaded.entity(pos, state) : null;
+        return available() ? Loaded.entity(pos, state)
+            : new InertPhysicsBlockEntity(CreateFireFightingAdd.ROPE_LATCH_BE.get(), pos, state);
     }
 
     public static void registerRenderer(EntityRenderersEvent.RegisterRenderers event) {
@@ -49,13 +49,4 @@ public final class RopeLatchCompatibility {
         }
     }
 
-    private static final class InertBlock extends WrenchableDirectionalBlock {
-        InertBlock(Properties properties) { super(properties); }
-
-        @Override
-        protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-            super.createBlockStateDefinition(builder);
-            builder.add(BooleanProperty.create("axis_along_first"), BooleanProperty.create("powered"));
-        }
-    }
 }

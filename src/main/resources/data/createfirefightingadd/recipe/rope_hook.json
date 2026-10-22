@@ -1,5 +1,6 @@
 {
   "type": "minecraft:crafting_shaped",
+  "neoforge:conditions": [{ "type": "createfirefightingadd:capability", "capability": "ROPE_CAPTURE" }],
   "pattern": [
     "AB ",
     " E ",
