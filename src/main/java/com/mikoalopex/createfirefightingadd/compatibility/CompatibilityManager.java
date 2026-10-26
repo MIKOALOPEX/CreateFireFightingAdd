@@ -9,6 +9,30 @@ import net.neoforged.fml.ModList;
 /** Resolves optional adapters once, before their factories or runtime entry points are used. */
 public final class CompatibilityManager {
     private static final AtomicReferenceArray<CapabilityStatus> STATUS = new AtomicReferenceArray<>(Capability.values().length);
+    private static volatile long revision;
+
+    public static long revision() { return revision; }
+    public static boolean failed(Capability capability) {
+        CapabilityStatus status = STATUS.get(capability.ordinal());
+        return status != null && status.state() == CapabilityStatus.State.API_UNAVAILABLE;
+    }
+
+    public static synchronized void disable(Capability capability, String reason) {
+        CapabilityStatus previous = STATUS.get(capability.ordinal());
+        if (previous != null && !previous.available()) return;
+        STATUS.set(capability.ordinal(), new CapabilityStatus(CapabilityStatus.State.API_UNAVAILABLE, reason));
+        revision++;
+        LogUtils.getLogger().warn("[CFFA compatibility] {} disabled: {}. {}", capability, reason, ComponentPolicies.impact(capability));
+        if (capability == Capability.COUPLING)
+            disable(Capability.FLUID_COUPLING, "Shared coupling backend unavailable");
+    }
+
+    public static int mask() {
+        int mask = 0;
+        for (Capability capability : Capability.values())
+            if (available(capability)) mask |= 1 << capability.ordinal();
+        return mask;
+    }
 
     public static String version(String id) {
         return ModList.get().getModContainerById(id)
@@ -47,6 +71,9 @@ public final class CompatibilityManager {
         if (capability == Capability.SABLE_SPATIAL) return SableStructureCompat.available();
         if (!available(Capability.SABLE_SPATIAL)) return false;
         if (capability == Capability.COUPLING) return StressCouplingCompatibility.enabled();
+        if (capability == Capability.FLUID_COUPLING)
+            return available(Capability.COUPLING)
+                && com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.adapterAvailable();
         ClassLoader loader = CompatibilityManager.class.getClassLoader();
         String rope = "dev.simulated_team.simulated.content.blocks.rope.";
         Class<?> holder = Class.forName(rope + "RopeStrandHolderBehavior", false, loader);
@@ -67,6 +94,8 @@ public final class CompatibilityManager {
             strand.getMethod("prePhysicsTick", system, net.minecraft.server.level.ServerLevel.class, double.class);
             Class.forName("dev.ryanhcode.sable.api.physics.object.rope.RopeHandle", false, loader);
         }
+        if (capability == Capability.PHYSICAL_HOSE)
+            return com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoses.adapterAvailable();
         if (capability == Capability.ROPE_MANAGE) {
             if (!available(Capability.ROPE_CAPTURE)) return false;
             holder.getMethod("destroyRope", net.minecraft.server.level.ServerPlayer.class,

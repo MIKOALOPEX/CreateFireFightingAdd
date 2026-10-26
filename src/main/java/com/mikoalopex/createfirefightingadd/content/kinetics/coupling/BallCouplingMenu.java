@@ -132,7 +132,7 @@ public class BallCouplingMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        if (!StressCouplingCompatibility.enabled()) return false;
+        if (fluid ? !FluidCouplings.enabled() : !StressCouplingCompatibility.enabled()) return false;
         if (fluidOwner != null) return !fluidOwner.isRemoved() && player.level() == fluidOwner.worldLevel()
             && player.position().distanceToSqr(fluidOwner.worldAnchor()) <= 64;
         if (owner == null)

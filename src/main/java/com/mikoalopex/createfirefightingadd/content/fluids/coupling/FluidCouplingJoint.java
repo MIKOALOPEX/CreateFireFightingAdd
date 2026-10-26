@@ -23,7 +23,7 @@ public final class FluidCouplingJoint {
             Direction facing, FluidCouplingSettings settings, UnaryOperator<Vec3> toWorldDirection) {
         Vec3 anchor = FluidCouplingGeometry.modelPoint(settings.type().jointPivot(settings.height()), facing)
             .add(Vec3.atLowerCornerOf(pos));
-        boolean hard = settings.type().locksConstraint();
+        boolean hard = settings.type().hardBoom();
         boolean passive = settings.type() == FluidCouplingInterfaces.BOOM_NOZZLE;
         Vec3 normal = hard ? new Vec3(passive ? -1 : 1, 0, 0) : new Vec3(0, 1, 0);
         Vec3 tangent = hard ? new Vec3(0, passive ? -1 : 1, 0) : new Vec3(1, 0, 0);

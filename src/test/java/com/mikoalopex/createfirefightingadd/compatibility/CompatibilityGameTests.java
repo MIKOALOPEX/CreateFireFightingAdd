@@ -23,6 +23,7 @@ public final class CompatibilityGameTests {
     @GameTest(template = "compatibility_empty")
     public static void capabilityProfile(GameTestHelper helper) {
         String profile = System.getProperty("createfirefightingadd.compatibilityProfile", "base");
+        creativeFiltering(helper);
         for (String recipe : new String[] {"rope_hook", "smart_rope_connector", "rope_connector_master", "stress_coupling"}) {
             var id = CreateFireFightingAdd.path(recipe);
             helper.assertTrue(helper.getLevel().getRecipeManager().byKey(id).isPresent() == ComponentPolicies.enabled(id),
@@ -32,11 +33,12 @@ public final class CompatibilityGameTests {
             helper.assertTrue(CompatibilityManager.available(Capability.SABLE_SPATIAL), CompatibilityManager.status(Capability.SABLE_SPATIAL).toString());
             for (Capability capability : Capability.values()) {
                 boolean expected = profile.equals("full") || capability == Capability.SABLE_SPATIAL
-                    || profile.equals("ropes") && capability != Capability.COUPLING
+                    || profile.equals("ropes") && capability != Capability.COUPLING && capability != Capability.FLUID_COUPLING
                     || profile.startsWith("old") && capability == Capability.ROPE_CONNECT;
                 helper.assertTrue(CompatibilityManager.available(capability) == expected,
                     profile + " / " + capability + ": " + CompatibilityManager.status(capability));
             }
+            if (profile.equals("full")) backendFailure(helper);
             helper.succeed();
             return;
         }
@@ -85,5 +87,60 @@ public final class CompatibilityGameTests {
         helper.assertTrue(master.saveWithoutMetadata(helper.getLevel().registryAccess()).getList("Inventory", 10).isEmpty(),
             "Extracted inventory was restored from stale data");
         helper.succeed();
+    }
+
+    private static void creativeFiltering(GameTestHelper helper) {
+        var tab = net.minecraft.world.item.CreativeModeTabs.getDefaultTab();
+        var parameters = new net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters(
+            net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS, true, helper.getLevel().registryAccess());
+        var parent = new net.neoforged.neoforge.common.util.InsertableLinkedOpenCustomHashSet<net.minecraft.world.item.ItemStack>(
+            net.minecraft.world.item.ItemStackLinkedSet.TYPE_AND_TAG);
+        var search = new net.neoforged.neoforge.common.util.InsertableLinkedOpenCustomHashSet<net.minecraft.world.item.ItemStack>(
+            net.minecraft.world.item.ItemStackLinkedSet.TYPE_AND_TAG);
+        var event = new net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent(tab,
+            net.minecraft.world.item.CreativeModeTabs.BUILDING_BLOCKS, parameters, parent, search);
+        var both = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE);
+        var parentOnly = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIRT);
+        var searchOnly = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SAND);
+        var retained = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GLASS);
+        event.accept(both, net.minecraft.world.item.CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        event.accept(parentOnly, net.minecraft.world.item.CreativeModeTab.TabVisibility.PARENT_TAB_ONLY);
+        event.accept(searchOnly, net.minecraft.world.item.CreativeModeTab.TabVisibility.SEARCH_TAB_ONLY);
+        event.accept(retained, net.minecraft.world.item.CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        CompatibilityCreativeContents.filter(event, stack -> true);
+        helper.assertTrue(parent.size() == 3 && search.size() == 3, "Unchanged tabs must remain readable");
+        CompatibilityCreativeContents.filter(event, stack -> stack.is(net.minecraft.world.item.Items.GLASS));
+        helper.assertTrue(parent.size() == 1 && parent.contains(retained) && search.size() == 1 && search.contains(retained),
+            "Tab filtering must remove parent-only, search-only and shared entries");
+        CompatibilityCreativeContents.filter(event, stack -> false);
+        CompatibilityCreativeContents.filter(event, stack -> false);
+        helper.assertTrue(parent.isEmpty() && search.isEmpty(), "Empty tabs must filter safely");
+    }
+
+    public static final class FailingFluidEndpoint extends com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingBlockEntity {
+        public FailingFluidEndpoint(BlockPos pos, net.minecraft.world.level.block.state.BlockState state) {
+            super(pos, state);
+            throw new IllegalStateException("Expected adapter failure in compatibility test");
+        }
+    }
+
+    private static void backendFailure(GameTestHelper helper) {
+        try {
+            var factory = com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.class.getDeclaredField("factory");
+            factory.setAccessible(true);
+            factory.set(null, FailingFluidEndpoint.class.getConstructor(BlockPos.class, net.minecraft.world.level.block.state.BlockState.class));
+            var state = com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.BLOCK.get().defaultBlockState();
+            var fallback = com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.BLOCK_ENTITY.get().create(BlockPos.ZERO, state);
+            helper.assertTrue(fallback != null, "Failed fluid adapter must retain a block entity");
+            helper.assertTrue(!CompatibilityManager.available(Capability.FLUID_COUPLING), "Fluid failure must reach capability cache");
+            helper.assertTrue(!ComponentPolicies.enabled(CreateFireFightingAdd.path("fluid_coupling")), "Failed fluid endpoint must reject placement");
+            helper.assertTrue(CompatibilityManager.available(Capability.COUPLING), "Fluid failure must not disable stress coupling");
+            helper.assertTrue((CompatibilityManager.mask() & 1 << Capability.FLUID_COUPLING.ordinal()) == 0, "Sync mask retained failed adapter");
+            CompatibilityManager.disable(Capability.COUPLING, "Expected shared backend failure in compatibility test");
+            helper.assertTrue(!com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility.enabled(),
+                "Legacy coupling entry points must observe capability failure");
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError(error);
+        }
     }
 }

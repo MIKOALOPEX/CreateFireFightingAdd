@@ -13,6 +13,9 @@ public final class CompatibilityRulesTest {
         versions.put("simulated", "1.3.0");
         expect(versions, Capability.ROPE_CAPTURE, CapabilityStatus.State.AVAILABLE);
         expect(versions, Capability.ROPE_MANAGE, CapabilityStatus.State.AVAILABLE);
+        expect(versions, Capability.PHYSICAL_HOSE, CapabilityStatus.State.AVAILABLE);
+        versions.put("simulated", "1.2.1");
+        expect(versions, Capability.PHYSICAL_HOSE, CapabilityStatus.State.UNSUPPORTED);
         versions.put("sable", "1.2.2");
         versions.put("simulated", "1.2.1");
         versions.put("synaxis", "1.3.4");
@@ -23,6 +26,7 @@ public final class CompatibilityRulesTest {
             "synaxis", "1.5.0", "sable_schematic_api", "1.0.1", "ldlib2", "2.2.17"));
         for (Capability capability : Capability.values()) expect(versions, capability, CapabilityStatus.State.AVAILABLE);
         versions.put("synaxis", "1.2.0");
+        expect(versions, Capability.PHYSICAL_HOSE, CapabilityStatus.State.AVAILABLE);
         expect(versions, Capability.COUPLING, CapabilityStatus.State.UNSUPPORTED);
         expect(versions, Capability.ROPE_CAPTURE, CapabilityStatus.State.AVAILABLE);
         versions.put("synaxis", "1.4.0");

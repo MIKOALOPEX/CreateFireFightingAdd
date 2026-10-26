@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "AB ",
+    "D  ",
+    "   "
+  ],
+  "key": {
+    "A": { "item": "create:hand_crank" },
+    "B": { "item": "create:shaft" },
+    "D": { "item": "create:cogwheel" }
+  },
+  "result": {
+    "id": "createfirefightingadd:rocker",
+    "count": 1
+  }
+}

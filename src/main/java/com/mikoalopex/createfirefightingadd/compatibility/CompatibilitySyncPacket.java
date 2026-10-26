@@ -8,7 +8,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
-/** Synchronizes server capabilities when a player logs in. */
+/** Synchronizes server capabilities on login and after backend failures. */
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
 public record CompatibilitySyncPacket(int mask) implements CustomPacketPayload {
     public static final Type<CompatibilitySyncPacket> TYPE = new Type<>(CreateFireFightingAdd.path("compatibility"));

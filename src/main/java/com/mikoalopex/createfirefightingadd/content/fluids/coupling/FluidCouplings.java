@@ -1,6 +1,8 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.coupling;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.compatibility.Capability;
+import com.mikoalopex.createfirefightingadd.compatibility.CompatibilityManager;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -30,16 +32,20 @@ public final class FluidCouplings {
         "fluid_coupling", () -> IMenuTypeExtension.create((id, inventory, buffer) -> new BallCouplingMenu(id, inventory, buffer, true)));
     public static void init() {}
     private static java.lang.reflect.Constructor<? extends FluidCouplingBlockEntity> factory;
-    private static boolean failed;
+    public static boolean enabled() { return CompatibilityManager.available(Capability.FLUID_COUPLING); }
+
+    public static boolean adapterAvailable() throws ReflectiveOperationException {
+        if (factory == null) factory = Class.forName("com.mikoalopex.createfirefightingadd.integration.sable.SableFluidCouplingBlockEntity")
+            .asSubclass(FluidCouplingBlockEntity.class).getConstructor(net.minecraft.core.BlockPos.class, net.minecraft.world.level.block.state.BlockState.class);
+        return true;
+    }
+
     private static FluidCouplingBlockEntity create(net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state) {
-        if (!failed && com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility.enabled()) {
+        if (enabled()) {
             try {
-                if (factory == null) factory = Class.forName("com.mikoalopex.createfirefightingadd.integration.sable.SableFluidCouplingBlockEntity")
-                    .asSubclass(FluidCouplingBlockEntity.class).getConstructor(net.minecraft.core.BlockPos.class, net.minecraft.world.level.block.state.BlockState.class);
                 return factory.newInstance(pos, state);
-            } catch (ReflectiveOperationException | LinkageError error) {
-                failed = true;
-                CreateFireFightingAdd.LOGGER.warn("Fluid coupling physics unavailable; check the installed Sable/Synaxis dependency versions.");
+            } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
+                CompatibilityManager.disable(Capability.FLUID_COUPLING, "Fluid coupling adapter could not be constructed");
                 CreateFireFightingAdd.LOGGER.debug("Fluid coupling Sable adapter failure", error);
             }
         }

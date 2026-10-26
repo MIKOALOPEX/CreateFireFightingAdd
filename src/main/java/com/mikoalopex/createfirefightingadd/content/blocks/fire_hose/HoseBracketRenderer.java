@@ -54,7 +54,7 @@ public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlock
     }
 
     /** Preserve the supplied model UVs while substituting the hose's full texture. */
-    private static void renderPipe(BakedModel model, PoseStack pose, VertexConsumer buffer, int light) {
+    public static void renderPipe(BakedModel model, PoseStack pose, VertexConsumer buffer, int light) {
         RandomSource random = RandomSource.create(42);
         for (int side = -1; side < 6; side++) {
             random.setSeed(42);

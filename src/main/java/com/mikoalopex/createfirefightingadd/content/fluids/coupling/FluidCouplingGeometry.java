@@ -69,6 +69,11 @@ public final class FluidCouplingGeometry {
         return new Vec3(point.x, point.z, 16 - point.y);
     }
 
+    /** Probe/Drogue point along -X; rotate -90 degrees about Z into the shared +Y frame. */
+    public static Vec3 hoseToMount(Vec3 point) {
+        return new Vec3(point.y, 16 - point.x, point.z);
+    }
+
     public static Vec3 modelPoint(Vec3 pixels, Direction facing) {
         return orient(pixels.add(-8, -8, -8).scale(1.0 / 16), facing).add(0.5, 0.5, 0.5);
     }

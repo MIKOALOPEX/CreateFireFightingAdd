@@ -22,9 +22,10 @@ public final class CompatibilityRules {
     public static List<Requirement> requirements(Capability capability) {
         return switch (capability) {
             case SABLE_SPATIAL -> List.of(SPATIAL);
+            case PHYSICAL_HOSE -> List.of(PHYSICS, new Requirement("simulated", "1.3.0", "1.4.0"));
             case ROPE_CONNECT -> List.of(SPATIAL, ROPE);
             case ROPE_CAPTURE, ROPE_MANAGE -> List.of(PHYSICS, ROPE);
-            case COUPLING -> List.of(PHYSICS,
+            case COUPLING, FLUID_COUPLING -> List.of(PHYSICS,
                 new Requirement("aeronautics", "1.3.0", "1.4.0"),
                 new Requirement("simulated", "1.3.0", "1.4.0"),
                 new Requirement("synaxis", "1.4.0", "1.6.0"),

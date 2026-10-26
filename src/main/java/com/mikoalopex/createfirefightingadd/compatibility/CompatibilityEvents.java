@@ -17,10 +17,17 @@ public final class CompatibilityEvents {
 
     @SubscribeEvent public static void login(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
-        int mask = 0;
-        for (Capability capability : Capability.values())
-            if (CompatibilityManager.available(capability)) mask |= 1 << capability.ordinal();
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new CompatibilitySyncPacket(mask));
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new CompatibilitySyncPacket(CompatibilityManager.mask()));
+    }
+
+    private static long syncedRevision;
+    @SubscribeEvent public static void tick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        long revision = CompatibilityManager.revision();
+        if (syncedRevision == revision) return;
+        syncedRevision = revision;
+        var packet = new CompatibilitySyncPacket(CompatibilityManager.mask());
+        for (var player : event.getServer().getPlayerList().getPlayers())
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, packet);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)

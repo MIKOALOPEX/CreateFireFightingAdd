@@ -58,7 +58,8 @@ public final class FluidCouplingGeometryTest {
         for (var a : FluidCouplingInterfaces.values()) for (var b : FluidCouplingInterfaces.values()) {
             check(a.accepts(b) == b.accepts(a), "Symmetric compatibility");
             check(a.accepts(b) == (a == FluidCouplingInterfaces.FREE && b == a
-                || a != b && a != FluidCouplingInterfaces.FREE && b != FluidCouplingInterfaces.FREE), "Pair policy");
+                || a.hardBoom() && b.hardBoom() && a != b
+                || a.hose() && b.hose() && a != b), "Pair policy excludes cross-family and same-role pairs");
         }
         var settings = new FluidCouplingSettings(FluidCouplingInterfaces.FREE, 4, 2, -88, 103, true);
         var receptacle = settings.withInterface(FluidCouplingInterfaces.RECEPTACLE);
@@ -78,12 +79,50 @@ public final class FluidCouplingGeometryTest {
             var changed = settings.withInterface(type);
             check(FluidCouplingSettings.load(changed.save()).equals(changed), "Settings round trip");
             check(changed.withInterface(FluidCouplingInterfaces.FREE).equals(settings), "Retain free settings");
-            if (type != FluidCouplingInterfaces.FREE) {
+            if (type.hardBoom()) {
                 var rule = changed.constraint();
                 check(rule.mode() == 1 && rule.lower() == -45 && rule.upper() == 67.5
                     && !rule.flipRange() && rule.modelZero(), "Hard-boom constraint cannot be overridden");
             }
+            if (type.hose()) {
+                var rule = changed.constraint();
+                check(rule.mode() == 2 && rule.lower() == 0 && rule.upper() == 0
+                    && !rule.flipRange() && !rule.modelZero(), "Hose always uses fixed joint, ignoring free hinge settings");
+            }
         }
+        var drogue = settings.withInterface(FluidCouplingInterfaces.HOSE_DROGUE);
+        var probe = settings.withInterface(FluidCouplingInterfaces.HOSE_PROBE);
+        check(drogue.type().activation() == FluidCouplingInterface.Activation.ACTIVE, "Drogue owns pairing");
+        check(probe.type().activation() == FluidCouplingInterface.Activation.PASSIVE, "Probe is passive");
+        for (Direction facing : Direction.values()) {
+            var a = FluidCouplingJoint.endpoint(Level.OVERWORLD, null, BlockPos.ZERO, facing, drogue, v -> v);
+            var b = FluidCouplingJoint.endpoint(Level.OVERWORLD, java.util.UUID.randomUUID(), BlockPos.ZERO,
+                facing.getOpposite(), probe, v -> v);
+            var request = FluidCouplingJoint.request(java.util.UUID.randomUUID(), drogue, probe, a, b);
+            check(request.mode() == 2 && !request.alignHingeTangents(), "Fixed hose joint request");
+            check(a.normal().dot(b.normal()) < -0.999999, "Hose mates along facing, not hard-boom pitch axis");
+            close(new Vec3(a.anchor().x(), a.anchor().y(), a.anchor().z()),
+                FluidCouplingGeometry.modelPoint(FluidCouplingGeometry.hoseToMount(new Vec3(7, 8, 8)), facing), "Drogue socket pivot");
+            close(new Vec3(b.anchor().x(), b.anchor().y(), b.anchor().z()),
+                FluidCouplingGeometry.modelPoint(FluidCouplingGeometry.hoseToMount(new Vec3(-6, 8, 8)), facing.getOpposite()), "Probe insertion pivot");
+        }
+        float deployed = 0;
+        for (int tick = 0; tick < HoseDeployment.DURATION_TICKS; tick++) {
+            check(!HoseDeployment.ready(deployed), "No pairing during partial deployment");
+            deployed = HoseDeployment.step(deployed, true);
+        }
+        check(HoseDeployment.ready(deployed), "Pairing allowed after deployment");
+        for (int tick = 0; tick < HoseDeployment.DURATION_TICKS; tick++) deployed = HoseDeployment.step(deployed, false);
+        check(deployed == 0, "Fully stowed after redstone removed");
+        float halfway = 0;
+        for (int tick = 0; tick < 10; tick++) halfway = HoseDeployment.step(halfway, true);
+        float reversed = HoseDeployment.step(halfway, false);
+        check(reversed > 0 && reversed < halfway && Math.abs(halfway - reversed - 0.05f) < 1e-6,
+            "Mid-animation reversal is continuous");
+        check(HoseDeployment.clamp(Float.NaN) == 0 && HoseDeployment.clamp(7) == 1, "Persisted deployment sanitization");
+        check(HoseDrogueParts.PARTS.size() == 28, "All moving source elements represented");
+        check(HoseDrogueParts.PARTS.stream().filter(p -> p.angle() != 0).count() == 12, "Twelve net panels rotate");
+        check(HoseDrogueParts.PARTS.stream().filter(p -> p.angle() == 0).count() == 16, "Sixteen ring pieces translate only");
         var ring = FluidCouplingGeometry.ring(Vec3.ZERO, new Vec3(0, 2, 0),
             new Vec3(0, 1, 0), new Vec3(0, -1, 0));
         close(ring.firstFace().add(ring.secondFace()).scale(0.5), ring.center(), "Shared ring center");

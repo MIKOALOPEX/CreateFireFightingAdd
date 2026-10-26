@@ -2,7 +2,7 @@ package com.mikoalopex.createfirefightingadd.content.fluids.coupling;
 
 import net.minecraft.nbt.CompoundTag;
 
-/** Free-mode settings remain stored while a hard-boom interface overrides the physical joint. */
+/** Free-mode settings remain stored while a refuelling interface overrides the physical joint. */
 public record FluidCouplingSettings(FluidCouplingInterfaces type, int height, int freeMode,
         int lower, int upper, boolean flipRange) {
     public static final FluidCouplingSettings DEFAULT = new FluidCouplingSettings(
@@ -17,7 +17,8 @@ public record FluidCouplingSettings(FluidCouplingInterfaces type, int height, in
     public record Constraint(int mode, double lower, double upper, boolean flipRange, boolean modelZero) {}
 
     public Constraint constraint() {
-        return type.locksConstraint()
+        if (type.hose()) return new Constraint(2, 0, 0, false, false);
+        return type.hardBoom()
             ? new Constraint(1, FluidCouplingGeometry.MIN_PITCH, FluidCouplingGeometry.MAX_PITCH, false, true)
             : new Constraint(freeMode, lower, upper, flipRange, false);
     }

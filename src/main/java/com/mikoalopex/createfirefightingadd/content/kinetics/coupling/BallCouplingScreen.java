@@ -46,7 +46,13 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             ? "fluid_coupling." : "ball_coupling.") + key);
     }
 
-    private boolean hardBoom() { return menu.fluid() && selectedRole != 0; }
+    private boolean hardBoom() { return menu.fluid() && (selectedRole == 1 || selectedRole == 2); }
+    private boolean hose() { return menu.fluid() && (selectedRole == 3 || selectedRole == 4); }
+    private boolean fixedInterface() { return hardBoom() || hose(); }
+    private int dropdownSize() {
+        return dropdown == 1 && menu.fluid()
+            ? com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingInterfaces.values().length : 3;
+    }
 
     private void updateFields() {
         lowerInput.setValue(Integer.toString(lower));
@@ -56,7 +62,8 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
     private boolean submit() {
         if (!initialized) return false;
         try {
-            int l = Integer.parseInt(lowerInput.getValue()), u = Integer.parseInt(upperInput.getValue());
+            int l = fixedInterface() ? lower : Integer.parseInt(lowerInput.getValue());
+            int u = fixedInterface() ? upper : Integer.parseInt(upperInput.getValue());
             if (l < -180 || u > 180 || l > u) return false;
             lower = l; upper = u;
             PacketDistributor.sendToServer(new BallCouplingSettingsPacket(menu.containerId, selectedMode, selectedRole,
@@ -81,8 +88,9 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
         if (!menu.connected()) switchDisconnected = false;
         g.blit(SWITCH, leftPos + 199, topPos + 157, 6, menu.connected() && !switchDisconnected ? 34 : 2,
             40, 24, 128, 128);
-        modeButton.active = !hardBoom();
-        modeButton.setMessage(hardBoom() ? Component.translatable("fluid_coupling.pitch_joint") : text("mode." + selectedMode));
+        modeButton.active = !fixedInterface();
+        modeButton.setMessage(hardBoom() ? Component.translatable("fluid_coupling.pitch_joint")
+            : text("mode." + (hose() ? 2 : selectedMode)));
         roleButton.setMessage(text("interface." + selectedRole));
         g.drawString(font, text("title").copy().withStyle(net.minecraft.ChatFormatting.BOLD),
             leftPos + 8, topPos + 6, 0xffffff, false);
@@ -90,15 +98,15 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             leftPos + 10, topPos + 26, 0x353535, false);
         g.drawString(font, text("interface").copy().withStyle(net.minecraft.ChatFormatting.BOLD),
             leftPos + 143, topPos + 26, 0x353535, false);
-        lowerInput.visible = upperInput.visible = selectedMode == 1 && !hardBoom();
-        flipButton.visible = selectedMode == 1 && !hardBoom();
+        lowerInput.visible = upperInput.visible = selectedMode == 1 && !fixedInterface();
+        flipButton.visible = selectedMode == 1 && !fixedInterface();
         if (hardBoom()) {
             g.drawCenteredString(font, Component.literal(
                 com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingGeometry.MIN_PITCH + "° / +"
                     + com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingGeometry.MAX_PITCH + "°"),
                 leftPos + 96, topPos + 120, 0xffffff);
         }
-        if (selectedMode == 1 && !hardBoom()) {
+        if (selectedMode == 1 && !fixedInterface()) {
             int cx = leftPos + 96, cy = topPos + 127;
             for (int degree = -180; degree < 180; degree++) {
                 double angle = Math.toRadians(degree);
@@ -133,7 +141,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             g.pose().pushPose();
             g.pose().translate(0, 0, 400);
             int x = leftPos + (dropdown == 0 ? 10 : 143), y = topPos + 54;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < dropdownSize(); i++) {
                 boolean hover = mouseX >= x && mouseX < x + 126 && mouseY >= y + i * 20 && mouseY < y + (i + 1) * 20;
                 g.fill(x, y + i * 20, x + 126, y + (i + 1) * 20, 0xff434343);
                 g.fill(x + 1, y + i * 20 + 1, x + 125, y + (i + 1) * 20 - 1, 0xff8b8b8b);
@@ -142,7 +150,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             }
             g.pose().popPose();
         }
-        if (selectedMode == 1 && !hardBoom()) {
+        if (selectedMode == 1 && !fixedInterface()) {
             g.fill(leftPos + 261, topPos + 142, leftPos + 266, topPos + 147,
                 flipRange ? 0xff75a66a : 0xff72746d);
         }
@@ -160,7 +168,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
         if (!initialized) return true;
         if (dropdown >= 0) {
             int dx = leftPos + (dropdown == 0 ? 10 : 143), dy = topPos + 54;
-            if (button == 0 && x >= dx && x < dx + 126 && y >= dy && y < dy + 60) {
+            if (button == 0 && x >= dx && x < dx + 126 && y >= dy && y < dy + dropdownSize() * 20) {
                 int value = (int) (y - dy) / 20;
                 if (dropdown == 0) selectedMode = value; else selectedRole = value;
             }
@@ -180,7 +188,7 @@ public class BallCouplingScreen extends AbstractContainerScreen<BallCouplingMenu
             PacketDistributor.sendToServer(new BallCouplingDisconnectPacket(menu.containerId));
             return true;
         }
-        if (button == 0 && selectedMode == 1 && !hardBoom()) {
+        if (button == 0 && selectedMode == 1 && !fixedInterface()) {
             double dx = x - leftPos - 96, dy = y - topPos - 127;
             double distance = dx * dx + dy * dy;
             if (distance >= 25 && distance <= 2500) {

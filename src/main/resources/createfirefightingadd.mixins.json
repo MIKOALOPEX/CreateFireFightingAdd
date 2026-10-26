@@ -16,6 +16,8 @@
     "RopeLatchSlideMixin"
   ],
   "client": [
+    "client.PhysicalHoseInteractionMixin",
+    "client.CompatibilityCreativeTabsMixin",
     "client.CreativeSectionTabMixin",
     "client.CreativeSectionMenuAccessor",
     "client.CreativeSectionScreenMixin",

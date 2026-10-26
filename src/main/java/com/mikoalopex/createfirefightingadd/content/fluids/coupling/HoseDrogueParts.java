@@ -1,0 +1,40 @@
+package com.mikoalopex.createfirefightingadd.content.fluids.coupling;
+
+import java.util.List;
+
+/** Generated from user Drogue model UUIDs by tools/generate_hose_drogue_models.py.
+ * Coordinates are pixels in the original -X model frame. No mesh stretching. */
+public final class HoseDrogueParts {
+    private HoseDrogueParts() {}
+    public record Part(String model, double dx, double dy, double dz,
+        double px, double py, double pz, char axis, float angle) {}
+    public static final List<Part> PARTS = List.of(
+        new Part("hose_drogue_part_0", 0.0, -4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_1", 0.0, -4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_2", 0.0, 4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_3", 0.0, 4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_4", 0.0, 0.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_5", 0.0, -4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_6", 0.0, 4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_7", 0.0, 4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_8", 0.0, 0.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_9", 0.0, -4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_10", 0.0, 4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_11", 0.0, 4.0, 0.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_12", 0.0, 4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_13", 0.0, -4.0, -4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_14", 0.0, -4.0, 0.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_15", 0.0, -4.0, 4.0, -3.0, 8.0, 8.0, 'y', 0.0f),
+        new Part("hose_drogue_part_16", 0.0, 0.0, 4.0, 8.0, 10.0, 13.5, 'z', -22.5f),
+        new Part("hose_drogue_part_17", 0.0, 0.0, 0.0, 8.0, 10.0, 13.5, 'z', -22.5f),
+        new Part("hose_drogue_part_18", 0.0, 0.0, -4.0, 8.0, 10.0, 13.5, 'z', -22.5f),
+        new Part("hose_drogue_part_19", 0.0, 0.0, -4.0, 8.0, 6.0, 13.5, 'z', 22.5f),
+        new Part("hose_drogue_part_20", 0.0, 0.0, 0.0, 8.0, 6.0, 13.5, 'z', 22.5f),
+        new Part("hose_drogue_part_21", 0.0, 0.0, 4.0, 8.0, 6.0, 13.5, 'z', 22.5f),
+        new Part("hose_drogue_part_22", 0.0, 4.0, 0.0, 8.0, 13.5, 10.0, 'y', 22.5f),
+        new Part("hose_drogue_part_23", 0.0, 0.0, 0.0, 8.0, 13.5, 10.0, 'y', 22.5f),
+        new Part("hose_drogue_part_24", 0.0, -4.0, 0.0, 8.0, 13.5, 10.0, 'y', 22.5f),
+        new Part("hose_drogue_part_25", 0.0, 4.0, 0.0, 8.0, 13.5, 6.0, 'y', -22.5f),
+        new Part("hose_drogue_part_26", 0.0, 0.0, 0.0, 8.0, 13.5, 6.0, 'y', -22.5f),
+        new Part("hose_drogue_part_27", 0.0, -4.0, 0.0, 8.0, 13.5, 6.0, 'y', -22.5f));
+}

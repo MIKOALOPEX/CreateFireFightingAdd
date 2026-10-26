@@ -12,6 +12,8 @@ import java.util.EnumMap;
 import java.util.List;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
 import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings;
+import com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoses;
+import com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingRenderer;
 import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingClient;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingScreen;
@@ -587,6 +589,9 @@ public class CreateFireFightingAdd {
 				output.accept(HYDRAULIC_RAM_ITEM.get());
 				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
+                if (PhysicalHoses.enabled()) {
+                    output.accept(PhysicalHoses.ITEM.get());
+                }
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				if (SmartRopeCompatibility.available())
 					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
@@ -595,7 +600,7 @@ public class CreateFireFightingAdd {
 				output.accept(PIPELINE_TURBINE_ITEM.get());
 			if (StressCouplingCompatibility.visible())
 				output.accept(BallCouplings.ITEM.get());
-			if (StressCouplingCompatibility.visible()) output.accept(FluidCouplings.ITEM.get());
+			if (FluidCouplings.enabled()) output.accept(FluidCouplings.ITEM.get());
 			output.accept(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
@@ -616,6 +621,7 @@ public class CreateFireFightingAdd {
 		com.mikoalopex.createfirefightingadd.compatibility.CapabilityCondition.register(modEventBus);
 		BallCouplings.init();
 		FluidCouplings.init();
+        PhysicalHoses.init();
 		com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.init();
 		CopycatDoors.init();
 		modEventBus.addListener(this::commonSetup);
@@ -723,7 +729,9 @@ public class CreateFireFightingAdd {
 			FIRE_HOSE_BE.get(),
 			(be, context) -> be.getFluidHandler(context)
 		);
-		event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, FluidCouplings.BLOCK_ENTITY.get(),
+		event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, PhysicalHoses.BLOCK_ENTITY.get(),
+            (be, context) -> be.getFluidHandler(context));
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, FluidCouplings.BLOCK_ENTITY.get(),
 			(be, context) -> be.getFluidHandler(context));
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
@@ -844,6 +852,7 @@ public class CreateFireFightingAdd {
 		public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
 			PartialModels.registerAdditional(event);
 			FluidCouplingRenderer.models(event);
+            PhysicalHoseRenderer.models(event);
 			com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerRenderer.models(event);
 		}
 
@@ -940,6 +949,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
+            event.registerBlockEntityRenderer(PhysicalHoses.BLOCK_ENTITY.get(), PhysicalHoseRenderer::new);
 			SmartRopeCompatibility.registerRenderer(event);
 			event.registerBlockEntityRenderer(HOSE_BRACKET_BE.get(), HoseBracketRenderer::new);
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);

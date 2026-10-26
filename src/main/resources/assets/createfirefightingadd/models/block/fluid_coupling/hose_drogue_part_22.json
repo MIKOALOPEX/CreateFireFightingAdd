@@ -1,0 +1,87 @@
+{
+  "credit": "User model, split for rigid-part animation",
+  "textures": {
+    "1": "createfirefightingadd:block/fire_hose_end_black",
+    "2": "createfirefightingadd:block/fluid_coupling/hose_drogue",
+    "particle": "createfirefightingadd:block/fluid_coupling/hose_drogue"
+  },
+  "elements": [
+    {
+      "from": [
+        -4,
+        6.5,
+        10
+      ],
+      "to": [
+        8,
+        10.5,
+        10
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          10
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            6,
+            6,
+            0,
+            8
+          ],
+          "texture": "#2"
+        },
+        "east": {
+          "uv": [
+            0,
+            6,
+            6,
+            8
+          ],
+          "texture": "#2"
+        },
+        "south": {
+          "uv": [
+            0,
+            6,
+            6,
+            8
+          ],
+          "texture": "#2"
+        },
+        "west": {
+          "uv": [
+            0,
+            6,
+            6,
+            8
+          ],
+          "texture": "#2"
+        },
+        "up": {
+          "uv": [
+            0,
+            6,
+            6,
+            12.5
+          ],
+          "texture": "#2"
+        },
+        "down": {
+          "uv": [
+            0,
+            6,
+            6,
+            12.5
+          ],
+          "texture": "#2"
+        }
+      }
+    }
+  ]
+}

@@ -48,7 +48,7 @@ public final class StressCouplingCompatibility {
         return tier;
     }
 
-    public static boolean enabled() { return tier() == Tier.FULL; }
+    public static boolean enabled() { return !CompatibilityManager.failed(Capability.COUPLING) && tier() == Tier.FULL; }
     public static boolean visible() { return enabled(); }
 
     public static BallCouplingBlockEntity create(BlockPos pos, BlockState state) {
@@ -57,7 +57,7 @@ public final class StressCouplingCompatibility {
                 return factory.newInstance(pos, state);
             } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
                 tier = Tier.INERT;
-                LogUtils.getLogger().warn("Stress Coupling disabled: its Sable adapter could not load. Check the installed dependency versions.");
+                CompatibilityManager.disable(Capability.COUPLING, "Stress coupling adapter could not be constructed");
                 LogUtils.getLogger().debug("Stress coupling adapter failure", error);
             }
         }

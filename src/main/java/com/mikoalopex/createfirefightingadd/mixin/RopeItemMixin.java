@@ -23,7 +23,11 @@ public class RopeItemMixin {
 	@Inject(method = "isValidRopeAttachment", at = @At("HEAD"), cancellable = true, require = 0)
 	private static void smartRopeConnector$capacity(Level level, BlockPos pos,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (SmartRopeConnections.isSmart(level, pos))
+		if (level.getBlockEntity(pos) instanceof com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseBlockEntity) {
+            cir.setReturnValue(false);
+            return;
+        }
+        if (SmartRopeConnections.isSmart(level, pos))
 			cir.setReturnValue(SmartRopeConnections.canAttach(level, pos));
 	}
 

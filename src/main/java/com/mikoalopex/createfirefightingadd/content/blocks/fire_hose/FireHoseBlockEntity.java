@@ -350,6 +350,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             propagateBackPipeChange(back);
 
         tryContainerInteraction(back);
+        tryDirectHoseInteraction(back);
         FireHoseDebugLog.logTickEnd(this, partner, tickTankBefore, getSharedTankRawAmount(), tickRecordedInput);
     }
 
@@ -1638,7 +1639,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             partner.notifyUpdate();
             changed = true;
         }
-        if (changed)
+        if (changed && allowsHoseConnection())
             HoseRoutes.tick(this);
         return changed;
     }
@@ -1865,12 +1866,15 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         if (!(be instanceof FireHoseBlockEntity targetHose))
             return;
         if (!transportEnabled() || !targetHose.transportEnabled()) return;
+        if (targetHose == getPairedHose() || targetHose.getBack() != back.getOpposite()) return;
         if (!targetHose.isPulling())
             return;
 
         IFluidHandler source = getSharedTank().getPrimaryHandler();
-        IFluidHandler target = targetHose.getSharedTank().getPrimaryHandler();
-        int rate = (int) getActivePumpSpeed();
+        // Adjacent endpoints terminate both pipe graphs; bridge their exposed ports here.
+        IFluidHandler target = targetHose.getFluidHandler(back.getOpposite());
+        if (target == null) return;
+        int rate = (int) Math.min(getActivePumpSpeed(), targetHose.getActivePumpSpeed());
         if (rate <= 0) {
             FireHoseDebugLog.logTransferSkip(this, "direct hose", backPos, "no-rate",
                 getSharedTankRawAmount(), 0, rate, FluidStack.EMPTY);
@@ -1895,7 +1899,6 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         source.drain(filled, IFluidHandler.FluidAction.EXECUTE);
         onFluidTransferred(filled);
-        notifyDirectHoseTransferChanged(targetHose);
         FireHoseDebugLog.logTransfer(this, "direct hose execute", this, targetHose,
             worldPosition, targetHose.getBlockPos(), drained, filled,
             sourceBefore, getSharedTankRawAmount(), targetBefore, targetHose.getSharedTankRawAmount());
@@ -1908,25 +1911,6 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             targetHose.isPulling(),
             getSharedTankRawAmount(),
             targetHose.getSharedTankRawAmount());
-    }
-
-    private void notifyDirectHoseTransferChanged(FireHoseBlockEntity targetHose) {
-        notifyHoseAndPipeChanged(this);
-        notifyHoseAndPipeChanged(targetHose);
-        FireHoseBlockEntity sourcePartner = getPairedHose();
-        if (sourcePartner != null)
-            notifyHoseAndPipeChanged(sourcePartner);
-        FireHoseBlockEntity targetPartner = targetHose.getPairedHose();
-        if (targetPartner != null)
-            notifyHoseAndPipeChanged(targetPartner);
-    }
-
-    private void notifyHoseAndPipeChanged(FireHoseBlockEntity hose) {
-        if (level == null)
-            return;
-        hose.invalidateFluidTopology();
-        hose.notifyUpdate();
-        hose.propagateBackPipeChange(hose.getBack());
     }
 
     private void propagateBackPipeChange(Direction back) {

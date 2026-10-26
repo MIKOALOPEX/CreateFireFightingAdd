@@ -2,11 +2,11 @@ package com.mikoalopex.createfirefightingadd.content.fluids.coupling;
 
 import java.util.Objects;
 import java.util.UUID;
+import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingMenu;
 import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.CouplingSavedData;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureCompat;
 import com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingAlignment;
 import com.mikoalopex.createfirefightingadd.integration.synaxis.CouplingPhysics;
@@ -39,6 +39,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     private int pendingTicks, recoveryTicks, searchTicks, nextSearch;
     private long cooldownUntil;
     private float pitch, previousPitch, flow, gearPhase, previousGearPhase;
+    private float deployment, previousDeployment;
     private int transferred;
     private Vec3 renderPartnerAnchor, renderPartnerNormal;
     private UUID renderPartnerBody;
@@ -48,7 +49,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     public UUID endpointId() { return endpoint; }
     public UUID partnerId() { return partner; }
     public UUID pairId() { return pair; }
-    public boolean active() { return connected && StressCouplingCompatibility.enabled(); }
+    public boolean active() { return connected && FluidCouplings.enabled(); }
     public boolean powered() { return powered; }
     public Direction facing() { return getBlockState().getValue(FluidCouplingBlock.FACING); }
     public Level worldLevel() { return SableStructureCompat.worldLevel(this); }
@@ -61,14 +62,15 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     public UUID renderPartnerBody() { return renderPartnerBody; }
     public float pitch(float partial) { return previousPitch + (pitch - previousPitch) * partial; }
     public float gearPhase(float partial) { return previousGearPhase + (gearPhase - previousGearPhase) * partial; }
-    public int status() { return !StressCouplingCompatibility.enabled() ? 4 : connected ? 1 : partner != null ? 3 : powered ? 2 : 0; }
+    public float deployment(float partial) { return previousDeployment + (deployment - previousDeployment) * Math.clamp(partial, 0, 1); }
+    public int status() { return !FluidCouplings.enabled() ? 4 : connected ? 1 : partner != null ? 3 : powered ? 2 : 0; }
 
     public FluidCouplingBlockEntity partner() {
         return level == null || level.isClientSide || partner == null ? null : FluidCouplingIndex.of(worldLevel()).find(partner);
     }
     private CouplingSavedData saved() { return CouplingSavedData.get(level.getServer(), FluidCouplingJoint.FEATURE); }
     private boolean owns(FluidCouplingBlockEntity other) {
-        return settings.type() == FluidCouplingInterfaces.RECEPTACLE
+        return settings.type().activation() == FluidCouplingInterface.Activation.ACTIVE
             || settings.type() == FluidCouplingInterfaces.FREE && endpoint.compareTo(other.endpoint) < 0;
     }
     private CouplingPhysics.Endpoint physicsEndpoint() {
@@ -78,7 +80,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
 
     @Override public void initialize() {
         super.initialize();
-        if (level == null || level.isClientSide || !StressCouplingCompatibility.enabled()) return;
+        if (level == null || level.isClientSide || !FluidCouplings.enabled()) return;
         var existing = FluidCouplingIndex.of(worldLevel()).find(endpoint);
         if (existing != null && existing != this && !existing.isRemoved()) {
             endpoint = UUID.randomUUID(); partner = pair = null; reference = null; restoring = connected = established = false;
@@ -99,15 +101,26 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
             level.setBlock(worldPosition, getBlockState().setValue(FluidCouplingBlock.POWERED, powered), Block.UPDATE_CLIENTS);
         if (changed && powered) {
             searchTicks = nextSearch = 0; cooldownUntil = 0;
-            if (StressCouplingCompatibility.enabled()) FluidCouplingIndex.of(worldLevel()).wake(this);
+            if (FluidCouplings.enabled()) FluidCouplingIndex.of(worldLevel()).wake(this);
         }
-        if (!powered && partner != null && !(established && settings.type() == FluidCouplingInterfaces.BOOM_NOZZLE)) disconnect();
+        if (changed && settings.type().hose()) {
+            notifyUpdate();
+            CreateFireFightingAdd.LOGGER.info("[FLUID-HOSE] endpoint={} type={} powered={} deployment={} connected={}",
+                endpoint, settings.type(), powered, deployment, connected);
+        }
+        if (!powered && partner != null && !(established && settings.type().activation() == FluidCouplingInterface.Activation.PASSIVE)) disconnect();
     }
 
     @Override public void tick() {
         if (level == null) return;
         previousPitch = pitch;
         previousGearPhase = gearPhase;
+        previousDeployment = deployment;
+        if (settings.type() == FluidCouplingInterfaces.HOSE_DROGUE) {
+            deployment = HoseDeployment.step(deployment, getBlockState().getValue(FluidCouplingBlock.POWERED));
+            if (!level.isClientSide && deployment != previousDeployment
+                    && (deployment == 0 || deployment == 1 || level.getGameTime() % 5 == 0)) notifyUpdate();
+        } else deployment = previousDeployment = 0;
         if (!level.isClientSide) tickPairing();
         else {
             gearPhase += Math.min(30, flow * 0.1f);
@@ -122,7 +135,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     }
 
     private void tickPairing() {
-        if (!StressCouplingCompatibility.enabled()) {
+        if (!FluidCouplings.enabled()) {
             if (pair != null) disconnect();
             return;
         }
@@ -151,7 +164,9 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
             if (owns(other)) maintain(other);
             return;
         }
-        if (!powered || settings.type() == FluidCouplingInterfaces.BOOM_NOZZLE || level.getGameTime() < cooldownUntil) return;
+        if (!powered || settings.type().activation() == FluidCouplingInterface.Activation.PASSIVE
+                || settings.type() == FluidCouplingInterfaces.HOSE_DROGUE && !HoseDeployment.ready(deployment)
+                || level.getGameTime() < cooldownUntil) return;
         searchTicks = Math.min(600, searchTicks + 1);
         if (nextSearch-- > 0) return;
         nextSearch = searchTicks < 20 ? 1 : searchTicks < 200 ? 9 : searchTicks < 600 ? 19 : 99;
@@ -205,6 +220,9 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
         boolean ready = CouplingPhysics.active(constraint);
         if (ready != connected || ready != other.connected) {
             connected = other.connected = ready;
+            if (settings.type().hose()) CreateFireFightingAdd.LOGGER.info(
+                "[FLUID-HOSE] pair={} connected={} mode={} deployment={} anchorDistance={}",
+                pair, ready, settings.constraint().mode(), deployment, worldAnchor().distanceTo(other.worldAnchor()));
             isController = true; other.isController = false;
             networkChanged(); other.networkChanged();
         }
@@ -250,6 +268,8 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
 
     public void disconnect() {
         if (level == null || level.isClientSide) return;
+        if (pair != null && settings.type().hose()) CreateFireFightingAdd.LOGGER.info(
+            "[FLUID-HOSE] pair={} endpoint={} disconnect powered={} deployment={}", pair, endpoint, powered, deployment);
         pitchTarget = null;
         var other = partner();
         releaseConstraint();
@@ -272,13 +292,14 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     }
 
     public void applySettings(int mode, int role, int lower, int upper, boolean flip) {
-        if (role < 0 || role > 2 || mode < 0 || mode > 2 || lower < -180 || upper > 180 || lower > upper) return;
+        if (role < 0 || role >= FluidCouplingInterfaces.values().length || mode < 0 || mode > 2 || lower < -180 || upper > 180 || lower > upper) return;
         var type = FluidCouplingInterfaces.values()[role];
         var next = type.locksConstraint()
             ? settings.withInterface(type)
             : new FluidCouplingSettings(type, settings.height(), mode, lower, upper, flip);
         if (settings.equals(next)) return;
         disconnect(); settings = next; pitch = previousPitch = 0; cooldownUntil = 0; nextSearch = 0;
+        deployment = previousDeployment = 0;
         notifyUpdate();
     }
 
@@ -340,6 +361,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
         tag.putBoolean("CouplingPowered", powered);
         tag.putLong("CouplingGuiPairCooldown", cooldownUntil);
         tag.putFloat("Pitch", pitch); tag.putFloat("Flow", flow);
+        tag.putFloat("HoseDeployment", deployment);
         if (!packet && pair != null) tag.put("CouplingReference", CouplingPhysics.saveReference(constraint != null ? constraint : reference));
         var other = partner();
         if (packet && other != null) {
@@ -365,6 +387,7 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
         previousPitch = pitch;
         pitch = (float) FluidCouplingGeometry.clampPitch(tag.getFloat("Pitch"));
         flow = Float.isFinite(tag.getFloat("Flow")) ? Math.max(0, tag.getFloat("Flow")) : 0;
+        deployment = previousDeployment = HoseDeployment.clamp(tag.getFloat("HoseDeployment"));
         if (!packet) {
             reference = pair == null ? null : CouplingPhysics.restoreReference(tag.getCompound("CouplingReference"));
             restoring = pair != null; cleaned = false; recoveryTicks = 0;
@@ -379,6 +402,6 @@ public class FluidCouplingBlockEntity extends FireHoseBlockEntity implements Men
     }
     @Override public Component getDisplayName() { return Component.translatable("block.createfirefightingadd.fluid_coupling"); }
     @Override public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
-        return StressCouplingCompatibility.enabled() ? new BallCouplingMenu(id, inventory, this) : null;
+        return FluidCouplings.enabled() ? new BallCouplingMenu(id, inventory, this) : null;
     }
 }

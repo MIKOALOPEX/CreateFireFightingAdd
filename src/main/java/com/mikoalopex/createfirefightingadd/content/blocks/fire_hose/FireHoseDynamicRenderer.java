@@ -36,14 +36,9 @@ import org.joml.Vector3dc;
  */
 public final class FireHoseDynamicRenderer {
 	private static final float TUBE_WIDTH = 8.0f;
-	private static final float TEXTURE_WIDTH = 16.0f;
 	private static final Vector3d UP = new Vector3d(0, 1, 0);
 	private static final Map<Integer, DynamicHose> DYNAMIC_HOSES = new HashMap<>();
 	private static final Map<ResourceLocation, RenderType> HOSE_RENDER_TYPES = new HashMap<>();
-	private static final RenderType DEFAULT_HOSE_RENDER_TYPE = createHoseRenderType(
-		FireHoseAppearances.get(FireHoseAppearances.DEFAULT).hoseTexture());
-	private static final RenderType BLACK_HOSE_RENDER_TYPE = createHoseRenderType(
-		FireHoseAppearances.get(FireHoseAppearances.BLACK).hoseTexture());
 
 	private FireHoseDynamicRenderer() {
 	}
@@ -80,8 +75,6 @@ public final class FireHoseDynamicRenderer {
 			renderHose(poseStack, buffer, hose, sampleLight(minecraft.level, hose));
 		}
 		poseStack.popPose();
-		bufferSource.endBatch(DEFAULT_HOSE_RENDER_TYPE);
-		bufferSource.endBatch(BLACK_HOSE_RENDER_TYPE);
 		for (RenderType renderType : HOSE_RENDER_TYPES.values())
 			bufferSource.endBatch(renderType);
 	}
@@ -94,10 +87,6 @@ public final class FireHoseDynamicRenderer {
 		ResourceLocation texture = appearance.hoseTexture();
 		if (texture == null)
 			return null;
-		if (FireHoseAppearances.DEFAULT.equals(appearance.id()))
-			return DEFAULT_HOSE_RENDER_TYPE;
-		if (FireHoseAppearances.BLACK.equals(appearance.id()))
-			return BLACK_HOSE_RENDER_TYPE;
 		return HOSE_RENDER_TYPES.computeIfAbsent(texture, FireHoseDynamicRenderer::createHoseRenderType);
 	}
 
@@ -167,7 +156,6 @@ public final class FireHoseDynamicRenderer {
 		double twist = endUp == null
 			? snappedTwist(matrix)
 			: -signedAngleAround(matrix.getColumn(0, new Vector3d()), vector(endUp), normalB);
-		float uvScale = (float) ((distance - 0.75) / totalLength);
 		double runningLength = 0.0;
 
 		matrix = initialFrame(normalA, end.sub(start, new Vector3d()), splinePoints.get(0).normal());
@@ -182,7 +170,7 @@ public final class FireHoseDynamicRenderer {
 
 			renderSegment(poseStack, point.normal(), next.normal(), up, nextUp,
 				point.point(), next.point(),
-				(float) runningLength * uvScale, (float) (runningLength + length) * uvScale,
+				(float) runningLength, (float) (runningLength + length),
 				light, color, buffer, tubeWidth, uvTubeWidth);
 
 			runningLength += length;
@@ -190,8 +178,13 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	/** Both end frames follow the model, rather than choosing roll from the curve direction. */
-	static List<AttachedPoint> attachedSpline(Vec3 startPos, Vec3 endPos, Vec3 startNormal, Vec3 endNormal,
+	public static List<AttachedPoint> attachedSpline(Vec3 startPos, Vec3 endPos, Vec3 startNormal, Vec3 endNormal,
 			Vec3 startUp, Vec3 endUp) {
+		return attachedSpline(startPos, endPos, startNormal, endNormal, startUp, endUp, false);
+	}
+
+	public static List<AttachedPoint> attachedSpline(Vec3 startPos, Vec3 endPos, Vec3 startNormal, Vec3 endNormal,
+			Vec3 startUp, Vec3 endUp, boolean shortTransition) {
 		Vector3d start = vector(startPos);
 		Vector3d end = vector(endPos);
 		Vector3d normalA = vector(startNormal).normalize();
@@ -204,7 +197,7 @@ public final class FireHoseDynamicRenderer {
 		double collar = Math.min(1.0 / 16, distance / 4);
 		Vector3d curveStart = start.fma(collar, normalA, new Vector3d());
 		Vector3d curveEnd = end.fma(collar, normalB, new Vector3d());
-		double influence = curveStart.distance(curveEnd) / 5 + 0.25;
+		double influence = shortTransition ? Math.min(distance / 3, 0.125) : curveStart.distance(curveEnd) / 5 + 0.25;
 		List<SplinePoint> curve = generateSpline(curveStart, curveEnd, normalA, normalB, influence);
 		List<SplinePoint> points = new ObjectArrayList<>();
 		points.add(new SplinePoint(start, normalA));
@@ -371,9 +364,24 @@ public final class FireHoseDynamicRenderer {
 		return points;
 	}
 
-	private static void renderSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
+	public static void renderSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
 			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos,
 			float uvStart, float uvEnd, int light, int color, VertexConsumer buffer, float tubeWidth, float uvTubeWidth) {
+		renderSegment(poseStack, startDirection, endDirection, inputStartUp, inputEndUp, startPos, endPos,
+			uvStart, uvEnd, null, light, color, buffer, tubeWidth, uvTubeWidth);
+	}
+
+	/** Each face advances by its drawn length, including the outside of a tight bend. */
+	public static void renderSurfaceSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
+			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos,
+			float[] phases, int light, int color, VertexConsumer buffer, float tubeWidth, float uvTubeWidth) {
+		renderSegment(poseStack, startDirection, endDirection, inputStartUp, inputEndUp, startPos, endPos,
+			0, 0, phases, light, color, buffer, tubeWidth, uvTubeWidth);
+	}
+
+	private static void renderSegment(PoseStack poseStack, Vector3dc startDirection, Vector3dc endDirection,
+			Vector3dc inputStartUp, Vector3dc inputEndUp, Vector3dc startPos, Vector3dc endPos,
+			float uvStart, float uvEnd, float[] phases, int light, int color, VertexConsumer buffer, float tubeWidth, float uvTubeWidth) {
 		Vector3d startLeft = inputStartUp.cross(startDirection, new Vector3d()).normalize();
 		Vector3d endLeft = inputEndUp.cross(endDirection, new Vector3d()).normalize();
 		double scale = tubeWidth / 16.0 / 2.0;
@@ -382,60 +390,69 @@ public final class FireHoseDynamicRenderer {
 		startLeft.mul(scale);
 		endLeft.mul(scale);
 
-		float texW = uvTubeWidth / TEXTURE_WIDTH;
-		float uvScale = 16.0f / TEXTURE_WIDTH;
+		float u0 = HoseTexture.u0(uvTubeWidth);
+		float u1 = HoseTexture.u1(uvTubeWidth);
 		Vector3d startDown = startUp.negate(new Vector3d());
 		Vector3d endDown = endUp.negate(new Vector3d());
 		Vector3d startRight = startLeft.negate(new Vector3d());
 		Vector3d endRight = endLeft.negate(new Vector3d());
 
-		quad(poseStack, buffer, color, startDown, endDown, light,
+		surfaceQuad(poseStack, buffer, color, startDown, endDown, light, phases, 0,
 			startPos.add(startLeft, new Vector3d()).sub(startUp),
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
-			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
-		quad(poseStack, buffer, color, startUp, endUp, light,
+			u0, uvStart, u1, uvEnd);
+		surfaceQuad(poseStack, buffer, color, startUp, endUp, light, phases, 1,
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			startPos.add(startLeft, new Vector3d()).add(startUp),
-			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
-		quad(poseStack, buffer, color, startRight, endRight, light,
+			u0, uvStart, u1, uvEnd);
+		surfaceQuad(poseStack, buffer, color, startRight, endRight, light, phases, 2,
 			startPos.sub(startLeft, new Vector3d()).sub(startUp),
 			endPos.sub(endLeft, new Vector3d()).sub(endUp),
 			endPos.sub(endLeft, new Vector3d()).add(endUp),
 			startPos.sub(startLeft, new Vector3d()).add(startUp),
-			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
-		quad(poseStack, buffer, color, startLeft, endLeft, light,
+			u0, uvStart, u1, uvEnd);
+		surfaceQuad(poseStack, buffer, color, startLeft, endLeft, light, phases, 3,
 			startPos.add(startLeft, new Vector3d()).add(startUp),
 			endPos.add(endLeft, new Vector3d()).add(endUp),
 			endPos.add(endLeft, new Vector3d()).sub(endUp),
 			startPos.add(startLeft, new Vector3d()).sub(startUp),
-			0.0f, uvStart * uvScale, texW, uvEnd * uvScale);
+			u0, uvStart, u1, uvEnd);
+	}
+
+	private static void surfaceQuad(PoseStack poseStack, VertexConsumer buffer, int color,
+			Vector3dc startNormal, Vector3dc endNormal, int light, float[] phases, int face,
+			Vector3dc a, Vector3dc b, Vector3dc c, Vector3dc d, float u0, float v0, float u1, float v1) {
+		if (phases != null) {
+			v0 = phases[face];
+			v1 = v0 + (float) ((a.distance(b) + d.distance(c)) / 2);
+			phases[face] = v1;
+		}
+		quad(poseStack, buffer, color, startNormal, endNormal, light, a, b, c, d, u0, v0, u1, v1);
 	}
 
 	private static void quad(PoseStack poseStack, VertexConsumer buffer, int color,
 			Vector3dc startNormal, Vector3dc endNormal, int light,
 			Vector3dc a, Vector3dc b, Vector3dc c, Vector3dc d, float u0, float v0, float u1, float v1) {
-		vert(poseStack, buffer, a, color, u0, v0, startNormal, light);
-		vert(poseStack, buffer, b, color, u0, v1, endNormal, light);
-		vert(poseStack, buffer, c, color, u1, v1, endNormal, light);
-		vert(poseStack, buffer, d, color, u1, v0, startNormal, light);
+		HoseTexture.split(v0, v1, (from, to, low, high) -> {
+			Vector3d n0 = startNormal.lerp(endNormal, from, new Vector3d());
+			Vector3d n1 = startNormal.lerp(endNormal, to, new Vector3d());
+			vert(poseStack, buffer, a.lerp(b, from, new Vector3d()), color, u0, low, n0, light);
+			vert(poseStack, buffer, a.lerp(b, to, new Vector3d()), color, u0, high, n1, light);
+			vert(poseStack, buffer, d.lerp(c, to, new Vector3d()), color, u1, high, n1, light);
+			vert(poseStack, buffer, d.lerp(c, from, new Vector3d()), color, u1, low, n0, light);
+		});
 	}
 
 	private static void vert(PoseStack poseStack, VertexConsumer buffer, Vector3dc pos, int color,
 			float u, float v, Vector3dc normal, int light) {
-		float wrappedU = u % 1.0f;
-		float wrappedV = v % 1.0f;
-		if (wrappedU < 0)
-			wrappedU += 1.0f;
-		if (wrappedV < 0)
-			wrappedV += 1.0f;
 		Vector3d normalizedNormal = normal.normalize(new Vector3d());
 		buffer.addVertex(poseStack.last().pose(), (float) pos.x(), (float) pos.y(), (float) pos.z())
 			.setColor(color)
-			.setUv(wrappedU, wrappedV)
+			.setUv(u, v)
 			.setOverlay(OverlayTexture.NO_OVERLAY)
 			.setLight(light)
 			.setNormal(poseStack.last(), (float) normalizedNormal.x(), (float) normalizedNormal.y(), (float) normalizedNormal.z());
@@ -448,6 +465,6 @@ public final class FireHoseDynamicRenderer {
 	record SplinePoint(Vector3dc point, Vector3dc normal) {
 	}
 
-	record AttachedPoint(Vector3dc point, Vector3dc normal, Vector3dc up, double length) {
+	public record AttachedPoint(Vector3dc point, Vector3dc normal, Vector3dc up, double length) {
 	}
 }

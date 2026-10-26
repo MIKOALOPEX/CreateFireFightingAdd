@@ -11,7 +11,8 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 public final class CompatibilityMixinPlugin implements IMixinConfigPlugin {
     @Override public boolean shouldApplyMixin(String target, String mixin) {
         Capability capability;
-        if (mixin.contains("RopeLatch")) capability = Capability.ROPE_CAPTURE;
+        if (mixin.contains("PhysicalHose")) capability = Capability.PHYSICAL_HOSE;
+        else if (mixin.contains("RopeLatch")) capability = Capability.ROPE_CAPTURE;
         else if (mixin.contains("SmartRope") || mixin.endsWith("RopeItemMixin")) capability = Capability.ROPE_CONNECT;
         else return true;
         var loading = FMLLoader.getLoadingModList();

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "neoforge:conditions": [
+    {
+      "type": "createfirefightingadd:capability",
+      "capability": "FLUID_COUPLING"
+    }
+  ],
+  "pattern": [
+    " B ",
+    " E ",
+    " H "
+  ],
+  "key": {
+    "B": { "item": "create:precision_mechanism" },
+    "E": { "item": "create:fluid_pipe" },
+    "H": { "item": "simulated:swivel_bearing" }
+  },
+  "result": {
+    "id": "createfirefightingadd:fluid_coupling",
+    "count": 1
+  }
+}

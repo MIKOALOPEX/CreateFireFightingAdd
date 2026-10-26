@@ -33,7 +33,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class FluidCouplingBlock extends WrenchableDirectionalBlock implements IBE<FluidCouplingBlockEntity> {
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
     @Override public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
-        return StressCouplingCompatibility.enabled() ? new ItemStack(FluidCouplings.ITEM.get()) : ItemStack.EMPTY;
+        return FluidCouplings.enabled() ? new ItemStack(FluidCouplings.ITEM.get()) : ItemStack.EMPTY;
     }
     public FluidCouplingBlock(Properties properties) {
         super(properties);
@@ -56,13 +56,13 @@ public final class FluidCouplingBlock extends WrenchableDirectionalBlock impleme
     }
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty()) return InteractionResult.PASS;
-        if (!StressCouplingCompatibility.enabled()) StressCouplingCompatibility.notifyPlayer(player);
+        if (!FluidCouplings.enabled()) StressCouplingCompatibility.notifyPlayer(player);
         else if (!level.isClientSide && level.getBlockEntity(pos) instanceof FluidCouplingBlockEntity be)
             player.openMenu(be, buf -> buf.writeBlockPos(pos));
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
     @Override public InteractionResult onWrenched(BlockState state, UseOnContext context) {
-        if (!StressCouplingCompatibility.enabled()) { StressCouplingCompatibility.notifyPlayer(context.getPlayer()); return InteractionResult.SUCCESS; }
+        if (!FluidCouplings.enabled()) { StressCouplingCompatibility.notifyPlayer(context.getPlayer()); return InteractionResult.SUCCESS; }
         if (!context.getLevel().isClientSide && context.getLevel().getBlockEntity(context.getClickedPos()) instanceof FluidCouplingBlockEntity be)
             be.cycleHeight(context.getPlayer());
         return InteractionResult.SUCCESS;
@@ -77,7 +77,12 @@ public final class FluidCouplingBlock extends WrenchableDirectionalBlock impleme
     }
     private VoxelShape shape(BlockState state, BlockGetter level, BlockPos pos, boolean collision) {
         var type = level.getBlockEntity(pos) instanceof FluidCouplingBlockEntity be ? be.settings().type() : FluidCouplingInterfaces.FREE;
-        double height = type == FluidCouplingInterfaces.FREE ? 8 : type == FluidCouplingInterfaces.RECEPTACLE ? 20 : 23.475;
+        double height = switch (type) {
+            case FREE -> 8;
+            case RECEPTACLE, HOSE_DROGUE -> 20;
+            case BOOM_NOZZLE -> 23.475;
+            case HOSE_PROBE -> 25;
+        };
         if (collision) height -= 4;
         return Shapes.or(box(state, 0, 0, 0, 16, type == FluidCouplingInterfaces.RECEPTACLE ? 6 : 4, 16),
             box(state, 4, 3, 4, 12, height, 12));

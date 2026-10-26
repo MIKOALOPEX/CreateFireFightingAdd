@@ -110,6 +110,12 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        compatibilityClientSmoke {
+            client()
+            gameDirectory.set(layout.buildDirectory.dir("compatibility-smoke-${providers.gradleProperty('compatibilityProfile').getOrElse('base')}"))
+            systemProperty 'createfirefightingadd.compatibilityClientSmoke', 'true'
+        }
+
         data {
             data()
 
@@ -141,6 +147,7 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkHoseTexture: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseTextureTest',
     checkCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.CompatibilityRulesTest',
     checkRockerMotion: 'com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerMotionTest',
     checkRopeSliding: 'com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeSlideStateTest',

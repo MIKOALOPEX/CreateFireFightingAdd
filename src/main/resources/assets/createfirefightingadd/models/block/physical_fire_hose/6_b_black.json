@@ -1,0 +1,73 @@
+{
+  "credit": "Made with Blockbench",
+  "textures": {
+    "0": "createfirefightingadd:block/fire_hose_black",
+    "particle": "createfirefightingadd:block/fire_hose_black"
+  },
+  "elements": [
+    {
+      "name": "B",
+      "from": [
+        5,
+        5,
+        14
+      ],
+      "to": [
+        11,
+        11,
+        16
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          0
+        ]
+      },
+      "faces": {
+        "east": {
+          "uv": [
+            1,
+            14,
+            7,
+            16
+          ],
+          "rotation": 90,
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            1,
+            0,
+            7,
+            2
+          ],
+          "rotation": 90,
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            1,
+            0,
+            7,
+            2
+          ],
+          "rotation": 180,
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            1,
+            14,
+            7,
+            16
+          ],
+          "rotation": 180,
+          "texture": "#0"
+        }
+      }
+    }
+  ]
+}

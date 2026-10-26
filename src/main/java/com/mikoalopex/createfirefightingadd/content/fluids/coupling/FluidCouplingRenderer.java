@@ -26,8 +26,11 @@ public final class FluidCouplingRenderer extends SmartBlockEntityRenderer<FluidC
     static {
         for (String name : new String[] {"base", "base_item", "ring", "boom_nozzle", "boom_nozzle_cog", "boom_nozzle_item",
                 "receptacle_fixed", "receptacle_pitch", "receptacle_gear",
-                "receptacle_fixed_powered", "receptacle_pitch_powered", "receptacle_gear_powered"})
+                "receptacle_fixed_powered", "receptacle_pitch_powered", "receptacle_gear_powered",
+                "hose_probe", "hose_drogue_fixed"})
             MODELS.put(name, PartialModel.of(CreateFireFightingAdd.path("block/fluid_coupling/" + name)));
+        for (var part : HoseDrogueParts.PARTS)
+            MODELS.put(part.model(), PartialModel.of(CreateFireFightingAdd.path("block/fluid_coupling/" + part.model())));
     }
     private final FireHoseRenderer hose;
     public FluidCouplingRenderer(BlockEntityRendererProvider.Context context) { super(context); hose = new FireHoseRenderer(context); }
@@ -59,6 +62,25 @@ public final class FluidCouplingRenderer extends SmartBlockEntityRenderer<FluidC
                 pose.mulPose(Axis.ZP.rotationDegrees(be.gearPhase(partial)));
                 pose.translate(-0.5, -0.5, -10 / 16f);
                 draw("boom_nozzle_cog", pose, buffers, light, overlay);
+            }
+            case HOSE_PROBE, HOSE_DROGUE -> {
+                pose.translate(0.5, 0.5, 0.5); pose.mulPose(Axis.ZP.rotationDegrees(-90)); pose.translate(-0.5, -0.5, -0.5);
+                if (be.settings().type() == FluidCouplingInterfaces.HOSE_PROBE) {
+                    draw("hose_probe", pose, buffers, light, overlay);
+                } else {
+                    draw("hose_drogue_fixed", pose, buffers, light, overlay);
+                    float progress = be.deployment(partial);
+                    for (var part : HoseDrogueParts.PARTS) {
+                        pose.pushPose();
+                        pose.translate(part.px() / 16, part.py() / 16, part.pz() / 16);
+                        Axis axis = switch (part.axis()) { case 'x' -> Axis.XP; case 'z' -> Axis.ZP; default -> Axis.YP; };
+                        pose.mulPose(axis.rotationDegrees(part.angle() * progress));
+                        pose.translate(-part.px() / 16, -part.py() / 16, -part.pz() / 16);
+                        pose.translate(part.dx() * progress / 16, part.dy() * progress / 16, part.dz() * progress / 16);
+                        draw(part.model(), pose, buffers, light, overlay);
+                        pose.popPose();
+                    }
+                }
             }
         }
         pose.popPose();

@@ -267,7 +267,7 @@ public class FireHoseConnectorBlockEntity extends SmartBlockEntity {
 			if (direction.getAxis() != FireHoseConnectorBlock.pipeAxis(getBlockState()))
 				continue;
 			BlockEntity be = level.getBlockEntity(worldPosition.relative(direction));
-			if (be instanceof FireHoseBlockEntity hose)
+			if (be instanceof FireHoseBlockEntity hose && hose.allowsHoseConnection())
 				return hose;
 		}
 		return null;

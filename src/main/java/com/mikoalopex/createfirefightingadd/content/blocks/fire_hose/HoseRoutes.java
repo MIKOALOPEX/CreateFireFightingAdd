@@ -51,6 +51,7 @@ public final class HoseRoutes extends SavedData {
     }
 
     public HoseRoute ensure(FireHoseBlockEntity hose) {
+        if (!hose.allowsHoseConnection()) return null;
         if (hose.route != null) {
             HoseRoute current = find(hose.route.id);
             if (current != null)
