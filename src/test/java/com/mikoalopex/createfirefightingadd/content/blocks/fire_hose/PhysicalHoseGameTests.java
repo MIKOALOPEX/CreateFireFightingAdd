@@ -124,9 +124,21 @@ public final class PhysicalHoseGameTests {
             helper.assertTrue(a.getFireHosePartnerPos() == null && b.getFireHosePartnerPos() == null, "Fluid link survived cut");
             helper.assertTrue(a.connectPhysical(b), "Cannot reconnect after cutting");
             helper.setBlock(bPos, net.minecraft.world.level.block.Blocks.AIR);
+            helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(bPos)).isAir(), "Remote endpoint was restored during teardown");
         });
         helper.runAtTickTime(50, () -> {
             helper.assertTrue(!a.attached() && a.getFireHosePartnerPos() == null, "Removed endpoint left a link");
+            helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(bPos)).isAir(), "Remote endpoint reappeared after removal");
+            helper.setBlock(bPos, PhysicalHoses.MEDIUM.get().defaultBlockState().setValue(FireHoseBlock.FACING, Direction.WEST));
+            var replacement = (PhysicalHoseBlockEntity) helper.getBlockEntity(bPos);
+            helper.assertTrue(a.connectPhysical(replacement), "Cannot reconnect to a replacement endpoint");
+            helper.getLevel().destroyBlock(helper.absolutePos(aPos), false);
+            helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(aPos)).isAir(), "Owner endpoint was restored during teardown");
+        });
+        helper.runAtTickTime(70, () -> {
+            helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(aPos)).isAir(), "Owner endpoint reappeared after removal");
+            var remaining = (PhysicalHoseBlockEntity) helper.getBlockEntity(bPos);
+            helper.assertTrue(!remaining.attached() && remaining.getFireHosePartnerPos() == null, "Owner removal left a link on the remaining endpoint");
             helper.succeed();
         });
     }

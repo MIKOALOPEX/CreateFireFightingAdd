@@ -33,6 +33,12 @@ final class SableStructureBackend implements SableStructureCompat.StructureBacke
     }
 
     @Override
+    public Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos) {
+        SubLevel subLevel = Sable.HELPER.getContaining(level, reference);
+        return subLevel == null ? localPos : subLevel.logicalPose().transformPosition(localPos);
+    }
+
+    @Override
     public Vec3 projectToWorld(Level level, Vec3 localPos) {
         return Sable.HELPER.projectOutOfSubLevel(level, localPos);
     }

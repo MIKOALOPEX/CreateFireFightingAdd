@@ -297,7 +297,7 @@ public class CreateFireFightingAdd {
 		() -> new ExtensionLadderItem(new Item.Properties().stacksTo(1)));
 
 	public static final DeferredBlock<HoseBracketBlock> HOSE_BRACKET = BLOCKS.register("hose_bracket",
-		() -> SableStructureCompat.createHoseBracketBlock(BlockBehaviour.Properties.of().strength(1.5f).noOcclusion()));
+		() -> SableStructureCompat.createHoseBracketBlock(BlockBehaviour.Properties.of().strength(1.5f).noOcclusion().dynamicShape()));
 
 	public static final DeferredBlock<FireHoseBlock> FIRE_HOSE = BLOCKS.register("fire_hose",
 		() -> SableStructureCompat.createFireHoseBlock(
@@ -673,6 +673,10 @@ public class CreateFireFightingAdd {
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(HOSE_BRACKET.get(), new HoseBracketMovementBehaviour());
+        com.simibubi.create.api.contraption.BlockMovementChecks.registerMovementAllowedCheck((state, level, pos) ->
+            state.is(HOSE_BRACKET.get()) && level.getBlockEntity(pos) instanceof HoseBracketBlockEntity bracket && bracket.physical()
+                ? com.simibubi.create.api.contraption.BlockMovementChecks.CheckResult.FAIL
+                : com.simibubi.create.api.contraption.BlockMovementChecks.CheckResult.PASS);
 		MovementBehaviour.REGISTRY.register(FIRE_HYDRANT_CABINET.get(), FireHydrantCabinetMovementBehaviour.INSTANCE);
 
 		MountedFluidStorageType.REGISTRY.register(CONE_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());

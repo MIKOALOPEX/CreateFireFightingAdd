@@ -6,7 +6,10 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
-/** Visual trims never modify the native rope points or their collision length. */
+/**
+ * Derives model segments and endpoint frames from the native rope pose.
+ * Visual trimming preserves the rope points and collision lengths.
+ */
 public final class PhysicalHoseGeometry {
     public record Segment(Vec3 start, Vec3 end, Vec3 normal, Vec3 up, double length, double middleLength) {
         public Vec3 center() { return start.add(end).scale(0.5); }
@@ -42,7 +45,7 @@ public final class PhysicalHoseGeometry {
         return a.fullLength() && b.fullLength() && a.end.distanceToSqr(b.start) < 1e-8 && a.normal.dot(b.normal) > 1 - 1e-8;
     }
 
-    /** Match heads to the rendered ends without changing the strand's point order. */
+    /** Matches heads to the rendered ends without changing the strand's point order. */
     public static boolean ownerAtFirst(Vec3 owner, Vec3 partner, List<Segment> segments) {
         Vec3 first = segments.getFirst().start(), last = segments.getLast().end();
         return owner.distanceToSqr(first) + partner.distanceToSqr(last)

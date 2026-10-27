@@ -152,6 +152,12 @@ public final class SableStructureCompat {
         return first.distanceToSqr(second);
     }
 
+    /** Resolves the frame from an existing block, even when the target point lies outside it. */
+    public static Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos) {
+        if (level.isClientSide) return SableStructureClientCompat.projectFromBlockToWorld(level, reference, localPos);
+        return BACKEND == null ? localPos : BACKEND.projectFromBlockToWorld(level, reference, localPos);
+    }
+
     public static Vec3 projectToWorld(Level level, Vec3 localPos) {
         if (level != null && level.isClientSide)
             return SableStructureClientCompat.projectToWorld(level, localPos);
@@ -461,6 +467,8 @@ public final class SableStructureCompat {
         double distanceSquared(Level level, Vec3 first, Vec3 second);
 
         Vec3 projectToWorld(Level level, Vec3 localPos);
+
+        Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos);
 
         Level worldLevel(BlockEntity owner);
 

@@ -147,6 +147,7 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkPhysicalHoseAnchors: 'com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseAnchorsTest',
     checkHoseTexture: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseTextureTest',
     checkCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.CompatibilityRulesTest',
     checkRockerMotion: 'com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerMotionTest',

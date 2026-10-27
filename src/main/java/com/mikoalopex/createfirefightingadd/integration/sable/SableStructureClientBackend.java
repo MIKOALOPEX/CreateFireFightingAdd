@@ -79,6 +79,13 @@ final class SableStructureClientBackend implements SableStructureClientCompat.Cl
 		return clientAccess != null ? clientAccess.renderPose().transformNormal(localNormal) : localNormal;
 	}
 
+    @Override
+    public Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos) {
+        var containing = Sable.HELPER.getContaining(level, reference);
+        return containing instanceof ClientSubLevel subLevel
+            ? subLevel.renderPose().transformPosition(localPos) : localPos;
+    }
+
 	@Override
 	public Vec3 projectToWorld(Level level, Vec3 localPos) {
 		ClientSubLevelContainer container = Minecraft.getInstance().level == null ? null

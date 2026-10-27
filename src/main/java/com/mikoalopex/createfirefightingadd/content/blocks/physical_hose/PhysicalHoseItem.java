@@ -10,9 +10,11 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 
-/** Places heads and connects two matching, unoccupied endpoints. */
+/**
+ * Places physical hose heads and connects matching, unoccupied endpoints.
+ */
 public final class PhysicalHoseItem extends BlockItem {
-    private static final String SELECTION = "PhysicalHoseSelection";
+    static final String SELECTION = "PhysicalHoseSelection";
     public PhysicalHoseItem(PhysicalHoseBlock block, Properties properties) { super(block, properties); }
 
     @Override public void appendHoverText(net.minecraft.world.item.ItemStack stack, TooltipContext context,
@@ -82,6 +84,7 @@ public final class PhysicalHoseItem extends BlockItem {
             message = connected ? "connected" : "invalid";
         }
         if (!stack.isEmpty()) stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
-        player.displayClientMessage(Component.translatable("createfirefightingadd.physical_hose." + message), true);
+        if (!message.equals("selected") && !message.equals("connected"))
+            player.displayClientMessage(Component.translatable("createfirefightingadd.physical_hose." + message), true);
     }
 }

@@ -18,18 +18,26 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Renders a bracket with the appearance selected by its fire-hose route. */
+/**
+ * Renders the bracket frame and ordinary hose insert using the connected hose appearance.
+ * Physical hose segments are rendered by their strand owner.
+ */
 public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlockEntity> {
     public HoseBracketRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
     public void render(HoseBracketBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
                        int light, int overlay) {
-        renderModel(be.getBlockState(), be.angle(), be.route, pose, buffers, light);
+        renderModel(be.getBlockState(), be.angle(), be.route, pose, buffers, light, !be.physical());
     }
 
     public static void renderModel(BlockState state, float angle, HoseRoute route, PoseStack pose,
                                    MultiBufferSource buffers, int light) {
+        renderModel(state, angle, route, pose, buffers, light, true);
+    }
+
+    private static void renderModel(BlockState state, float angle, HoseRoute route, PoseStack pose,
+                                   MultiBufferSource buffers, int light, boolean pipeVisible) {
         Direction face = state.getValue(HoseBracketBlock.FACING);
         pose.pushPose();
         pose.translate(0.5, 0.5, 0.5);
@@ -40,7 +48,7 @@ public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlock
             .renderInto(pose, buffers.getBuffer(RenderType.cutoutMipped()));
 
         var appearance = FireHoseAppearances.get(route == null ? FireHoseAppearances.DEFAULT : route.appearance);
-        if (appearance.rendersHose()) {
+        if (pipeVisible && appearance.rendersHose()) {
             BakedModel pipe = PartialModels.HOSE_SETPOINT_Z.get();
             if (face.getAxis() == Direction.Axis.Z) {
                 pipe = PartialModels.HOSE_SETPOINT_Y.get();
@@ -53,7 +61,7 @@ public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlock
         pose.popPose();
     }
 
-    /** Preserve the supplied model UVs while substituting the hose's full texture. */
+    /** Preserves model UVs while substituting the hose appearance texture. */
     public static void renderPipe(BakedModel model, PoseStack pose, VertexConsumer buffer, int light) {
         RandomSource random = RandomSource.create(42);
         for (int side = -1; side < 6; side++) {

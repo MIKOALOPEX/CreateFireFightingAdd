@@ -15,7 +15,10 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-/** A hose head whose tube is owned by the native rope simulation. */
+/**
+ * Physical hose endpoint with an adjustable cross-section.
+ * The native rope simulation controls the connected hose body.
+ */
 public class PhysicalHoseBlock extends FireHoseBlock {
     public enum Size implements net.minecraft.util.StringRepresentable {
         EIGHT(8), SIX(6), FOUR(4);

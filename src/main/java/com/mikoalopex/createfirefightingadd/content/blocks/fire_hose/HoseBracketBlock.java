@@ -30,7 +30,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-/** A bracket is a visual guide, not a pipe or an additional fluid endpoint. */
+/**
+ * Guides ordinary hoses or fixes a physical segment without adding a fluid endpoint.
+ */
 public class HoseBracketBlock extends WrenchableDirectionalBlock implements IBE<HoseBracketBlockEntity>, IWrenchable {
     public static final BooleanProperty WOODEN = BooleanProperty.create("wooden");
 
@@ -92,7 +94,8 @@ public class HoseBracketBlock extends WrenchableDirectionalBlock implements IBE<
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState replacement, boolean moving) {
         if (!state.is(replacement.getBlock()) && !level.isClientSide && !moving
             && level.getBlockEntity(pos) instanceof HoseBracketBlockEntity bracket && !bracket.assembling)
-            HoseRoutes.get(level).removeBracket(level, bracket.route, bracket.nodeId);
+            if (bracket.physical()) bracket.releasePhysical();
+            else HoseRoutes.get(level).removeBracket(level, bracket.route, bracket.nodeId);
         IBE.onRemove(state, level, pos, replacement);
     }
 
@@ -105,7 +108,16 @@ public class HoseBracketBlock extends WrenchableDirectionalBlock implements IBE<
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         float angle = level.getBlockEntity(pos) instanceof HoseBracketBlockEntity bracket ? bracket.angle() : 0;
         Direction face = state.getValue(FACING);
-        return rotatedBox(face, angle, 4, 0, 4, 12, 13, 12);
+        var base = rotatedBox(face, angle, 4, 0, 4, 12, 13, 12);
+        if (level.getBlockEntity(pos) instanceof HoseBracketBlockEntity bracket && bracket.physical()) {
+            var hose = bracket.physicalHose();
+            int width = hose == null ? 8 : hose.width();
+            double half = bracket.physicalLength * 8;
+            return net.minecraft.world.phys.shapes.Shapes.or(base,
+                rotatedBox(face, angle, 8 - width / 2.0, 8 - width / 2.0, 8 - half,
+                    8 + width / 2.0, 8 + width / 2.0, 8 + half));
+        }
+        return base;
     }
 
     private static VoxelShape rotatedBox(Direction face, float angle, double x0, double y0, double z0,

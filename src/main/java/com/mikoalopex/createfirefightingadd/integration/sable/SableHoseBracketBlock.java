@@ -7,7 +7,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Keeps a hose bracket attached to its route while Sable moves a substructure. */
+/**
+ * Relocates hose route nodes and physical bindings with Sable substructures.
+ */
 public class SableHoseBracketBlock extends HoseBracketBlock implements BlockSubLevelAssemblyListener {
     public SableHoseBracketBlock(Properties properties) {
         super(properties);
@@ -25,7 +27,8 @@ public class SableHoseBracketBlock extends HoseBracketBlock implements BlockSubL
     public void afterMove(ServerLevel oldLevel, ServerLevel newLevel, BlockState state, BlockPos oldPos, BlockPos newPos) {
         if (newLevel.getBlockEntity(newPos) instanceof HoseBracketBlockEntity bracket) {
             bracket.assembling = false;
-            bracket.refreshRoute();
+            if (bracket.physical()) bracket.relocatePhysical();
+            else bracket.refreshRoute();
             SableStructureCompat.notifyBlockChanged(newLevel, newPos, state);
         }
     }

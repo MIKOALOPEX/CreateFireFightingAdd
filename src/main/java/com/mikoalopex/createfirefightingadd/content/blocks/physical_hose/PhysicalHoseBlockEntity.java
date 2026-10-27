@@ -8,8 +8,31 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-/** Keeps endpoint and strand data readable when the optional physics dependency is absent. */
+/**
+ * Stores physical hose endpoints and bracket bindings independently of the
+ * optional physics backend.
+ */
 public class PhysicalHoseBlockEntity extends FireHoseBlockEntity {
+    public final java.util.List<PhysicalHoseAnchors.Binding> anchors = new java.util.ArrayList<>();
+    public java.util.UUID bracketStrand;
+    public double bracketFirstLength = 1;
+    protected boolean anchorsDirty;
+    public PhysicalHoseAnchors.Snapshot anchorSnapshot() { return null; }
+    public boolean rebuildAnchors() { return false; }
+    public void releaseAnchor(java.util.UUID node) {
+        if (anchors.removeIf(binding -> binding.node().equals(node))) {
+            anchorsDirty = !rebuildAnchors(); notifyUpdate();
+        }
+    }
+    public void clearAnchors() {
+        var old = java.util.List.copyOf(anchors);
+        anchors.clear();
+        for (var binding : old) {
+            var bracket = binding.resolve(level);
+            if (bracket != null) level.destroyBlock(binding.pos(), true);
+        }
+        notifyUpdate();
+    }
     private CompoundTag dormantStrand = new CompoundTag();
 
     public PhysicalHoseBlockEntity(BlockPos pos, BlockState state) { super(PhysicalHoses.BLOCK_ENTITY.get(), pos, state); }
@@ -52,6 +75,11 @@ public class PhysicalHoseBlockEntity extends FireHoseBlockEntity {
 
     @Override protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean packet) {
         super.read(tag, registries, packet);
+        bracketStrand = tag.hasUUID("BracketStrand") ? tag.getUUID("BracketStrand") : null;
+        bracketFirstLength = tag.contains("BracketFirstLength") ? tag.getDouble("BracketFirstLength") : 1;
+        anchors.clear();
+        for (var entry : tag.getList("PhysicalAnchors", net.minecraft.nbt.Tag.TAG_COMPOUND))
+            anchors.add(PhysicalHoseAnchors.Binding.read((CompoundTag) entry));
         if (!hasPhysicsBackend()) {
             dormantStrand = new CompoundTag();
             for (String key : new String[] {"OwnStrand", "HasRopeAttached", "Strand"})
@@ -61,6 +89,11 @@ public class PhysicalHoseBlockEntity extends FireHoseBlockEntity {
 
     @Override protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean packet) {
         super.write(tag, registries, packet);
+        if (bracketStrand != null) tag.putUUID("BracketStrand", bracketStrand);
+        tag.putDouble("BracketFirstLength", bracketFirstLength);
+        var list = new net.minecraft.nbt.ListTag();
+        for (var binding : anchors) list.add(binding.write(level));
+        tag.put("PhysicalAnchors", list);
         if (!hasPhysicsBackend())
             for (String key : dormantStrand.getAllKeys())
                 if (!packet || !key.equals("Strand")) tag.put(key, dormantStrand.get(key).copy());

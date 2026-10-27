@@ -23,7 +23,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3d;
 import static com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseGeometry.vector;
 
-/** Draws the supplied mid boxes and replaces bent shoulders with continuous hose faces. */
+/**
+ * Renders hose segment models and joins their exposed faces with textured strips.
+ */
 public final class PhysicalHoseRenderer extends SafeBlockEntityRenderer<PhysicalHoseBlockEntity> {
     private static final Map<String, PartialModel> MODELS = new LinkedHashMap<>();
     static {
@@ -47,6 +49,7 @@ public final class PhysicalHoseRenderer extends SafeBlockEntityRenderer<Physical
 
     @Override protected void renderSafe(PhysicalHoseBlockEntity be, float partial, PoseStack pose,
             MultiBufferSource buffers, int light, int overlay) {
+        PhysicalHoseBracketClient.track(be);
         var appearance = be.getHoseAppearance();
         if (be.getBlockState().getValue(FireHoseBlock.APPEARANCE) == FireHoseEndpointModel.CUSTOM) {
             var facing = be.getBlockState().getValue(FireHoseBlock.FACING);
@@ -62,8 +65,10 @@ public final class PhysicalHoseRenderer extends SafeBlockEntityRenderer<Physical
         }
         var texture = appearance.hoseTexture();
         if (texture == null) return;
-        var segments = PhysicalHoseGeometry.segments(be.renderPoints(partial));
+        var indexed = PhysicalHoseAnchors.indexedSegments(be.renderPoints(partial));
+        var segments = new java.util.ArrayList<>(indexed.stream().filter(java.util.Objects::nonNull).toList());
         if (segments.isEmpty()) return;
+        alignFixedSegments(be, segments, indexed);
         int width = be.width();
         var start = be.renderEnd(true);
         var end = be.renderEnd(false);
@@ -99,6 +104,27 @@ public final class PhysicalHoseRenderer extends SafeBlockEntityRenderer<Physical
         else line(first.start(), first.midStart(), first.normal(), first.up(), 0, pose, tube, light, width);
         if (end != null) headBridge(end, last.midEnd(), last.normal(), last.up(), pose, tube, light, width);
         else line(last.midEnd(), last.end(), last.normal(), last.up(), 0.875f, pose, tube, light, width);
+    }
+
+    private static void alignFixedSegments(PhysicalHoseBlockEntity hose, java.util.List<PhysicalHoseGeometry.Segment> segments, java.util.List<PhysicalHoseGeometry.Segment> indexed) {
+        for (var binding : hose.anchors) {
+            var bracket = binding.resolve(hose.getLevel());
+            if (bracket == null || binding.segment() >= indexed.size()) continue;
+            int renderIndex = segments.indexOf(indexed.get(binding.segment()));
+            if (renderIndex < 0) continue;
+            Vec3 up = com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.renderNormalToWorld(bracket,
+                com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock.rotate(
+                    bracket.getBlockState().getValue(com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock.FACING),
+                    bracket.angle(), new Vec3(0, 1, 0)));
+            Vec3 x = com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.renderNormalToWorld(hose, new Vec3(1, 0, 0));
+            Vec3 y = com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.renderNormalToWorld(hose, new Vec3(0, 1, 0));
+            Vec3 z = com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat.renderNormalToWorld(hose, new Vec3(0, 0, 1));
+            var segment = segments.get(renderIndex);
+            Vec3 localUp = new Vec3(up.dot(x), up.dot(y), up.dot(z));
+            localUp = localUp.subtract(segment.normal().scale(localUp.dot(segment.normal()))).normalize();
+            segments.set(renderIndex, new PhysicalHoseGeometry.Segment(segment.start(), segment.end(), segment.normal(),
+                localUp, segment.length(), segment.middleLength()));
+        }
     }
 
     private static void draw(String name, PhysicalHoseGeometry.Segment segment, PoseStack pose,

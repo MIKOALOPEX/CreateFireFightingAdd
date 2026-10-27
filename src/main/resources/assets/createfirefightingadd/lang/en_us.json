@@ -415,5 +415,7 @@
   "createfirefightingadd.physical_hose.cleared": "Endpoint selection cleared",
   "createfirefightingadd.physical_hose.invalid": "Cannot connect: check hose size, distance and occupied endpoints",
   "createfirefightingadd.physical_hose.tooltip": "Place two heads to connect. Wrench cycles 8 / 6 / 4 on both connected ends. Uses Fire Hose dyes. Shears disconnect; sneak-use clears selection.",
-  "block.createfirefightingadd.physical_fire_hose": "Physical Fire Hose"
+  "block.createfirefightingadd.physical_fire_hose": "Physical Fire Hose",
+  "createfirefightingadd.hose_bracket.physical_place": "Hose segment selected: use on a surface to place a bracket; sneak-use to cancel",
+  "createfirefightingadd.hose_bracket.physical_range": "Not enough hose length to place the bracket"
 }

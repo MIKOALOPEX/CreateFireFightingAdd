@@ -12,7 +12,9 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/** Uses native rope assembly callbacks while leaving room for the attached strand at the head. */
+/**
+ * Connects physical hose endpoints to native rope assembly callbacks.
+ */
 public final class SimulatedPhysicalHoseBlock extends PhysicalHoseBlock
         implements RopeHolderBlock<FireHoseBlockEntity>, BlockSubLevelCollisionShape {
     private static final VoxelShaper COLLIDER = VoxelShaper.forDirectional(box(3, 0, 3, 13, 0.25, 13), Direction.UP);

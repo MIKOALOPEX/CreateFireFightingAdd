@@ -415,5 +415,7 @@
   "createfirefightingadd.physical_hose.cleared": "已取消端点选择",
   "createfirefightingadd.physical_hose.invalid": "无法连接：请检查尺寸、距离与端点占用情况",
   "createfirefightingadd.physical_hose.tooltip": "连续放置两个水带头进行连接。扳手切换尺寸：8→6→4，连接后两端同步；染色方式与消防水带相同。剪刀断开，潜行右键取消选择。",
-  "block.createfirefightingadd.physical_fire_hose": "物理消防水带"
+  "block.createfirefightingadd.physical_fire_hose": "物理消防水带",
+  "createfirefightingadd.hose_bracket.physical_place": "已选中水带节段：右键表面放置支架，潜行右键取消",
+  "createfirefightingadd.hose_bracket.physical_range": "水带长度不足，无法放置支架"
 }

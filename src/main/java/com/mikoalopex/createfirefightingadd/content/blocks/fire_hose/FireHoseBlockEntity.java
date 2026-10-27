@@ -1660,10 +1660,13 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     }
 
     private void syncHoseBlockState() {
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide || isRemoved())
             return;
 
-        BlockState state = getBlockState();
+        // Teardown callbacks can outlive the endpoint block; update only its current block entity.
+        BlockState state = level.getBlockState(worldPosition);
+        if (!state.is(getBlockState().getBlock()) || level.getBlockEntity(worldPosition) != this)
+            return;
         if (!state.hasProperty(FireHoseBlock.APPEARANCE) || !state.hasProperty(FireHoseBlock.CONNECTED))
             return;
 

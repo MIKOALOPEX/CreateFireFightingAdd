@@ -22,9 +22,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3d;
 
-/** Reuses native strand ownership, collisions, persistence and network interpolation. */
+/**
+ * Adapts physical hose endpoints to native strand ownership, collision and persistence.
+ * Bracket bindings replace the solver handle while retaining strand identity.
+ */
 public final class SimulatedPhysicalHoseBlockEntity extends PhysicalHoseBlockEntity implements RopeStrandHolderBlockEntity {
     private Holder holder;
+    private boolean anchorFailureReported;
 
     public SimulatedPhysicalHoseBlockEntity(BlockPos pos, BlockState state) { super(pos, state); }
     public static void probe() throws ReflectiveOperationException { Holder.probe(); }
@@ -45,6 +49,11 @@ public final class SimulatedPhysicalHoseBlockEntity extends PhysicalHoseBlockEnt
         if (remote == null || !(level.getBlockEntity(remote.blockAttachment()) instanceof SimulatedPhysicalHoseBlockEntity other)) return;
         if (!other.getFireHoseEndpointId().equals(getFireHosePartnerEndpointId())) return;
         setFireHoseConnection(holder.ownsRope(), other.worldPosition, remote.subLevelID(), other.getFireHoseEndpointId(), false, getHoseAppearanceId());
+        for (var binding : anchors) {
+            var bracket = binding.resolve(level);
+            if (bracket != null) { bracket.physicalOwner = worldPosition; bracket.notifyUpdate(); }
+        }
+        if (!anchors.isEmpty()) rebuildAnchors();
         other.setFireHoseConnection(other.holder.ownsRope(), worldPosition, SableStructureCompat.containingSubLevelId(level, worldPosition),
             getFireHoseEndpointId(), false, getHoseAppearanceId());
     }
@@ -96,7 +105,52 @@ public final class SimulatedPhysicalHoseBlockEntity extends PhysicalHoseBlockEnt
         return super.prepareTransportTick();
     }
 
+    @Override public com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseAnchors.Snapshot anchorSnapshot() {
+        var rope = holder == null || !holder.ownsRope() ? null : holder.getAttachedStrand();
+        if (rope == null || !rope.isActive()) return null;
+        rope.updatePose();
+        var points = rope.getPoints().stream().map(p -> new Vec3(p.x, p.y, p.z)).toList();
+        return new com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseAnchors.Snapshot(
+            rope.getUUID(), points, rope.getExtension());
+    }
+
+    @Override public boolean rebuildAnchors() {
+        var rope = holder == null || !holder.ownsRope() ? null : holder.getAttachedStrand();
+        if (rope == null) return false;
+        try {
+            boolean installed = PhysicalHoseAnchorHandle.install(this, rope);
+            if (installed) anchorFailureReported = false;
+            return installed;
+        }
+        catch (RuntimeException exception) {
+            if (!anchorFailureReported) {
+                anchorFailureReported = true;
+                com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.LOGGER.warn("Could not update physical hose brackets at {}", worldPosition);
+                com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.LOGGER.debug("Physical hose bracket update failure", exception);
+            }
+            return false;
+        }
+    }
+
+    @Override public void tick() {
+        super.tick();
+        if (level == null || level.isClientSide || holder == null || !holder.ownsRope()) return;
+        var rope = holder.getAttachedStrand();
+        if (rope == null) return;
+        if (!rope.getUUID().equals(bracketStrand) || bracketFirstLength != rope.getExtension()) {
+            bracketStrand = rope.getUUID(); bracketFirstLength = rope.getExtension(); notifyUpdate();
+        }
+        if ((!anchors.isEmpty() || anchorsDirty) && rope.isActive() && Math.floorMod(level.getGameTime() + worldPosition.asLong(), 10) == 0) {
+            boolean changed = anchors.removeIf(binding -> level.isLoaded(binding.pos()) && binding.resolve(level) == null);
+            if (changed || anchorsDirty || !(PhysicalHoseAnchorHandle.handle(rope) instanceof PhysicalHoseAnchorHandle)) {
+                anchorsDirty = !rebuildAnchors();
+                if (changed) notifyUpdate();
+            }
+        }
+    }
+
     private void clearLink() {
+        if (!anchors.isEmpty()) clearAnchors();
         if (partnerPos != null) setFireHoseConnection(false, null, null, null, false, getHoseAppearanceId());
     }
 
@@ -148,7 +202,7 @@ public final class SimulatedPhysicalHoseBlockEntity extends PhysicalHoseBlockEnt
                 MethodType.methodType(void.class, ServerPlayer.class, Vec3.class, boolean.class), Holder.class);
         }
 
-        // These signatures belong to Simulated 1.3; the base compile API also supports older installations.
+        // Simulated 1.3 adds item-drop arguments that are absent from the base compile API.
         public boolean createRope(RopeStrandHolderBehavior target, boolean dropItem) {
             if (!(target instanceof Holder other) || other == this || isAttached() || other.isAttached()
                     || hose.width() != other.hose.width()) return false;

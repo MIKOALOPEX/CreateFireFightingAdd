@@ -9,7 +9,9 @@ import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Exposes every sublevel referenced by the bracket's visual hose route to Sable. */
+/**
+ * Exposes route and physical endpoint dependencies to Sable.
+ */
 public class SableHoseBracketBlockEntity extends HoseBracketBlockEntity implements BlockEntitySubLevelActor {
     public SableHoseBracketBlockEntity(BlockPos pos, BlockState state) {
         super(pos, state);
@@ -21,6 +23,15 @@ public class SableHoseBracketBlockEntity extends HoseBracketBlockEntity implemen
     @Override
     public Iterable<SubLevel> sable$getConnectionDependencies() {
         var dependencies = new LinkedHashSet<SubLevel>();
+        if (physical()) {
+            var hose = physicalHose();
+            if (hose != null) {
+                for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(),
+                    SableStructureCompat.containingSubLevelId(hose))) dependencies.add(dependency);
+                for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(),
+                    hose.getPartnerSubLevelID())) dependencies.add(dependency);
+            }
+        }
         if (route != null)
             for (var node : route.nodes)
                 for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(), node.subLevel()))

@@ -13,12 +13,14 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 
-/** Registers persistent endpoints without loading the optional physics backend. */
+/**
+ * Registers physical hose endpoints independently of the optional physics backend.
+ */
 public final class PhysicalHoses {
     public static final DeferredBlock<PhysicalHoseBlock> BLOCK = block("physical_fire_hose", 8);
     public static final DeferredItem<PhysicalHoseItem> ITEM = CreateFireFightingAdd.ITEMS.register("physical_fire_hose",
         () -> new PhysicalHoseItem(BLOCK.get(), new Item.Properties()));
-    // Retain the prototype IDs for existing worlds; only the adjustable item is exposed.
+    // Preserve legacy size-specific IDs for saved worlds; expose only the adjustable item.
     public static final DeferredBlock<PhysicalHoseBlock> SMALL = block(4), MEDIUM = block(6), LARGE = block(8);
     public static final DeferredItem<PhysicalHoseItem> SMALL_ITEM = item(SMALL, 4), MEDIUM_ITEM = item(MEDIUM, 6), LARGE_ITEM = item(LARGE, 8);
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PhysicalHoseBlockEntity>> BLOCK_ENTITY =

@@ -49,6 +49,10 @@ public final class SableStructureClientCompat {
 		return localNormal;
 	}
 
+	public static Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos) {
+        return BACKEND == null ? localPos : BACKEND.projectFromBlockToWorld(level, reference, localPos);
+    }
+
 	public static Vec3 projectToWorld(Level level, Vec3 localPos) {
 		if (BACKEND != null)
 			return BACKEND.projectToWorld(level, localPos);
@@ -182,6 +186,8 @@ public final class SableStructureClientCompat {
 		Vec3 renderNormalToWorld(BlockEntity owner, Vec3 localNormal);
 
 		Vec3 projectToWorld(Level level, Vec3 localPos);
+
+        Vec3 projectFromBlockToWorld(Level level, BlockPos reference, Vec3 localPos);
 
 		Vec3 logicalPositionToWorld(BlockEntity owner, Vec3 localPos);
 
