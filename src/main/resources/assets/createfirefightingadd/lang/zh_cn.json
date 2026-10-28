@@ -1,4 +1,5 @@
 {
+  "createfirefightingadd.update_notice.split_plan": "[消防附加] 消防与动力总成可能在后续版本中拆分为两个模组。请在更新前备份存档。",
   "createfirefightingadd.compatibility.disabled": "此组件已停用：缺少可选物理前置或版本不兼容。请查看服务器兼容性日志。",
   "block.createfirefightingadd.copycat_multidirectional_trapdoor": "伪装多向活扳门",
   "block.createfirefightingadd.copycat_short_sliding_door": "伪装矮推拉门",

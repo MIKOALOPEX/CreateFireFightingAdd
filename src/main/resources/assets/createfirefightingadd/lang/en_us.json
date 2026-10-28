@@ -1,4 +1,5 @@
 {
+  "createfirefightingadd.update_notice.split_plan": "[Create Firefighting Add] Firefighting and Powertrain may become separate mods in a future version. Please back up your worlds before updating.",
   "createfirefightingadd.compatibility.disabled": "This component is disabled: its optional physics dependencies are missing or incompatible. See the server compatibility log.",
   "block.createfirefightingadd.copycat_multidirectional_trapdoor": "Copycat Multidirectional Trapdoor",
   "block.createfirefightingadd.copycat_short_sliding_door": "Copycat Short Sliding Door",
