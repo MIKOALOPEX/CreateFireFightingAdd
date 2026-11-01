@@ -1,5 +1,7 @@
 # 0.2.7-beta / 0.2.8-beta Release Notes
 
+Updated November 1, 2026: Both builds correct the version restrictions on optional physics dependencies. Existing feature tiers and minimum versions remain unchanged. Newer dependencies are no longer disabled solely for exceeding an artificial version ceiling. Version numbers are unchanged; download the updated jar and replace your existing copy.
+
 Firefighting and Powertrain may become two separate mods in a future version. Please back up your worlds before updating.
 
 Neither version includes this split. Both are complete, usable versions with the same blocks, items, and gameplay features.

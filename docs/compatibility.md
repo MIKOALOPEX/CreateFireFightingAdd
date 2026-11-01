@@ -30,16 +30,17 @@ changing or removing physics dependencies.
 
 ## Version Policy
 
-`CompatibilityRules` is the single source of version ranges. Upper bounds are
-exclusive and intentionally conservative until a new API series is verified.
+`CompatibilityRules` is the single source of capability version requirements.
+These optional physics dependencies have minimum versions and no upper bounds.
+Runtime API probes still apply; newer versions are not rejected by version number alone.
 
 | Capability | Required versions |
 | --- | --- |
-| Spatial | Sable `[1.2.2,3.0.0)` |
-| Connect | Spatial requirements and Simulated `[1.2.1,1.4.0)` |
-| Physical hose | Sable `[2.0.0,3.0.0)` and Simulated `[1.3.0,1.4.0)`; no Synaxis requirement. |
-| Capture / Manage | Sable `[2.0.0,3.0.0)` and Simulated `[1.2.1,1.4.0)` |
-| Stress / Fluid Coupling | Sable `[2.0.0,3.0.0)`, Aeronautics and Simulated `[1.3.0,1.4.0)`, Synaxis `[1.4.0,1.6.0)`, Sable Schematic API `[0.4.1,2.0.0)`, LDLib2 `[2.2.17,3.0.0)` |
+| Spatial | Sable `[1.2.2,)` |
+| Connect | Spatial requirements and Simulated `[1.2.1,)` |
+| Physical hose | Sable `[2.0.0,)` and Simulated `[1.3.0,)`; no Synaxis requirement. |
+| Capture / Manage | Sable `[2.0.0,)` and Simulated `[1.2.1,)` |
+| Stress / Fluid Coupling | Sable `[2.0.0,)`, Aeronautics and Simulated `[1.3.0,)`, Synaxis `[1.4.0,)`, Sable Schematic API `[0.4.1,)`, LDLib2 `[2.2.17,)` |
 
 The presence of a weld feature alone is insufficient: the current coupling backend
 also requires the angular-limit APIs. Synaxis 1.3.4 therefore does not enable this

@@ -41,7 +41,7 @@
 
 ## 兼容边界
 
-新增独立能力 `PHYSICAL_HOSE`，要求 Sable `[2.0.0,3.0.0)` 和 Simulated `[1.3.0,1.4.0)`，不依赖 Synaxis。加载时探测原生创建/销毁方法和适配器。
+新增独立能力 `PHYSICAL_HOSE`，要求 Sable `[2.0.0,)` 和 Simulated `[1.3.0,)`，不依赖 Synaxis。加载时探测原生创建/销毁方法和适配器。
 
 无依赖或旧版依赖时仍注册方块、模型和可保留数据的方块实体，但隐藏物品、禁止交互和流体传输；原生 `OwnStrand`、`HasRopeAttached`、`Strand` 数据原样保留。原有消防水带仍可使用。
 
