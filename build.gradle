@@ -28,7 +28,7 @@ repositories {
         url = "https://api.modrinth.com/maven"
     }
 
-    exclusiveContent { // RyanHCode Maven (Sable, Aeronautics, Simulated, Offroad)
+    exclusiveContent { // RyanHCode Maven (Sable, Aeronautics, Simulated)
         forRepositories(mavenLocal(), maven {
             url = "https://maven.ryanhcode.dev/releases"
             name = "RyanHCode Maven"
@@ -38,7 +38,6 @@ repositories {
             includeGroup("dev.ryanhcode.sable-companion")
             includeGroup("dev.eriksonn.aeronautics")
             includeGroup("dev.simulated_team.simulated")
-            includeGroup("dev.ryanhcode.offroad")
         }
     }
 
@@ -147,6 +146,8 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkCleanupRequest: 'com.mikoalopex.createfirefightingadd.transition.CleanupRequestTest',
+    checkTransitionCleanup: 'com.mikoalopex.createfirefightingadd.transition.TransitionCleanupTest',
     checkPhysicalHoseAnchors: 'com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseAnchorsTest',
     checkHoseTexture: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseTextureTest',
     checkCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.CompatibilityRulesTest',

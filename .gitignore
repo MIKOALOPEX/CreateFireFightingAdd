@@ -32,3 +32,6 @@ libs/createfirefightingadd-*.jar
 # OS files
 Thumbs.db
 .DS_Store
+__pycache__/
+
+LAST_SUCCESSFUL_CLEANUP.txt

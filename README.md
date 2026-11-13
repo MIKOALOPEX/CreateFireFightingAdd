@@ -1,3 +1,5 @@
+> 0.2.9-beta 过渡整合版：`/cffa prepare_split` 登记请求，三十秒内开始退出后，在世界完全关闭时先备份、再生成清理连接的副本；超时不操作存档。中英文说明见 [过渡版操作说明](docs/transition-029-player-text.md)。也可不安装过渡版，直接使用 `Clean_Old_World.bat` 清除旧组件，详见 [本地工具说明](docs/legacy-world-cleanup.md)。固定下载入口：[World conversion / 存档转换专区](world-conversion/README.md)。
+
 # Create Firefighting Add
 
 Create Firefighting Add is a NeoForge addon for Minecraft 1.21.1 built around Create-compatible firefighting, fluid transport, pumps, hoses, nozzles, and related Ponder scenes.
