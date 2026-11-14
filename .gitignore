@@ -40,3 +40,7 @@ Thumbs.db
 /validation/
 /.split-entrypoint.txt
 /split_finish.py
+
+# Maintainer-only release notes
+/docs/release-preparation.md
+/HANDOFF.md
