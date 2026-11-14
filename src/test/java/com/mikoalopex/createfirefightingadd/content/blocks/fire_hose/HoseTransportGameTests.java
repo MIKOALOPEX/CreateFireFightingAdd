@@ -1,20 +1,15 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingBlock;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingBlockEntity;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.fluids.pump.PumpBlock;
 import com.simibubi.create.content.fluids.pump.PumpBlockEntity;
 import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
-import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -24,6 +19,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+/** Standalone firefighting transport checks. Mixed Powertrain chains require a separate runtime fixture. */
 @GameTestHolder(CreateFireFightingAdd.MODID)
 @PrefixGameTestTemplate(false)
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
@@ -36,7 +32,7 @@ public final class HoseTransportGameTests {
     }
 
     @GameTest(template = "fluid_transport_empty", timeoutTicks = 220)
-    public static void tankCouplingHosePump(GameTestHelper helper) {
+    public static void tankTwoHosePairsPump(GameTestHelper helper) {
         transfer(helper, false, false, false, false);
     }
 
@@ -46,7 +42,7 @@ public final class HoseTransportGameTests {
     }
 
     @GameTest(template = "fluid_transport_empty", timeoutTicks = 220)
-    public static void closedCoupling(GameTestHelper helper) {
+    public static void disconnectedFirstPair(GameTestHelper helper) {
         transfer(helper, false, true, false, false);
     }
 
@@ -66,10 +62,10 @@ public final class HoseTransportGameTests {
         BlockPos pumpPos = new BlockPos(9, 1, 1), target = new BlockPos(10, 1, 1);
         helper.setBlock(source, AllBlocks.FLUID_TANK.getDefaultState());
         helper.setBlock(target, AllBlocks.FLUID_TANK.getDefaultState());
-        var a = coupling(helper, first, Direction.EAST);
-        var b = coupling(helper, second, Direction.WEST);
-        a.paired = b; b.paired = a; a.isController = true;
-        a.enabled = b.enabled = !closed;
+        var a = hose(helper, first, Direction.EAST);
+        var b = hose(helper, second, Direction.WEST);
+        if (!closed) helper.assertTrue(FireHoseConnections.tryConnect(a, b) == FireHoseConnections.Result.SUCCESS,
+            "First hose pair not connected");
         helper.setBlock(hoseIn, CreateFireFightingAdd.FIRE_HOSE.get().defaultBlockState()
             .setValue(FireHoseBlock.FACING, wrongFace ? Direction.WEST : Direction.EAST));
         helper.setBlock(hoseOut, CreateFireFightingAdd.FIRE_HOSE.get().defaultBlockState().setValue(FireHoseBlock.FACING, Direction.WEST));
@@ -90,7 +86,7 @@ public final class HoseTransportGameTests {
             int received = ((FluidTankBlockEntity) helper.getBlockEntity(reverse ? source : target)).getTankInventory().getFluidAmount();
             boolean blocked = closed || wrongFace || stopped;
             helper.assertTrue(blocked ? received == 0 : received > 0, "Unexpected transfer: source=" + remaining
-                + ", coupling=" + a.getFluidHandler(Direction.WEST).getFluidInTank(0).getAmount()
+                + ", firstPair=" + a.getFluidHandler(Direction.WEST).getFluidInTank(0).getAmount()
                 + ", hose=" + c.getSharedTankRawAmount());
             helper.assertTrue(remaining + received + a.getFluidHandler(Direction.WEST).getFluidInTank(0).getAmount()
                 + c.getSharedTankRawAmount() == 4000, "Fluid was created or lost");
@@ -98,26 +94,9 @@ public final class HoseTransportGameTests {
         });
     }
 
-    private static ConnectedCoupling coupling(GameTestHelper helper, BlockPos pos, Direction facing) {
-        BlockState state = FluidCouplings.BLOCK.get().defaultBlockState().setValue(FluidCouplingBlock.FACING, facing);
-        helper.setBlock(pos, state);
-        var endpoint = new ConnectedCoupling(helper.absolutePos(pos), state);
-        helper.getLevel().setBlockEntity(endpoint);
-        endpoint.initialize();
-        return endpoint;
-    }
-
-    /** Fixes the physical link while exercising the real coupling ports and hose transport. */
-    private static final class ConnectedCoupling extends FluidCouplingBlockEntity {
-        private ConnectedCoupling paired;
-        private boolean enabled = true;
-        ConnectedCoupling(BlockPos pos, BlockState state) { super(pos, state); }
-        @Override protected boolean transportEnabled() { return enabled && paired != null; }
-        @Override public FireHoseBlockEntity getPairedHose() { return paired; }
-        @Override public void tick() {
-            forEachBehaviour(BlockEntityBehaviour::tick);
-            if (transportEnabled()) tickConnectedTransport();
-            else updateDisconnectedEndpoint();
-        }
+    private static FireHoseBlockEntity hose(GameTestHelper helper, BlockPos pos, Direction facing) {
+        helper.setBlock(pos, CreateFireFightingAdd.FIRE_HOSE.get().defaultBlockState()
+            .setValue(FireHoseBlock.FACING, facing));
+        return (FireHoseBlockEntity) helper.getBlockEntity(pos);
     }
 }

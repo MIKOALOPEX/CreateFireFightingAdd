@@ -124,10 +124,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	private NozzlePage nozzlePage = NozzlePage.TARGET;
 	private boolean draggingEntryScroll;
 	private Button saveButton;
-	private Button ropeDefaults;
-	private Button ropePrevious;
-	private Button ropeNext;
-	private ConfiguratorRopePanel ropePanel;
 	private EditBox searchBox;
 	private final EditBox[] colorBoxes = new EditBox[3];
 	private final EditBox[] weightBoxes = new EditBox[3];
@@ -154,17 +150,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 			.bounds(leftPos + SAVE_BUTTON_X, topPos + SAVE_BUTTON_Y, SAVE_BUTTON_WIDTH, SAVE_BUTTON_HEIGHT)
 			.build(builder -> new OffsetTextButton(builder, -1));
 		addRenderableWidget(saveButton);
-		if (ropePanel == null) ropePanel = new ConfiguratorRopePanel(font, menu.ropeSettings());
-		ropePanel.init(leftPos, topPos, widget -> addRenderableWidget(widget));
-		ropeDefaults = addRenderableWidget(Button.builder(Component.translatable("rope_latch.settings.defaults"),
-			button -> ropePanel.defaults()).bounds(leftPos + 104, topPos + ConfiguratorRopePanel.FOOTER_Y, SAVE_BUTTON_WIDTH, SAVE_BUTTON_HEIGHT)
-			.build(builder -> new OffsetTextButton(builder, -1)));
-		ropePrevious = addRenderableWidget(Button.builder(Component.literal("<"), button -> turnRopePage(-1))
-			.bounds(leftPos + 184, topPos + ConfiguratorRopePanel.FOOTER_Y, 18, SAVE_BUTTON_HEIGHT)
-			.build(builder -> new OffsetTextButton(builder, -1)));
-		ropeNext = addRenderableWidget(Button.builder(Component.literal(">"), button -> turnRopePage(1))
-			.bounds(leftPos + 242, topPos + ConfiguratorRopePanel.FOOTER_Y, 18, SAVE_BUTTON_HEIGHT)
-			.build(builder -> new OffsetTextButton(builder, -1)));
 
 		for (int i = 0; i < 3; i++) {
 			int y = topPos + PARTICLE_ROW_Y + i * 22;
@@ -227,21 +212,9 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	}
 
 	private void save() {
-		if (selectedFeature == Feature.ROPE) {
-			var settings = ropePanel.read();
-			if (settings != null)
-				PacketDistributor.sendToServer(new ConfiguratorRopeSettingsPacket(menu.containerId, settings));
-			else minecraft.player.displayClientMessage(Component.translatable("rope_latch.settings.invalid"), true);
-			return;
-		}
+
 		PacketDistributor.sendToServer(new MultifunctionConfiguratorSavePacket(menu.getHand(),
 			nozzleDraft.write(minecraft.player.registryAccess())));
-	}
-
-	private void turnRopePage(int direction) {
-		setFocused(null);
-		ropePanel.turnPage(direction);
-		refreshWidgets();
 	}
 
 	private void toggleFlammable() {
@@ -268,13 +241,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	private void refreshWidgets() {
 		NozzleSprayRule rule = hasSelection() ? selectedRule() : null;
 		boolean nozzle = selectedFeature == Feature.NOZZLE;
-		menu.setRopePage(!nozzle);
-		ropePanel.visible(!nozzle);
-		ropeDefaults.visible = !nozzle;
-		ropePrevious.visible = !nozzle;
-		ropeNext.visible = !nozzle;
-		ropePrevious.active = ropePanel.page() > 0;
-		ropeNext.active = ropePanel.page() + 1 < ropePanel.pageCount();
 		boolean hasNozzleRule = nozzle && rule != null;
 		boolean editableTarget = nozzle && nozzlePage == NozzlePage.TARGET && rule != null && !rule.locked();
 		for (int i = 0; i < 3; i++) {
@@ -299,7 +265,7 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 		}
 		if (saveButton != null) {
 			saveButton.visible = true;
-			saveButton.setY(topPos + (nozzle ? SAVE_BUTTON_Y : ConfiguratorRopePanel.FOOTER_Y));
+			saveButton.setY(topPos + SAVE_BUTTON_Y);
 			saveButton.active = nozzle || minecraft.player.hasPermissions(2);
 		}
 	}
@@ -398,7 +364,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	@Override
 	protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
 		renderFeatureList(graphics);
-		if (selectedFeature == Feature.ROPE) ropePanel.renderLabels(graphics);
 		if (selectedFeature == Feature.NOZZLE) {
 			drawCentered(graphics, Component.translatable("createfirefightingadd.configurator.nozzle.read_short"),
 				READ_BUTTON_X - 5, READ_BUTTON_Y + (READ_BUTTON_HEIGHT - font.lineHeight) / 2 + 1, READ_BUTTON_WIDTH,
@@ -438,9 +403,6 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 			int y = FEATURE_Y + feature.ordinal() * FEATURE_ROW;
 			if (feature == Feature.NOZZLE)
 				graphics.renderItem(new ItemStack(CreateFireFightingAdd.CONE_NOZZLE_ITEM.get()),
-					FEATURE_X + (FEATURE_VISIBLE_WIDTH - 16) / 2, y + (TOOL_TAB.height() - 16) / 2);
-			else
-				graphics.renderItem(new ItemStack(CreateFireFightingAdd.ROPE_HOOK_ITEM.get()),
 					FEATURE_X + (FEATURE_VISIBLE_WIDTH - 16) / 2, y + (TOOL_TAB.height() - 16) / 2);
 		}
 	}
@@ -740,11 +702,7 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 		if (!inside(x, y, FEATURE_X, FEATURE_Y, FEATURE_VISIBLE_WIDTH, Feature.values().length * FEATURE_ROW))
 			return false;
 		int index = (y - FEATURE_Y) / FEATURE_ROW;
-		if (Feature.values()[index] == Feature.ROPE && !com.mikoalopex.createfirefightingadd.compatibility.CompatibilitySnapshot
-			.visible(com.mikoalopex.createfirefightingadd.compatibility.Capability.ROPE_CAPTURE)) {
-			minecraft.player.displayClientMessage(Component.translatable("createfirefightingadd.compatibility.disabled"), true);
-			return true;
-		}
+
 		selectedFeature = Feature.values()[index];
 		draggingEntryScroll = false;
 		setFocused(null);
@@ -929,7 +887,7 @@ public class MultifunctionConfiguratorScreen extends AbstractContainerScreen<Mul
 	}
 
 	private enum Feature {
-		NOZZLE, ROPE;
+		NOZZLE;
 
 		private Component title() {
 			return Component.translatable("createfirefightingadd.configurator.feature." + name().toLowerCase(Locale.ROOT));

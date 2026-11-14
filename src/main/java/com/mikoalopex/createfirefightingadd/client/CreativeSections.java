@@ -5,8 +5,6 @@ import java.util.Collection;
 import java.util.List;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
-import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoorBlock;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,14 +16,12 @@ import net.minecraft.world.item.ItemStack;
 public final class CreativeSections {
     private static final int WIDTH = 162;
     private static final int ROW_HEIGHT = 18;
-    private static final long FRAME_MILLIS = 250;
     private static final ResourceLocation[] FIRE = textures("firefighting", 2);
-    private static final ResourceLocation[] POWER = textures("power_train", 4);
     private static final List<Header> HEADERS = new ArrayList<>();
     private static int hoveredSection = -1;
     private static long hoverStarted;
 
-    private record Header(int row, boolean power) {}
+    private record Header(int row) {}
 
     private CreativeSections() {}
 
@@ -38,30 +34,21 @@ public final class CreativeSections {
 
     public static List<ItemStack> arrange(Collection<ItemStack> original) {
         List<ItemStack> fire = new ArrayList<>();
-        List<ItemStack> power = new ArrayList<>();
         for (ItemStack stack : original) {
-            if (stack.isEmpty() || !com.mikoalopex.createfirefightingadd.compatibility.ComponentPolicies.visible(stack)) continue;
-            boolean transmission = stack.is(CreateFireFightingAdd.SMART_ROPE_CONNECTOR_ITEM.get())
-                || stack.is(CreateFireFightingAdd.ROPE_HOOK_ITEM.get())
-                || stack.is(CreateFireFightingAdd.ROPE_MASTER_ITEM.get())
-                || stack.is(BallCouplings.ITEM.get())
-                || stack.is(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.ITEM.get())
-                || stack.is(com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings.ITEM.get())
-                || stack.getItem() instanceof net.minecraft.world.item.BlockItem item && item.getBlock() instanceof CopycatDoorBlock;
-            (transmission ? power : fire).add(stack);
+            if (stack.isEmpty()) continue;
+            fire.add(stack);
         }
         HEADERS.clear();
         hoveredSection = -1;
         List<ItemStack> result = new ArrayList<>();
-        append(result, fire, false);
-        append(result, power, true);
+        append(result, fire);
         return result;
     }
 
-    private static void append(List<ItemStack> result, List<ItemStack> items, boolean power) {
+    private static void append(List<ItemStack> result, List<ItemStack> items) {
         if (items.isEmpty()) return;
         while (result.size() % 9 != 0) result.add(ItemStack.EMPTY);
-        HEADERS.add(new Header(result.size() / 9, power));
+        HEADERS.add(new Header(result.size() / 9));
         for (int i = 0; i < 9; i++) result.add(ItemStack.EMPTY);
         result.addAll(items);
     }
@@ -89,10 +76,9 @@ public final class CreativeSections {
             int row = header.row() - firstRow;
             if (row < 0 || row >= 5) continue;
             int y = top + row * ROW_HEIGHT;
-            int frame = hovered == i ? (header.power() ? (int) ((now - hoverStarted) / FRAME_MILLIS % 4) : 1) : 0;
-            graphics.blit((header.power() ? POWER : FIRE)[frame], left, y, 0, 0, WIDTH, ROW_HEIGHT, WIDTH, ROW_HEIGHT);
-            Component title = Component.translatable("createfirefightingadd.creative_section."
-                + (header.power() ? "power_train" : "firefighting"));
+            int frame = hovered == i ? 1 : 0;
+            graphics.blit(FIRE[frame], left, y, 0, 0, WIDTH, ROW_HEIGHT, WIDTH, ROW_HEIGHT);
+            Component title = Component.translatable("createfirefightingadd.creative_section.firefighting");
             // Resource-pack fonts can be wider than the space reserved in the banner.
             float scale = Math.min(1f, 68f / Math.max(1, font.width(title)));
             graphics.pose().pushPose();

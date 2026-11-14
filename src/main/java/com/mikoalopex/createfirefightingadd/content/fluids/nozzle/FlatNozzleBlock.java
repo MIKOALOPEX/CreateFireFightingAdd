@@ -29,6 +29,27 @@ public class FlatNozzleBlock extends WrenchableDirectionalBlock implements IBE<F
 	}
 
 	@Override
+	public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+		// Match Create DirectionalKineticBlock: normally face the player, sneak reverses.
+		Direction look = context.getNearestLookingDirection();
+		boolean reverse = context.getPlayer() != null && context.getPlayer().isShiftKeyDown();
+		return defaultBlockState().setValue(FACING, reverse ? look : look.getOpposite());
+	}
+
+    @Override
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moving) {
+        super.onPlace(state, level, pos, oldState, moving);
+        if (!level.isClientSide && state != oldState)
+            level.scheduleTick(pos, this, 1, net.minecraft.world.ticks.TickPriority.HIGH);
+    }
+
+    @Override
+    protected void tick(BlockState state, net.minecraft.server.level.ServerLevel level, BlockPos pos,
+                        net.minecraft.util.RandomSource random) {
+        NozzleFluidConnection.refresh(level, pos);
+    }
+
+	@Override
 	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
 		return switch (state.getValue(FACING)) {
 			case UP -> SHAPE_UP;

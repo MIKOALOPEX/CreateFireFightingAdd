@@ -43,8 +43,14 @@ public class HoseFluidTransferBehaviour extends FluidTransportBehaviour {
             return;
         if (!(blockEntity instanceof FireHoseBlockEntity hose))
             return;
-        if (!hose.shouldDriveBackPressure())
+        if (!hose.shouldDriveBackPressure()) {
+            // An inactive terminal must not leave its former source pressure visible
+            // to independent Create-compatible terminals on the next scan.
+            for (PipeConnection connection : interfaces.values())
+                if (connection != null)
+                    connection.wipePressure();
             return;
+        }
 
         Direction back = hose.getBack();
         for (Entry<Direction, PipeConnection> entry : interfaces.entrySet()) {

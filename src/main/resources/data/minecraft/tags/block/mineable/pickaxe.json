@@ -1,13 +1,6 @@
 {
   "replace": false,
   "values": [
-    "createfirefightingadd:fluid_coupling",
-    "createfirefightingadd:copycat_multidirectional_trapdoor",
-    "createfirefightingadd:copycat_short_sliding_door",
-    "createfirefightingadd:copycat_short_folding_door",
-    "createfirefightingadd:rope_connector_master",
-    "createfirefightingadd:rope_latch",
-    "createfirefightingadd:rope_hook",
     "createfirefightingadd:fire_hose_connector",
     "createfirefightingadd:hydraulic_ram",
     "createfirefightingadd:pipeline_turbine",

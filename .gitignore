@@ -32,6 +32,11 @@ libs/createfirefightingadd-*.jar
 # OS files
 Thumbs.db
 .DS_Store
-__pycache__/
 
-LAST_SUCCESSFUL_CLEANUP.txt
+# Local development records and generated diagnostics
+/logs/
+/.codex-local-notes/
+/.tmp*/
+/validation/
+/.split-entrypoint.txt
+/split_finish.py

@@ -16,22 +16,8 @@ public final class CompatibilityRules {
     }
 
     private static final Requirement SPATIAL = new Requirement("sable", "1.2.2", null);
-    private static final Requirement PHYSICS = new Requirement("sable", "2.0.0", null);
-    private static final Requirement ROPE = new Requirement("simulated", "1.2.1", null);
-
     public static List<Requirement> requirements(Capability capability) {
-        return switch (capability) {
-            case SABLE_SPATIAL -> List.of(SPATIAL);
-            case PHYSICAL_HOSE -> List.of(PHYSICS, new Requirement("simulated", "1.3.0", null));
-            case ROPE_CONNECT -> List.of(SPATIAL, ROPE);
-            case ROPE_CAPTURE, ROPE_MANAGE -> List.of(PHYSICS, ROPE);
-            case COUPLING, FLUID_COUPLING -> List.of(PHYSICS,
-                new Requirement("aeronautics", "1.3.0", null),
-                new Requirement("simulated", "1.3.0", null),
-                new Requirement("synaxis", "1.4.0", null),
-                new Requirement("sable_schematic_api", "0.4.1", null),
-                new Requirement("ldlib2", "2.2.17", null));
-        };
+        return List.of(SPATIAL);
     }
 
     public static CapabilityStatus evaluate(Capability capability, Function<String, String> versions) {

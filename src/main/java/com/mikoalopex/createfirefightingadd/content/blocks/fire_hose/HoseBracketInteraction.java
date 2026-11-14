@@ -32,11 +32,10 @@ import net.neoforged.neoforge.event.EventHooks;
 
 /**
  * Manages selection on Create bracket items and places ordinary hose guides.
- * Physical segment placement is delegated to PhysicalHoseBracketInteraction.
  */
 @EventBusSubscriber(modid = CreateFireFightingAdd.MODID)
 public final class HoseBracketInteraction {
-    public static final String SELECTION = "HoseBracketSelection";
+    public static final String SELECTION = "createfirefightingadd:HoseBracketSelection";
 
     private HoseBracketInteraction() {}
 
@@ -103,15 +102,13 @@ public final class HoseBracketInteraction {
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void use(PlayerInteractEvent.RightClickBlock event) {
         ItemStack stack = event.getItemStack();
-        if (!isBracket(stack))
+        if (!isBracket(stack) || event.getEntity().isShiftKeyDown())
             return;
         clearInactiveSelections(event.getEntity());
         Level level = event.getLevel();
         BlockEntity target = level.getBlockEntity(event.getPos());
         CompoundTag selection = selection(stack);
-        if (com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseBracketInteraction.use(event)) return;
         if (target instanceof FireHoseBlockEntity hose && !hose.allowsHoseConnection()) return;
-        if (target instanceof HoseBracketBlockEntity bracket && bracket.physical()) return;
         boolean node = target instanceof FireHoseBlockEntity hose && hose.allowsHoseConnection()
             || target instanceof HoseBracketBlockEntity;
         if (!node && selection.isEmpty())
@@ -121,11 +118,6 @@ public final class HoseBracketInteraction {
         if (level.isClientSide || !event.getEntity().mayBuild()
             || !level.mayInteract(event.getEntity(), event.getPos()))
             return;
-        if (event.getEntity().isShiftKeyDown()) {
-            selection(stack, new CompoundTag());
-            message(event, "cancelled");
-            return;
-        }
         HoseRoutes data = HoseRoutes.get(level);
         if (node) {
             HoseRoute route = target instanceof FireHoseBlockEntity hose ? data.ensure(hose)

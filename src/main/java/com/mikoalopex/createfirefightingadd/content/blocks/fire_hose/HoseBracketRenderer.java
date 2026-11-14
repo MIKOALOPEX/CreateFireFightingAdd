@@ -20,7 +20,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Renders the bracket frame and ordinary hose insert using the connected hose appearance.
- * Physical hose segments are rendered by their strand owner.
  */
 public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlockEntity> {
     public HoseBracketRenderer(BlockEntityRendererProvider.Context context) {}
@@ -28,7 +27,7 @@ public class HoseBracketRenderer implements BlockEntityRenderer<HoseBracketBlock
     @Override
     public void render(HoseBracketBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
                        int light, int overlay) {
-        renderModel(be.getBlockState(), be.angle(), be.route, pose, buffers, light, !be.physical());
+        renderModel(be.getBlockState(), be.angle(), be.route, pose, buffers, light, true);
     }
 
     public static void renderModel(BlockState state, float angle, HoseRoute route, PoseStack pose,

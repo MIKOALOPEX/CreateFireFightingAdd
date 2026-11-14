@@ -1,24 +1,7 @@
 package com.mikoalopex.createfirefightingadd;
 
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterBlock;
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterCompatibility;
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterBlockEntity;
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterMenu;
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_connector_master.RopeMasterScreen;
-import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoors;
-import com.mikoalopex.createfirefightingadd.content.blocks.copycat_door.CopycatDoorClient;
-
 import java.util.EnumMap;
 import java.util.List;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplings;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplings;
-import com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoses;
-import com.mikoalopex.createfirefightingadd.content.blocks.physical_hose.PhysicalHoseRenderer;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingRenderer;
-import com.mikoalopex.createfirefightingadd.content.fluids.coupling.FluidCouplingClient;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingScreen;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.BallCouplingRenderer;
-import com.mikoalopex.createfirefightingadd.content.kinetics.coupling.StressCouplingCompatibility;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
@@ -36,8 +19,6 @@ import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseMov
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseDynamicRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_pole.FirePoleBlock;
-import com.mikoalopex.createfirefightingadd.content.blocks.smart_rope_connector.SmartRopeCompatibility;
-import com.mikoalopex.createfirefightingadd.content.blocks.rope_latch.RopeLatchCompatibility;
 import com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.traffic_cone.TrafficConeBlockEntity;
@@ -233,10 +214,6 @@ public class CreateFireFightingAdd {
 		DATA_COMPONENTS.registerComponentType("fire_extinguisher_fluid",
 			builder -> builder.persistent(SimpleFluidContent.CODEC)
 				.networkSynchronized(SimpleFluidContent.STREAM_CODEC));
-	public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> SMART_ROPE_SELECTION =
-		DATA_COMPONENTS.registerComponentType("smart_rope_selection",
-			builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
-				.networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL));
 
 	public static final DeferredHolder<ArmorMaterial, ArmorMaterial> MULTIPURPOSE_BACKTANK_ARMOR_MATERIAL =
 		ARMOR_MATERIALS.register("multipurpose_backtank", CreateFireFightingAdd::createMultipurposeBacktankArmorMaterial);
@@ -312,34 +289,7 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<BlockItem> FIRE_HOSE_CONNECTOR_ITEM =
 		ITEMS.registerSimpleBlockItem("fire_hose_connector", FIRE_HOSE_CONNECTOR);
 
-	public static final DeferredBlock<Block> SMART_ROPE_CONNECTOR = BLOCKS.register("smart_rope_connector",
-		() -> SmartRopeCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-
-	public static final DeferredItem<BlockItem> SMART_ROPE_CONNECTOR_ITEM =
-		ITEMS.register("smart_rope_connector", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(SMART_ROPE_CONNECTOR.get(), new Item.Properties()));
-
-    public static final DeferredBlock<RopeMasterBlock> ROPE_MASTER = BLOCKS.register("rope_connector_master",
-        () -> RopeMasterCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-            .strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-    public static final DeferredItem<BlockItem> ROPE_MASTER_ITEM =
-        ITEMS.register("rope_connector_master", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_MASTER.get(), new Item.Properties()));
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RopeMasterBlockEntity>> ROPE_MASTER_BE =
-        BLOCK_ENTITY_TYPES.register("rope_connector_master",
-            () -> BlockEntityType.Builder.of(RopeMasterBlockEntity::new, ROPE_MASTER.get()).build(null));
-    public static final DeferredHolder<MenuType<?>, MenuType<RopeMasterMenu>> ROPE_MASTER_MENU =
-        MENU_TYPES.register("rope_connector_master", () -> IMenuTypeExtension.create(RopeMasterMenu::new));
-
-	public static final DeferredBlock<Block> ROPE_HOOK = BLOCKS.register("rope_hook",
-		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-	public static final DeferredItem<BlockItem> ROPE_HOOK_ITEM = ITEMS.register("rope_hook", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_HOOK.get(), new Item.Properties()));
-
 	// Keep legacy registrations readable without replacing live rope attachments in existing worlds.
-	public static final DeferredBlock<Block> ROPE_LATCH = BLOCKS.register("rope_latch",
-		() -> RopeLatchCompatibility.createBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-			.strength(3.0f).sound(SoundType.METAL).noOcclusion()));
-	public static final DeferredItem<BlockItem> ROPE_LATCH_ITEM = ITEMS.register("rope_latch", () -> new com.mikoalopex.createfirefightingadd.compatibility.CompatibleBlockItem(ROPE_LATCH.get(), new Item.Properties()));
 
 	public static final DeferredBlock<PipelineTurbineBlock> PIPELINE_TURBINE = BLOCKS.register("pipeline_turbine",
 		() -> new PipelineTurbineBlock(fluidPipeProperties()));
@@ -526,14 +476,6 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("fire_hose_connector",
 			() -> BlockEntityType.Builder.of(FireHoseConnectorBlockEntity::new, FIRE_HOSE_CONNECTOR.get()).build(null));
 
-	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<net.minecraft.world.level.block.entity.BlockEntity>> SMART_ROPE_CONNECTOR_BE =
-		BLOCK_ENTITY_TYPES.register("smart_rope_connector",
-			() -> BlockEntityType.Builder.of(SmartRopeCompatibility::createEntity, SMART_ROPE_CONNECTOR.get()).build(null));
-
-	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<net.minecraft.world.level.block.entity.BlockEntity>> ROPE_LATCH_BE =
-		BLOCK_ENTITY_TYPES.register("rope_latch",
-			() -> BlockEntityType.Builder.of(RopeLatchCompatibility::createEntity, ROPE_LATCH.get(), ROPE_HOOK.get()).build(null));
-
 	public static final DeferredHolder<MountedFluidStorageType<?>, SprayDeviceMountedFluidStorageType> SPRAY_DEVICE_MOUNTED_FLUID_STORAGE =
 		MOUNTED_FLUID_STORAGE_TYPES.register("spray_device", SprayDeviceMountedFluidStorageType::new);
 
@@ -589,19 +531,9 @@ public class CreateFireFightingAdd {
 				output.accept(HYDRAULIC_RAM_ITEM.get());
 				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
-                if (PhysicalHoses.enabled()) {
-                    output.accept(PhysicalHoses.ITEM.get());
-                }
+
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
-				if (SmartRopeCompatibility.available())
-					output.accept(SMART_ROPE_CONNECTOR_ITEM.get());
-				if (RopeLatchCompatibility.available()) output.accept(ROPE_HOOK_ITEM.get());
-                if (RopeMasterCompatibility.available()) output.accept(ROPE_MASTER_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
-			if (StressCouplingCompatibility.visible())
-				output.accept(BallCouplings.ITEM.get());
-			if (FluidCouplings.enabled()) output.accept(FluidCouplings.ITEM.get());
-			output.accept(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.ITEM.get());
 				output.accept(FIRE_POLE_ITEM.get());
 				output.accept(TRAFFIC_CONE_ITEM.get());
 				output.accept(FLUID_FLOW_METER_ITEM.get());
@@ -612,18 +544,9 @@ public class CreateFireFightingAdd {
 				output.accept(HANDHELD_NOZZLE_CONTROLLER_ITEM.get());
 				output.accept(MULTIFUNCTION_CONFIGURATOR_ITEM.get());
 				output.accept(FIREFIGHTER_HANDBOOK_ITEM.get());
-				output.accept(CopycatDoors.TRAPDOOR_ITEM.get());
-				output.accept(CopycatDoors.SLIDING_ITEM.get());
-				output.accept(CopycatDoors.FOLDING_ITEM.get());
 			}).build());
 
 	public CreateFireFightingAdd(IEventBus modEventBus, ModContainer modContainer) {
-		com.mikoalopex.createfirefightingadd.compatibility.CapabilityCondition.register(modEventBus);
-		BallCouplings.init();
-		FluidCouplings.init();
-        PhysicalHoses.init();
-		com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.init();
-		CopycatDoors.init();
 		modEventBus.addListener(this::commonSetup);
 		modEventBus.addListener(this::registerCapabilities);
 		modEventBus.addListener(this::registerEntityAttributes);
@@ -667,16 +590,11 @@ public class CreateFireFightingAdd {
 	}
 
 	private static void registerCreateContraptionCompat() {
-		CopycatDoors.registerBehaviours();
 		MovementBehaviour.REGISTRY.register(CONE_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(HOSE_BRACKET.get(), new HoseBracketMovementBehaviour());
-        com.simibubi.create.api.contraption.BlockMovementChecks.registerMovementAllowedCheck((state, level, pos) ->
-            state.is(HOSE_BRACKET.get()) && level.getBlockEntity(pos) instanceof HoseBracketBlockEntity bracket && bracket.physical()
-                ? com.simibubi.create.api.contraption.BlockMovementChecks.CheckResult.FAIL
-                : com.simibubi.create.api.contraption.BlockMovementChecks.CheckResult.PASS);
 		MovementBehaviour.REGISTRY.register(FIRE_HYDRANT_CABINET.get(), FireHydrantCabinetMovementBehaviour.INSTANCE);
 
 		MountedFluidStorageType.REGISTRY.register(CONE_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
@@ -701,8 +619,6 @@ public class CreateFireFightingAdd {
 	}
 
 	private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ROPE_MASTER_BE.get(),
-            (be, side) -> be.getItemHandler());
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			CONE_NOZZLE_BE.get(),
@@ -733,10 +649,6 @@ public class CreateFireFightingAdd {
 			FIRE_HOSE_BE.get(),
 			(be, context) -> be.getFluidHandler(context)
 		);
-		event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, PhysicalHoses.BLOCK_ENTITY.get(),
-            (be, context) -> be.getFluidHandler(context));
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, FluidCouplings.BLOCK_ENTITY.get(),
-			(be, context) -> be.getFluidHandler(context));
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			FLOW_METER_BE.get(),
@@ -855,9 +767,6 @@ public class CreateFireFightingAdd {
 		@SubscribeEvent
 		public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
 			PartialModels.registerAdditional(event);
-			FluidCouplingRenderer.models(event);
-            PhysicalHoseRenderer.models(event);
-			com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerRenderer.models(event);
 		}
 
 		@SubscribeEvent
@@ -892,7 +801,6 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLUID_FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HOSE.get(), RenderType.cutout());
-            ItemBlockRenderTypes.setRenderLayer(ROPE_MASTER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_EXTINGUISHER.get(), RenderType.cutout());
@@ -930,9 +838,6 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerMenuScreens(RegisterMenuScreensEvent event) {
-            event.register(ROPE_MASTER_MENU.get(), RopeMasterScreen::new);
-			event.register(BallCouplings.MENU.get(), BallCouplingScreen::new);
-			event.register(FluidCouplings.MENU.get(), BallCouplingScreen::new);
 			event.register(FIRE_HYDRANT_CABINET_MENU.get(), FireHydrantCabinetScreen::new);
 			event.register(MULTIFUNCTION_CONFIGURATOR_MENU.get(), MultifunctionConfiguratorScreen::new);
 			event.register(FIREFIGHTER_HANDBOOK_MENU.get(), FirefighterHandbookScreen::new);
@@ -940,10 +845,6 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-			RopeLatchCompatibility.registerRenderer(event);
-			event.registerBlockEntityRenderer(BallCouplings.BLOCK_ENTITY.get(), BallCouplingRenderer::new);
-			event.registerBlockEntityRenderer(FluidCouplings.BLOCK_ENTITY.get(), FluidCouplingRenderer::new);
-			event.registerBlockEntityRenderer(com.mikoalopex.createfirefightingadd.content.kinetics.rocker.Rockers.BLOCK_ENTITY.get(), com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerRenderer::new);
 			event.registerEntityRenderer(HANDHELD_NOZZLE_CONTROLLER_ENTITY.get(), HandheldNozzleControllerEntityRenderer::new);
 			event.registerBlockEntityRenderer(CONE_NOZZLE_BE.get(), ctx -> new ConeNozzleRenderer());
 			event.registerBlockEntityRenderer(FLAT_NOZZLE_BE.get(), ctx -> new FlatNozzleRenderer());
@@ -953,8 +854,6 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
-            event.registerBlockEntityRenderer(PhysicalHoses.BLOCK_ENTITY.get(), PhysicalHoseRenderer::new);
-			SmartRopeCompatibility.registerRenderer(event);
 			event.registerBlockEntityRenderer(HOSE_BRACKET_BE.get(), HoseBracketRenderer::new);
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);
 			event.registerBlockEntityRenderer(MULTIPURPOSE_BACKTANK_BE.get(), MultipurposeBacktankRenderer::new);
@@ -984,10 +883,6 @@ public class CreateFireFightingAdd {
 		public static void onClientTick(ClientTickEvent.Post event) {
 			var mc = net.minecraft.client.Minecraft.getInstance();
 			NozzleSprayClientSounds.clientTick();
-			SmartRopeCompatibility.clientTick();
-			CopycatDoorClient.tick();
-			FluidCouplingClient.tick();
-			com.mikoalopex.createfirefightingadd.content.kinetics.rocker.RockerClient.tick();
 			if (mc.player != null) {
 				FireHoseItemHandler.INSTANCE.clientTick(mc.level, mc.player);
 				ExtensionLadderItemHandler.INSTANCE.clientTick();
@@ -999,11 +894,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
-			if (event.isUseItem() && SmartRopeCompatibility.use()) {
-				event.setSwingHand(false);
-				event.setCanceled(true);
-				return;
-			}
+
 			if (event.isUseItem() && ExtensionLadderClientInputHandler.isAdjusting()) {
 				event.setSwingHand(false);
 				event.setCanceled(true);
@@ -1064,10 +955,7 @@ public class CreateFireFightingAdd {
 
 		@SubscribeEvent
 		public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
-			if (SmartRopeCompatibility.scroll(event.getScrollDeltaY())) {
-				event.setCanceled(true);
-				return;
-			}
+
 			if (ExtensionLadderClientInputHandler.onMouseScroll(event.getScrollDeltaY()))
 				event.setCanceled(true);
 		}

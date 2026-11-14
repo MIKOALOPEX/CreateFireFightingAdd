@@ -27,8 +27,7 @@ public class SableHoseBracketBlock extends HoseBracketBlock implements BlockSubL
     public void afterMove(ServerLevel oldLevel, ServerLevel newLevel, BlockState state, BlockPos oldPos, BlockPos newPos) {
         if (newLevel.getBlockEntity(newPos) instanceof HoseBracketBlockEntity bracket) {
             bracket.assembling = false;
-            if (bracket.physical()) bracket.relocatePhysical();
-            else bracket.refreshRoute();
+            bracket.refreshRoute();
             SableStructureCompat.notifyBlockChanged(newLevel, newPos, state);
         }
     }

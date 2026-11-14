@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
+import com.mikoalopex.createfirefightingadd.compatibility.HoseRelayCompatibility;
+
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -415,7 +417,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             partnerRange = partnerInfo.pumpRange();
         }
 
-        if (backDist == Integer.MAX_VALUE && hasRecentExternalInput()) {
+        int externalSide = HoseRelayCompatibility.externalSourceSide(backDist, partnerDist,
+            hasRecentExternalInput(), partner != null && partner.hasRecentExternalInput());
+        if (externalSide == 0) {
             backDist = 1;
             backPushesToward = externalInputPushesTowardHose;
             backSpeed = getExternalInputPressure();
@@ -423,7 +427,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             backRange = Config.hoseExternalInputOutputRange;
         }
 
-        if (partnerDist == Integer.MAX_VALUE && partner != null && partner.hasRecentExternalInput()) {
+        if (externalSide == 1) {
             partnerDist = 1;
             partnerPushesToward = partner.externalInputPushesTowardHose;
             partnerSpeed = partner.getExternalInputPressure();
@@ -786,7 +790,33 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         return bestPump;
     }
 
+    /** Versioned optional compatibility snapshot; does not mutate transfer state. */
+    public CompoundTag createAdditions$getHoseState(Direction face, BlockEntity requester) {
+        if (level == null || !transportEnabled() || requester == this || requester == getPairedHose()
+            || face != getBack()) return null;
+        CompoundTag state = new CompoundTag();
+        state.putInt("Version", 1);
+        state.putBoolean("Relay", canRelayVirtualPressure());
+        state.putBoolean("Pulling", isPulling());
+        state.putFloat("Pressure", getActivePumpSpeed());
+        state.putInt("Range", getRelayPumpRange());
+        state.putBoolean("ExternalFill", pumpSourceKind == SOURCE_EXTERNAL_FILL);
+        return state;
+    }
+
     private PumpScanResult findVirtualHoseInfo(BlockPos pos, BlockPos parent, int dist) {
+        if (level == null || !level.isLoaded(pos)) return PumpScanResult.none();
+        BlockEntity endpoint = level.getBlockEntity(pos);
+        if (endpoint instanceof FireHoseBlockEntity) return findLocalHoseInfo(pos, parent, dist);
+        Direction face = Direction.getNearest(parent.getX() - pos.getX(),
+            parent.getY() - pos.getY(), parent.getZ() - pos.getZ());
+        var state = HoseRelayCompatibility.read(endpoint, face, this);
+        if (state == null || !state.relay()) return PumpScanResult.none();
+        return PumpScanResult.found(dist, !state.pulling(), state.pressure(), state.range(),
+            state.externalFill() ? SOURCE_EXTERNAL_FILL : SOURCE_VIRTUAL_HOSE);
+    }
+
+    private PumpScanResult findLocalHoseInfo(BlockPos pos, BlockPos parent, int dist) {
         if (level == null)
             return PumpScanResult.none();
         BlockEntity currentBE = level.getBlockEntity(pos);
@@ -826,6 +856,9 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private int getRelayPumpRange() {
         return pumpSourceKind == SOURCE_EXTERNAL_FILL ? Config.hoseExternalInputOutputRange : pumpRange;
     }
+
+
+
 
     private static float clampPumpSpeed(float speed) {
         if (speed <= 0)
@@ -937,7 +970,7 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
     private static int getPumpSearchRange() {
         int configuredRange = Math.round(FluidPropagator.getPumpRange() * Config.highPressurePumpMultiplier);
-        return Math.max(Config.hoseMaxLength, configuredRange);
+        return HoseRelayCompatibility.pumpSearchRange(Math.max(Config.hoseMaxLength, configuredRange));
     }
 
     private record PipePressureInfo(float inbound, float outward, boolean directionKnown, boolean pushesTowardRequester) {
@@ -1148,32 +1181,19 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             return pumpBE.isPullingOnSide(pumpFront) != pull;
         }
 
-        if (blockEntity instanceof FireHoseBlockEntity otherHose && otherHose != this) {
-            FireHoseDebugLog.logRaw("graph endpoint firehose source={} target={} face={} access={} pull={} targetPull={} targetFluid={}",
-                worldPosition.toShortString(),
-                connectedPos.toShortString(),
-                face,
-                accessSide,
-                pull,
-                otherHose.isPulling(),
-                otherHose.getSharedTankRawAmount());
+        // A sided fluid capability is a terminal even if it also publishes Create pressure.
+        // Do not identify external terminals by a private hose class or unsided fallback.
+        if (world instanceof Level fluidLevel
+            && fluidLevel.getCapability(Capabilities.FluidHandler.BLOCK, connectedPos, accessSide) != null)
             return true;
-        }
+
+        if (HoseRelayCompatibility.isEndpoint(blockEntity) && world instanceof Level fluidWorld
+            && fluidWorld.getCapability(Capabilities.FluidHandler.BLOCK, connectedPos, accessSide) != null)
+            return true;
 
         FluidTransportBehaviour pipe = FluidPropagator.getPipe(world, connectedPos);
         if (pipe != null && pipe.canHaveFlowToward(connectedState, blockFace.getOppositeFace()))
             return false;
-
-        if (blockEntity != null) {
-            Level beLevel = blockEntity.getLevel();
-            if (beLevel != null) {
-                IFluidHandler handler = beLevel.getCapability(Capabilities.FluidHandler.BLOCK, connectedPos, accessSide);
-                if (handler == null)
-                    handler = beLevel.getCapability(Capabilities.FluidHandler.BLOCK, connectedPos, null);
-                if (handler != null)
-                    return true;
-            }
-        }
 
         return FluidPropagator.isOpenEnd(world, blockFace.getPos(), face);
     }
@@ -1866,8 +1886,10 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
 
         BlockPos backPos = worldPosition.relative(back);
         BlockEntity be = level.getBlockEntity(backPos);
-        if (!(be instanceof FireHoseBlockEntity targetHose))
+        if (!(be instanceof FireHoseBlockEntity targetHose)) {
+            tryCompatibleHoseInteraction(be, back);
             return;
+        }
         if (!transportEnabled() || !targetHose.transportEnabled()) return;
         if (targetHose == getPairedHose() || targetHose.getBack() != back.getOpposite()) return;
         if (!targetHose.isPulling())
@@ -1916,6 +1938,25 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
             targetHose.getSharedTankRawAmount());
     }
 
+    private void tryCompatibleHoseInteraction(BlockEntity endpoint, Direction back) {
+        if (!transportEnabled()) return;
+        var state = HoseRelayCompatibility.read(endpoint, back.getOpposite(), this);
+        if (state == null || !state.pulling()) return;
+        IFluidHandler target = level.getCapability(Capabilities.FluidHandler.BLOCK,
+            worldPosition.relative(back), back.getOpposite());
+        if (target == null) return;
+        int rate = (int) Math.min(getActivePumpSpeed(), state.pressure());
+        if (rate <= 0) return;
+        IFluidHandler source = getSharedTank().getPrimaryHandler();
+        FluidStack fluid = source.drain(rate, IFluidHandler.FluidAction.SIMULATE);
+        if (fluid.isEmpty()) return;
+        int accepted = target.fill(fluid, IFluidHandler.FluidAction.EXECUTE);
+        if (accepted > 0) {
+            source.drain(accepted, IFluidHandler.FluidAction.EXECUTE);
+            onFluidTransferred(accepted);
+        }
+    }
+
     private void propagateBackPipeChange(Direction back) {
         if (level == null || level.isClientSide)
             return;
@@ -1935,8 +1976,8 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
     private void tryContainerInteraction(Direction back) {
         if (level == null || pumpSide == PUMP_SIDE_NONE) return;
         BlockPos backPos = worldPosition.relative(back);
-        if (FluidPropagator.getPipe(level, backPos) != null) return;
-        if (level.getBlockEntity(backPos) instanceof FireHoseBlockEntity) return;
+        if (FluidPropagator.getPipe(level, backPos) != null
+            || HoseRelayCompatibility.isEndpoint(level.getBlockEntity(backPos))) return;
 
         IFluidHandler container = level.getCapability(
             Capabilities.FluidHandler.BLOCK, backPos, back.getOpposite());

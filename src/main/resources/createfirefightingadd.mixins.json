@@ -1,29 +1,13 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "plugin": "com.mikoalopex.createfirefightingadd.compatibility.CompatibilityMixinPlugin",
   "package": "com.mikoalopex.createfirefightingadd.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [
-    "BallCouplingNetworkMixin",
-    "BallCouplingKineticSaveMixin",
-    "BallCouplingConflictMixin",
-    "RopeItemMixin",
-    "SmartRopeTrackingMixin",
-    "RopeLatchPhysicsAccess",
-    "RopeLatchBoundsMixin",
-    "RopeLatchWinchMixin",
-    "RopeLatchSlideMixin"
-  ],
+  "mixins": [],
   "client": [
-    "client.PhysicalHoseInteractionMixin",
-    "client.CompatibilityCreativeTabsMixin",
     "client.CreativeSectionTabMixin",
     "client.CreativeSectionMenuAccessor",
-    "client.CreativeSectionScreenMixin",
-    "client.SmartRopeDataPacketMixin",
-    "client.SmartRopeShearsMixin",
-    "client.SmartRopeStoppedPacketMixin"
+    "client.CreativeSectionScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

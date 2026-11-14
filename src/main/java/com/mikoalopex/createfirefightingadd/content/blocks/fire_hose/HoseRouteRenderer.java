@@ -160,7 +160,7 @@ public final class HoseRouteRenderer {
     }
 
     private static void highlightNode(String key, Vec3 center) {
-        Outliner.getInstance().showAABB(key, new AABB(center, center).inflate(0.2))
+        Outliner.getInstance().showAABB("createfirefightingadd:" + key, new AABB(center, center).inflate(0.2))
             .colored(FireHoseItemHandler.SUCCESS_LIME).lineWidth(1 / 16f);
     }
 
@@ -177,7 +177,7 @@ public final class HoseRouteRenderer {
                 point.subtract(up).subtract(left), point.subtract(up).add(left)};
             for (int edge = 0; edge < 4; edge++) {
                 if (previous != null)
-                    Outliner.getInstance().showLine("hose_segment_" + i + "_" + edge, previous[edge], corners[edge])
+                    Outliner.getInstance().showLine("createfirefightingadd:hose_segment_" + i + "_" + edge, previous[edge], corners[edge])
                         .colored(FireHoseItemHandler.SUCCESS_LIME).lineWidth(1 / 16f);
             }
             previous = corners;

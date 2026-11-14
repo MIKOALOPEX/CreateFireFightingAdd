@@ -523,6 +523,14 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 
+    @Override
+    public void initialize() {
+        super.initialize();
+        if (level != null && !level.isClientSide
+                && (getBlockState().getBlock() instanceof ConeNozzleBlock || getBlockState().getBlock() instanceof FlatNozzleBlock))
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), 1, net.minecraft.world.ticks.TickPriority.HIGH);
+    }
+
 	@Override
 	public void tick() {
 		super.tick();
