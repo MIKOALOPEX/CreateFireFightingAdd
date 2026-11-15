@@ -54,3 +54,5 @@ Thumbs.db
 
 __pycache__/
 *.pyc
+
+/docs/compatibility.md
