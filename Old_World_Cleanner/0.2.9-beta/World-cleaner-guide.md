@@ -1,6 +1,5 @@
 # 旧整合版存档：清理后直接使用拆分模组
 
-> 修订 2：禁止直接删除整个 Sable 子结构。只删除清单内旧方块、相关约束和按坐标定位的约束提供方块；其他方块、子结构 UUID 和姿态保留。整结构删除的实验代码已撤回。此版本仅用合成数据验证，由用户自行测试存档。
 
 当前采用**离线生成清理副本**，不要求玩家先安装 0.2.9-beta 过渡整合版。拆分后的两个模组不自动扫描、清理玩家存档。
 
@@ -10,11 +9,10 @@
 
 1. 完全关闭游戏或服务端，保留旧整合包及原存档。
 2. 安装 Python 3.10 或更新版本，解压 `World cleaner.zip` 后双击 `Clean_Old_World.bat`。启动提示全为英文：红字说明风险、只生成副本和空间要求，黄字说明全部处理在本地进行。先选已有的导出目录，再选旧世界文件夹（里面有 `level.dat`）或 saves 总目录。
-3. 共用测试环境与独立工具均先让玩家选择导出目录。若要在共用环境测试，可选择 `D:/CreateAdd/CreateCombinedTest/game/saves`。命令行仍可显式传入 `-DestinationRoot` 或 `-Output` 来跳过目录询问。文件夹名为 `CLEANUP-v2-powertrain-时间-原文件夹名`，游戏中的显示名称与文件夹名完全相同，不覆盖已有文件夹。
+3. 选择导出目录后选择源存档。工具生成独立副本，不覆盖已有文件夹。也可使用 `-DestinationRoot` 或 `-Output` 指定输出位置。
 4. 将新文件夹放入同时安装新消防和 Powertrain 的环境的 `saves` 中。服务端用新副本作为 `level-name`；先不要替换正在使用的原世界。
 5. 载入新副本，检查后保存退出，再次载入。若仍崩溃，保留日志，原世界继续用旧整合包打开。
 
-共用测试环境仍使用 `Start_Combined_Client.bat` 启动。该环境旁的 `Clean_Old_World.bat` 也能调用清理入口；它不会启动游戏。
 
 ## 明确的数据损失
 
@@ -31,13 +29,13 @@
 其他模组的有效方块、焊接和子空间不作全量清空。普通消防设备默认保留；如果也愿意放弃全部旧消防内容，使用：
 
 ```powershell
-.\clean-world.ps1 -Source 'D:\旧环境\saves\世界' -Output 'D:\新环境\saves\世界-全部清理' -AllLegacy
+.\clean-world.ps1 -Source '.\source-world' -Output '.\cleaned-world' -AllLegacy
 ```
 
 默认模式的指定输出用法：
 
 ```powershell
-.\clean-world.ps1 -Source 'D:\旧环境\saves\世界' -Output 'D:\新环境\saves\世界-动力清理'
+.\clean-world.ps1 -Source '.\source-world' -Output '.\cleaned-world'
 ```
 
 `-AllLegacy` 仍只针对旧 `createfirefightingadd` 内容及必要关联，不是删除整个 Sable 世界。玩家物品栏、容器、掉落物、Create 运动结构、存档内部结构文件中的目标内容也会清除。世界文件夹以外的蓝图不会自动处理，之后不要把含旧组件的外部蓝图直接粘贴回来。
@@ -48,24 +46,8 @@
 
 处理期间持有 Minecraft 的 `session.lock`，检查源文件哈希，在独立临时目录完成后才生成最终副本；遇错移除临时输出。每个成功副本内有 `world-cleanup-report.json`，记录文件变化和源/结果哈希。原始 modified UTF-8 字符串按字节保留，不作全局命名空间替换。
 
-纯逻辑测试：
-
-```powershell
-python -m unittest discover -s tools/world_cleanup -p 'test_*.py' -v
-```
-
-这些测试验证数据清理和副本隔离，不代表已经通过游戏运行验收。不会把“工具完成”表述为“所有存档保证不崩溃”。
-
-## 修订 2 的测试与边界
-
-26 项合成数据测试通过，覆盖“旧铰链＋拉杆”残留、负坐标关节提供者、同一 palette 中相邻同类方块隔离，以及 Sable section map 的单方块删除。未对玩家存档执行修订 2，也未启动游戏。
-
 这是离线工具，不模拟模组加载，不能自动判定任意模组方块的运行时错误。默认处理已知旧 ID 和可追溯的约束关联；遇到无法解析的格式会停止输出。其他模组的约束提供方块可能因明确的关联一起删除，报告列出精确坐标。自定义维度中的 Sable 提供方块若无法确定高度索引，则拒绝该次处理，不扩大删除范围。
 
 新输出世界名称与输出文件夹名完全相同，默认以 `CLEANUP-v2-` 开头，用以区别此前测试副本。请从未修改的旧存档重新生成副本；不要复用之前崩溃时被自动保存过的副本。
 
 成功后入口显示完整路径和游戏世界名称，提示关闭窗口，并在工具根目录写入 `LAST_SUCCESSFUL_CLEANUP.txt`。运行日志为 `cleanup-last-run.log`；失败不会更新成功记录。旧副本不会随工具更新而自动修复。
-
-## 0.2.9-beta 发布准备
-
-当前共 30 项合成数据及启动入口测试通过。日常入口保留 Clean_Old_World.bat 名称；发行包名为 World cleaner.zip。整个交互流程仅使用英文，显式参数和 -DryRun 仍受支持。

@@ -1,4 +1,17 @@
-# 0.2.9-beta 过渡版操作说明 / Transition instructions
+# 0.2.9-beta — World conversion / 存档转换
+
+**Back up your world before conversion. / 转换前请务必自行备份存档。**
+
+| File / 文件 | Purpose / 用途 |
+| --- | --- |
+| [createfirefightingadd-0.2.9-beta.jar](./createfirefightingadd-0.2.9-beta.jar) | Integrated transition mod / 过渡整合版模组 |
+| [World cleaner.zip](./World%20cleaner.zip) | Standalone cleanup tool / 独立存档清理工具 |
+| [0.2.9-beta instructions / 完整版本说明](./0.2.9-beta-instructions.md) | Bilingual instructions / 中英文说明 |
+| [SHA-256](./0.2.9-beta-SHA256.txt) | Download checksums / 文件校验值 |
+
+[World cleaner detailed guide / 工具详细说明](./World-cleaner-guide.md)
+
+
 
 ## 中文
 
@@ -16,7 +29,7 @@
 
 自动处理上限：世界 512 MiB、单文件 64 MiB、100000 个文件。可用空间至少为源文件总大小三倍加 64 MiB。超限可能使退出界面长时间等待或占用过多内存，因此停止自动处理并提示本地工具。未知/损坏容器同样停止，不发布可用副本；不要打开带 INCOMPLETE 的临时目录。
 
-大存档或清连接后仍崩溃时，从[GitHub 转换工具目录](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/world-conversion/0.2.9-beta)下载同版 `World cleaner.zip`，解压并运行 `Clean_Old_World.bat`，需要 Python 3.10+。工具先以红字提示风险、备份及空间要求，黄字说明所有处理仅在本地进行；随后先选导出目录，再选源存档。工具提示全部为英文，完成后提示关闭窗口。独立工具是**删除旧组件的后备方案**，会清除旧动力组件及可追溯的约束提供方块，但不删除整个子结构。先阅读包内 `docs/legacy-world-cleanup.md`，对原档生成另一个副本。不要先卸载旧模组并保存原档。
+大存档或清连接后仍崩溃时，从[GitHub 转换工具目录](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/Old_World_Cleanner/0.2.9-beta)下载同版 `World cleaner.zip`，解压并运行 `Clean_Old_World.bat`，需要 Python 3.10+。工具先以红字提示风险、备份及空间要求，黄字说明所有处理仅在本地进行；随后先选导出目录，再选源存档。工具提示全部为英文，完成后提示关闭窗口。独立工具是**删除旧组件的后备方案**，会清除旧动力组件及可追溯的约束提供方块，但不删除整个子结构。先阅读包内 `docs/legacy-world-cleanup.md`，对原档生成另一个副本。不要先卸载旧模组并保存原档。
 
 ## English
 
@@ -34,4 +47,6 @@ Built-in cleanup removes this mod's connections, ropes, constraints and referenc
 
 Built-in limits: 512 MiB per world, 64 MiB per file, 100000 files. Free space must cover three times the source size plus 64 MiB. Oversized worlds may cause prolonged shutdown or excessive memory use, so processing stops and directs you to the local tool. Unknown/damaged formats also stop processing. Never open an INCOMPLETE directory as a world.
 
-For large worlds or crashes persisting after connection cleanup, obtain `World cleaner.zip` from the [GitHub conversion tools directory](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/world-conversion/0.2.9-beta), extract it and run `Clean_Old_World.bat` with Python 3.10+. Red startup text explains the risks, separate-copy behavior and disk-space requirement; yellow text confirms all processing stays local. Select the export directory first, then the source world. All tool prompts are English. Close the window after completion. This fallback **removes legacy components**, including identifiable related constraint-provider blocks, without deleting whole substructures. Read `docs/legacy-world-cleanup.md` first and generate another copy from the original. Do not uninstall the old mods and save over the original world first.
+For large worlds or crashes persisting after connection cleanup, obtain `World cleaner.zip` from the [GitHub conversion tools directory](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/Old_World_Cleanner/0.2.9-beta), extract it and run `Clean_Old_World.bat` with Python 3.10+. Red startup text explains the risks, separate-copy behavior and disk-space requirement; yellow text confirms all processing stays local. Select the export directory first, then the source world. All tool prompts are English. Close the window after completion. This fallback **removes legacy components**, including identifiable related constraint-provider blocks, without deleting whole substructures. Read `docs/legacy-world-cleanup.md` first and generate another copy from the original. Do not uninstall the old mods and save over the original world first.
+
+[Modrinth version description / Modrinth 版本描述](./MODRINTH.md)

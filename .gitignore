@@ -44,3 +44,13 @@ Thumbs.db
 # Maintainer-only release notes
 /docs/release-preparation.md
 /HANDOFF.md
+
+# Local launchers and runtime records
+/Start*.bat
+/start*.bat
+/environment-backup*/
+/import-backup*/
+/tools/split_migration/
+
+__pycache__/
+*.pyc

@@ -10,7 +10,7 @@ rope devices, Rocker and copycat doors. Neither mod depends on the other.
 Build and run the static and pure-logic checks with `gradlew check jar`.
 These checks do not launch Minecraft; gameplay validation is a separate step.
 For world compatibility and optional offline conversion, see
-[the migration guide](docs/split-migration.md). Back up existing worlds before changing the installed mod set.
+[the migration guide](Old_World_Cleanner/docs/split-migration.md). Back up existing worlds before changing the installed mod set.
 
 Both hose brackets use Create's wooden or metal bracket items. Ordinary hose
 selection and placement use right-click; physical hose selection and placement
@@ -38,4 +38,4 @@ If you believe any part of this repository contains material that infringes your
 
 ## World cleaner and transition release
 
-The permanent [world conversion archive](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/world-conversion) contains World cleaner, the 0.2.9-beta transition build and instructions.
+The permanent [world conversion archive](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/Old_World_Cleanner) contains World cleaner, the 0.2.9-beta transition build and instructions.

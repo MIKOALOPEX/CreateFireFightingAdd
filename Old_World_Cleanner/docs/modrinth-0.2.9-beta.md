@@ -2,7 +2,7 @@
 
 **This is a dedicated transition build for preparing existing integrated Create Firefighting Add worlds for the upcoming split into Firefighting and Powertrain. Back up your world before using either conversion method.**
 
-**[Downloads, World cleaner and full instructions on GitHub](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/world-conversion/0.2.9-beta)**
+**[Downloads, World cleaner and full instructions on GitHub](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/Old_World_Cleanner/0.2.9-beta)**
 [GitHub repository](https://github.com/MIKOALOPEX/CreateFireFightingAdd)
 
 ### In-game preparation
@@ -16,7 +16,7 @@ This method removes the mod's connections, ropes, constraints and related refere
 
 ### World cleaner
 
-The **[separate GitHub directory](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/world-conversion/0.2.9-beta)** also contains **World cleaner.zip**, a standalone fallback for large worlds or cases that connection cleanup does not resolve. It requires Python 3.10+ and can be used without installing this transition build.
+The **[separate GitHub directory](https://github.com/MIKOALOPEX/CreateFireFightingAdd/tree/main/Old_World_Cleanner/0.2.9-beta)** also contains **World cleaner.zip**, a standalone fallback for large worlds or cases that connection cleanup does not resolve. It requires Python 3.10+ and can be used without installing this transition build.
 
 Close the game/server, run `Clean_Old_World.bat`, select an export directory, then select your source world. All processing is local and creates a separate copy. This fallback removes known legacy components and identifiable related constraint-provider blocks; it does not delete whole Sable substructures. Reserve enough disk space and read its guide first.
 
