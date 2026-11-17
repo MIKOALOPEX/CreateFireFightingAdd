@@ -34,8 +34,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
-import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE_ITEM;
-
 /**
  * Client-side state machine for selecting and placing fire-hose endpoints.
  */
@@ -195,8 +193,8 @@ public class FireHoseItemHandler {
     public void clientTick(Level level, LocalPlayer player) {
         if (placementCooldown > 0) placementCooldown--;
 
-        if (!player.getMainHandItem().is(FIRE_HOSE_ITEM.get())
-                && !player.getOffhandItem().is(FIRE_HOSE_ITEM.get())) {
+        if (!(player.getMainHandItem().getItem() instanceof FireHoseItem)
+                && !(player.getOffhandItem().getItem() instanceof FireHoseItem)) {
             reset(true);
             return;
         }

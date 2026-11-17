@@ -243,11 +243,20 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	static void renderAttachedSpline(PoseStack poseStack, VertexConsumer buffer, List<AttachedPoint> points, int light) {
+        renderAttachedSpline(poseStack, buffer, points, light, new float[4]);
+    }
+
+    static void renderAttachedSpline(PoseStack poseStack, VertexConsumer buffer, List<AttachedPoint> points, int light, float[] phases) {
+        renderAttachedSpline(poseStack, buffer, points, light, phases, TUBE_WIDTH);
+    }
+
+    static void renderAttachedSpline(PoseStack poseStack, VertexConsumer buffer, List<AttachedPoint> points,
+            int light, float[] phases, float tubeWidth) {
 		for (int i = 0; i + 1 < points.size(); i++) {
 			AttachedPoint a = points.get(i);
 			AttachedPoint b = points.get(i + 1);
-			renderSegment(poseStack, a.normal(), b.normal(), a.up(), b.up(), a.point(), b.point(),
-				(float) a.length(), (float) b.length(), light, 0xFFFFFFFF, buffer, TUBE_WIDTH, TUBE_WIDTH);
+			renderSurfaceSegment(poseStack, a.normal(), b.normal(), a.up(), b.up(), a.point(), b.point(),
+                phases, light, 0xFFFFFFFF, buffer, tubeWidth, tubeWidth);
 		}
 	}
 
@@ -396,41 +405,66 @@ public final class FireHoseDynamicRenderer {
 		Vector3d endDown = endUp.negate(new Vector3d());
 		Vector3d startRight = startLeft.negate(new Vector3d());
 		Vector3d endRight = endLeft.negate(new Vector3d());
+		Vector3d[][] corners = {
+			{
+				startPos.add(startLeft, new Vector3d()).sub(startUp),
+				endPos.add(endLeft, new Vector3d()).sub(endUp),
+				endPos.sub(endLeft, new Vector3d()).sub(endUp),
+				startPos.sub(startLeft, new Vector3d()).sub(startUp)
+			},
+			{
+				startPos.sub(startLeft, new Vector3d()).add(startUp),
+				endPos.sub(endLeft, new Vector3d()).add(endUp),
+				endPos.add(endLeft, new Vector3d()).add(endUp),
+				startPos.add(startLeft, new Vector3d()).add(startUp)
+			},
+			{
+				startPos.sub(startLeft, new Vector3d()).sub(startUp),
+				endPos.sub(endLeft, new Vector3d()).sub(endUp),
+				endPos.sub(endLeft, new Vector3d()).add(endUp),
+				startPos.sub(startLeft, new Vector3d()).add(startUp)
+			},
+			{
+				startPos.add(startLeft, new Vector3d()).add(startUp),
+				endPos.add(endLeft, new Vector3d()).add(endUp),
+				endPos.add(endLeft, new Vector3d()).sub(endUp),
+				startPos.add(startLeft, new Vector3d()).sub(startUp)
+			}
+		};
+		Vector3dc[] startNormals = {startDown, startUp, startRight, startLeft};
+		Vector3dc[] endNormals = {endDown, endUp, endRight, endLeft};
 
-		surfaceQuad(poseStack, buffer, color, startDown, endDown, light, phases, 0,
-			startPos.add(startLeft, new Vector3d()).sub(startUp),
-			endPos.add(endLeft, new Vector3d()).sub(endUp),
-			endPos.sub(endLeft, new Vector3d()).sub(endUp),
-			startPos.sub(startLeft, new Vector3d()).sub(startUp),
-			u0, uvStart, u1, uvEnd);
-		surfaceQuad(poseStack, buffer, color, startUp, endUp, light, phases, 1,
-			startPos.sub(startLeft, new Vector3d()).add(startUp),
-			endPos.sub(endLeft, new Vector3d()).add(endUp),
-			endPos.add(endLeft, new Vector3d()).add(endUp),
-			startPos.add(startLeft, new Vector3d()).add(startUp),
-			u0, uvStart, u1, uvEnd);
-		surfaceQuad(poseStack, buffer, color, startRight, endRight, light, phases, 2,
-			startPos.sub(startLeft, new Vector3d()).sub(startUp),
-			endPos.sub(endLeft, new Vector3d()).sub(endUp),
-			endPos.sub(endLeft, new Vector3d()).add(endUp),
-			startPos.sub(startLeft, new Vector3d()).add(startUp),
-			u0, uvStart, u1, uvEnd);
-		surfaceQuad(poseStack, buffer, color, startLeft, endLeft, light, phases, 3,
-			startPos.add(startLeft, new Vector3d()).add(startUp),
-			endPos.add(endLeft, new Vector3d()).add(endUp),
-			endPos.add(endLeft, new Vector3d()).sub(endUp),
-			startPos.add(startLeft, new Vector3d()).sub(startUp),
-			u0, uvStart, u1, uvEnd);
+		float v0;
+		float v1;
+		if (phases != null) {
+			// One longitudinal step for all four surfaces. Per-face averages keep
+			// local density but drift apart on tight or twisted bends, so the
+			// rings no longer meet at the next segment. Their mean is the
+			// mid-surface length: it keeps the phases identical and spreads any
+			// remaining stretch evenly between the outside and inside faces.
+			double step = 0.0;
+			for (Vector3d[] quad : corners)
+				step += (quad[0].distance(quad[1]) + quad[3].distance(quad[2])) / 2;
+			step /= 4;
+			v0 = phases[0];
+			v1 = v0 + (float) step;
+		} else {
+			v0 = uvStart;
+			v1 = uvEnd;
+		}
+
+		for (int face = 0; face < 4; face++)
+			surfaceQuad(poseStack, buffer, color, startNormals[face], endNormals[face], light, face,
+				corners[face][0], corners[face][1], corners[face][2], corners[face][3],
+				u0, v0, u1, v1);
+		if (phases != null)
+			java.util.Arrays.fill(phases, v1);
 	}
 
 	private static void surfaceQuad(PoseStack poseStack, VertexConsumer buffer, int color,
-			Vector3dc startNormal, Vector3dc endNormal, int light, float[] phases, int face,
+			Vector3dc startNormal, Vector3dc endNormal, int light, int face,
 			Vector3dc a, Vector3dc b, Vector3dc c, Vector3dc d, float u0, float v0, float u1, float v1) {
-		if (phases != null) {
-			v0 = phases[face];
-			v1 = v0 + (float) ((a.distance(b) + d.distance(c)) / 2);
-			phases[face] = v1;
-		}
+        if (buffer instanceof CopycatFireHoseRendering material) material.select(face);
 		quad(poseStack, buffer, color, startNormal, endNormal, light, a, b, c, d, u0, v0, u1, v1);
 	}
 

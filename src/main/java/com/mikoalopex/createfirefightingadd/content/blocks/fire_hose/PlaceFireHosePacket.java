@@ -1,5 +1,6 @@
 package com.mikoalopex.createfirefightingadd.content.blocks.fire_hose;
 
+import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.COPYCAT_FIRE_HOSE;
 import static com.mikoalopex.createfirefightingadd.CreateFireFightingAdd.FIRE_HOSE;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -142,7 +143,7 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
             return null;
         }
 
-        FireHoseBlockEntity endpoint = addHose(level, placedPos, facing);
+        FireHoseBlockEntity endpoint = addHose(level, hose, placedPos, facing);
         if (endpoint == null) {
             level.setBlockAndUpdate(placedPos, Blocks.AIR.defaultBlockState());
             sendMessage(player, "block_exists");
@@ -155,10 +156,14 @@ public record PlaceFireHosePacket(BlockPos firstPos, BlockPos targetPos, Directi
         return endpoint;
     }
 
-    private static FireHoseBlockEntity addHose(Level level, BlockPos placedPos, Direction facing) {
-        BlockState newState = FIRE_HOSE.get().defaultBlockState()
+    private static FireHoseBlockEntity addHose(Level level, ItemStack hose,
+                                               BlockPos placedPos, Direction facing) {
+        boolean copycat = hose.getItem() instanceof CopycatFireHoseItem;
+        BlockState newState = (copycat ? COPYCAT_FIRE_HOSE : FIRE_HOSE).get().defaultBlockState()
             .setValue(FireHoseBlock.FACING, facing)
-            .setValue(FireHoseBlock.APPEARANCE, FireHoseEndpointModel.DEFAULT);
+            .setValue(FireHoseBlock.APPEARANCE, FireHoseEndpointModel.DEFAULT)
+            .setValue(FireHoseBlock.CONNECTED, false)
+            .setValue(FireHoseBlock.SIZE, FireHoseSize.EIGHT);
 
         FireHoseDebugLog.logRaw("add hose endpoint pos={} facing={} oldState={}",
                 placedPos, facing, level.getBlockState(placedPos).getBlock());

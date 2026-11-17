@@ -33,12 +33,14 @@ public abstract class CreativeSectionScreenMixin extends AbstractContainerScreen
             return;
         }
         int row = ((CreativeSectionMenuAccessor) menu).firefighting$rowForScroll(scrollOffs);
-        // Draw above empty slots with depth testing, before tooltips.
+        // Draw above empty slots with depth testing, before tooltips. The section
+        // renderer resolves the grid origin for the active creative layout.
         graphics.flush();
         RenderSystem.enableDepthTest();
         RenderSystem.setShaderColor(1, 1, 1, 1);
         try {
-            CreativeSections.render(graphics, leftPos + 8, topPos + 17, row, mouseX, mouseY);
+            CreativeSections.render(graphics, (CreativeModeInventoryScreen) (Object) this,
+                menu, leftPos, topPos, row, mouseX, mouseY);
             graphics.flush();
         } finally {
             RenderSystem.disableDepthTest();

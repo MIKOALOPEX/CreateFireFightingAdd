@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "createfirefightingadd:fire_hose"
+    },
+    {
+      "item": "create:copycat_panel"
+    }
+  ],
+  "result": {
+    "id": "createfirefightingadd:copycat_fire_hose",
+    "count": 1
+  }
+}

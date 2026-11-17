@@ -41,7 +41,7 @@ public class FlowMeterBlock extends Block implements IBE<FlowMeterBlockEntity>, 
 	private static final VoxelShape SHAPE_Z = box(4, 4, 1, 12, 12, 15);
 
 	public FlowMeterBlock(Properties properties) {
-		super(properties);
+		super(properties.forceSolidOn());
 		registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
 	}
 

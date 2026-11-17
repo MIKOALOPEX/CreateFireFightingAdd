@@ -66,6 +66,11 @@ public final class FireHoseConnections {
 		FireHoseBlockEntity partner = controller == first ? second : first;
 		ResourceLocation appearance = FireHoseAppearances.selectForConnection(
 			first.getHoseAppearanceId(), second.getHoseAppearanceId());
+		// Both ends share one cross-section; the first endpoint defines it. Do
+		// this before connecting so a copycat route is created with final width.
+		FireHoseSize size = first.getHoseSize();
+		first.setHoseSize(size);
+		second.setHoseSize(size);
 
 		disconnect(first);
 		disconnect(second);

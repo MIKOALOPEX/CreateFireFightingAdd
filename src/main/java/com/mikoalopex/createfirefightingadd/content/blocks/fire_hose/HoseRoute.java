@@ -21,8 +21,11 @@ import net.minecraft.world.phys.Vec3;
 public final class HoseRoute {
     public final UUID id;
     public final List<Node> nodes = new ArrayList<>();
-    public ResourceLocation appearance = FireHoseAppearances.DEFAULT;
+    public ResourceLocation appearance = ResourceLocation.fromNamespaceAndPath("createfirefightingadd", "default");
     public long revision;
+    public int size = 8;
+    public boolean copycatRoute;
+    public CompoundTag copycat = new CompoundTag();
 
     public HoseRoute(UUID id) {
         this.id = id;
@@ -39,6 +42,9 @@ public final class HoseRoute {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("Id", id);
         tag.putLong("Revision", revision);
+        tag.putInt("Size", size);
+        tag.putBoolean("CopycatRoute", copycatRoute);
+        tag.put("Copycat", copycat.copy());
         tag.putString("Appearance", appearance.toString());
         ListTag list = new ListTag();
         for (Node node : nodes)
@@ -52,6 +58,10 @@ public final class HoseRoute {
             return null;
         HoseRoute route = new HoseRoute(tag.getUUID("Id"));
         route.revision = tag.getLong("Revision");
+        // Paths saved before adjustable ports drew the eight-pixel tube.
+        route.size = tag.contains("Size") ? tag.getInt("Size") : 8;
+        route.copycatRoute = tag.getBoolean("CopycatRoute");
+        route.copycat = tag.getCompound("Copycat").copy();
         ResourceLocation appearance = ResourceLocation.tryParse(tag.getString("Appearance"));
         if (appearance != null)
             route.appearance = appearance;

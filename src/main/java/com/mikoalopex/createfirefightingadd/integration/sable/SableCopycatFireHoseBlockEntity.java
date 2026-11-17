@@ -1,0 +1,36 @@
+package com.mikoalopex.createfirefightingadd.integration.sable;
+
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlockEntity;
+
+import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
+import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
+import dev.ryanhcode.sable.sublevel.ServerSubLevel;
+import dev.ryanhcode.sable.sublevel.SubLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+public class SableCopycatFireHoseBlockEntity extends CopycatFireHoseBlockEntity implements BlockEntitySubLevelActor {
+
+    public SableCopycatFireHoseBlockEntity(BlockPos pos, BlockState state) {
+        super(pos, state);
+    }
+
+    @Override
+    public void sable$physicsTick(ServerSubLevel subLevel, RigidBodyHandle handle, double timeStep) {
+    }
+
+    @Override
+    @Nullable
+    public Iterable<@NotNull SubLevel> sable$getConnectionDependencies() {
+        var dependencies = new java.util.LinkedHashSet<SubLevel>();
+        for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(), getPartnerSubLevelID()))
+            dependencies.add(dependency);
+        if (route != null)
+            for (var node : route.nodes)
+                for (SubLevel dependency : SableStructureCallbacks.connectionDependencies(getLevel(), node.subLevel()))
+                    dependencies.add(dependency);
+        return dependencies;
+    }
+}

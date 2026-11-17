@@ -124,10 +124,14 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkCopycatHoseRoute: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseRouteTest',
+    checkCopycatHoseUv: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseUvTest',
+    checkFireHoseSizes: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseSizesTest',
     checkHoseRelayCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.HoseRelayCompatibilityTest',
     checkHoseTexture: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseTextureTest',
     checkCompatibility: 'com.mikoalopex.createfirefightingadd.compatibility.CompatibilityRulesTest',
     checkNozzleOrientation: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleOrientationTest',
+    checkCreativeSectionLayout: 'com.mikoalopex.createfirefightingadd.client.CreativeSectionLayoutTest',
 ]
 regressionChecks.each { taskName, entryPoint ->
     tasks.register(taskName, JavaExec) {

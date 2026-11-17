@@ -58,10 +58,15 @@ public final class HoseRoutes extends SavedData {
                 return current;
         }
         FireHoseBlockEntity partner = hose.getPairedHose();
-        if (partner == null || !hose.getHoseAppearance().rendersHose())
+        if (partner == null)
+            return null;
+        // A copycat body keeps its mesh even when the dyed tube itself is hidden.
+        if (!hose.getHoseAppearance().rendersHose() && !hose.isCopycat() && !partner.isCopycat())
             return null;
         HoseRoute route = new HoseRoute(UUID.randomUUID());
         route.appearance = hose.getHoseAppearanceId();
+        route.size = hose.getHoseSize().width();
+        route.copycatRoute = hose.isCopycat() || partner.isCopycat();
         route.nodes.add(HoseRoute.Node.of(hose));
         route.nodes.add(HoseRoute.Node.of(partner));
         routes.put(route.id, route);
@@ -112,6 +117,7 @@ public final class HoseRoutes extends SavedData {
         if (route == null)
             return;
         List<HoseRoute.Node> oldNodes = List.copyOf(route.nodes);
+        CopycatFireHose.refund(level, route);
         route.nodes.clear();
         route.revision++;
         setDirty();
@@ -148,8 +154,25 @@ public final class HoseRoutes extends SavedData {
             return;
         }
         data.relocate(hose.getLevel(), route, HoseRoute.Node.of(hose));
-        if (!route.appearance.equals(hose.getHoseAppearanceId())) {
-            if (!hose.getHoseAppearance().rendersHose())
+        int width = hose.getHoseSize().width();
+        // The saved route is authoritative for the shared cross-section. If a
+        // partially loaded connection comes back on a different width, restore
+        // the route width instead of letting the endpoints diverge.
+        if (route.size <= 0) {
+            route.size = width;
+            data.publish(hose.getLevel(), route);
+        } else if (!hose.assembling && route.size != width) {
+            FireHoseSize saved = FireHoseSize.of(route.size);
+            if (saved.width() != width)
+                hose.setHoseSize(saved);
+        }
+        FireHoseBlockEntity paired = hose.getPairedHose();
+        boolean copycatRoute = hose.isCopycat() || (paired != null && paired.isCopycat());
+        if (route.copycatRoute != copycatRoute) {
+            route.copycatRoute = copycatRoute;
+            data.publish(hose.getLevel(), route);
+        } else if (!route.appearance.equals(hose.getHoseAppearanceId())) {
+            if (!hose.getHoseAppearance().rendersHose() && !copycatRoute)
                 data.discard(hose.getLevel(), route);
             else {
                 route.appearance = hose.getHoseAppearanceId();

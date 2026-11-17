@@ -13,6 +13,8 @@ import org.jetbrains.annotations.Nullable;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.extension_ladder.ExtensionLadderBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
@@ -66,6 +68,31 @@ public final class SableStructureCompat {
                 return blockEntity;
         }
         return new FireHoseBlockEntity(pos, state);
+    }
+
+    public static CopycatFireHoseBlock createCopycatFireHoseBlock(BlockBehaviour.Properties properties) {
+        if (BACKEND != null) {
+            try {
+                return (CopycatFireHoseBlock) Class.forName(
+                    "com.mikoalopex.createfirefightingadd.integration.sable.SableCopycatFireHoseBlock",
+                    true,
+                    SableStructureCompat.class.getClassLoader())
+                    .getConstructor(BlockBehaviour.Properties.class)
+                    .newInstance(properties);
+            } catch (Throwable ignored) {
+                // Fall back to the static endpoint when the optional Sable API is unavailable.
+            }
+        }
+        return new CopycatFireHoseBlock(properties);
+    }
+
+    public static CopycatFireHoseBlockEntity createCopycatFireHoseBlockEntity(BlockPos pos, BlockState state) {
+        CopycatFireHoseBlockEntity blockEntity = instantiateSableBlockEntity(
+            "com.mikoalopex.createfirefightingadd.integration.sable.SableCopycatFireHoseBlockEntity",
+            CopycatFireHoseBlockEntity.class,
+            pos,
+            state);
+        return blockEntity != null ? blockEntity : new CopycatFireHoseBlockEntity(pos, state);
     }
 
     public static HoseBracketBlock createHoseBracketBlock(BlockBehaviour.Properties properties) {

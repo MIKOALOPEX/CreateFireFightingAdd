@@ -246,11 +246,21 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         if (other == null)
             return;
 
-        RenderType renderType = hoseRenderType(appearance);
-        if (renderType == null)
-            return;
-
-        VertexConsumer buffer = bufferSource.getBuffer(renderType);
+        float tubeWidth = be.getHoseSize().width();
+        VertexConsumer buffer;
+        if (be.isCopycat()) {
+            var material = be.route == null ? null : CopycatFireHose.material(be.getLevel(), be.route);
+            if (material == null)
+                // A connected copycat never falls back to the ordinary hose texture.
+                material = com.simibubi.create.AllBlocks.COPYCAT_BASE.getDefaultState();
+            buffer = new CopycatFireHoseRendering(be.getLevel(), be.getBlockPos(), material,
+                bufferSource, tubeWidth);
+        } else {
+            RenderType renderType = hoseRenderType(appearance);
+            if (renderType == null)
+                return;
+            buffer = bufferSource.getBuffer(renderType);
+        }
 
         ps.pushPose();
 
@@ -347,7 +357,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
                     point.point, nextPoint.point,
                     (float) runningSpringLength,
                     (float) (runningSpringLength + length),
-                    light, color, buffer, TUBE_WIDTH, TEXTURE_WIDTH);
+                    light, color, buffer, be.getHoseSize().width(), be.getHoseSize().textureWidth());
 
             runningSpringLength += length;
         }

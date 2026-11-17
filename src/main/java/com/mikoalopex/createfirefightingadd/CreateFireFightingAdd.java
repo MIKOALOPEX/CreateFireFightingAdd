@@ -4,6 +4,10 @@ import java.util.EnumMap;
 import java.util.List;
 
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlock;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlockEntity;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseItem;
+import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseRenderer;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketBlockEntity;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.HoseBracketRenderer;
@@ -283,6 +287,13 @@ public class CreateFireFightingAdd {
 	public static final DeferredItem<FireHoseItem> FIRE_HOSE_ITEM = ITEMS.register("fire_hose",
 		() -> new FireHoseItem(new Item.Properties()));
 
+	public static final DeferredBlock<CopycatFireHoseBlock> COPYCAT_FIRE_HOSE = BLOCKS.register("copycat_fire_hose",
+		() -> SableStructureCompat.createCopycatFireHoseBlock(
+			BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3.0f).noOcclusion()));
+
+	public static final DeferredItem<CopycatFireHoseItem> COPYCAT_FIRE_HOSE_ITEM =
+		ITEMS.register("copycat_fire_hose", () -> new CopycatFireHoseItem(new Item.Properties()));
+
 	public static final DeferredBlock<FireHoseConnectorBlock> FIRE_HOSE_CONNECTOR = BLOCKS.register("fire_hose_connector",
 		() -> new FireHoseConnectorBlock(fluidPipeProperties()));
 
@@ -472,6 +483,11 @@ public class CreateFireFightingAdd {
 		BLOCK_ENTITY_TYPES.register("fire_hose",
 			() -> BlockEntityType.Builder.of(SableStructureCompat::createFireHoseBlockEntity, FIRE_HOSE.get()).build(null));
 
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CopycatFireHoseBlockEntity>> COPYCAT_FIRE_HOSE_BE =
+		BLOCK_ENTITY_TYPES.register("copycat_fire_hose",
+			() -> BlockEntityType.Builder.of(SableStructureCompat::createCopycatFireHoseBlockEntity,
+				COPYCAT_FIRE_HOSE.get()).build(null));
+
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FireHoseConnectorBlockEntity>> FIRE_HOSE_CONNECTOR_BE =
 		BLOCK_ENTITY_TYPES.register("fire_hose_connector",
 			() -> BlockEntityType.Builder.of(FireHoseConnectorBlockEntity::new, FIRE_HOSE_CONNECTOR.get()).build(null));
@@ -531,6 +547,7 @@ public class CreateFireFightingAdd {
 				output.accept(HYDRAULIC_RAM_ITEM.get());
 				output.accept(EXTENSION_LADDER_ITEM.get());
 				output.accept(FIRE_HOSE_ITEM.get());
+				output.accept(COPYCAT_FIRE_HOSE_ITEM.get());
 
 				output.accept(FIRE_HOSE_CONNECTOR_ITEM.get());
 				output.accept(PIPELINE_TURBINE_ITEM.get());
@@ -594,6 +611,7 @@ public class CreateFireFightingAdd {
 		MovementBehaviour.REGISTRY.register(FLAT_NOZZLE.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(BUCKET_CONTROLLER.get(), SprayDeviceMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
+		MovementBehaviour.REGISTRY.register(COPYCAT_FIRE_HOSE.get(), FireHoseMovementBehaviour.INSTANCE);
 		MovementBehaviour.REGISTRY.register(HOSE_BRACKET.get(), new HoseBracketMovementBehaviour());
 		MovementBehaviour.REGISTRY.register(FIRE_HYDRANT_CABINET.get(), FireHydrantCabinetMovementBehaviour.INSTANCE);
 
@@ -601,6 +619,7 @@ public class CreateFireFightingAdd {
 		MountedFluidStorageType.REGISTRY.register(FLAT_NOZZLE.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
 		MountedFluidStorageType.REGISTRY.register(BUCKET_CONTROLLER.get(), SPRAY_DEVICE_MOUNTED_FLUID_STORAGE.get());
 		MountedFluidStorageType.REGISTRY.register(FIRE_HOSE.get(), FIRE_HOSE_MOUNTED_FLUID_STORAGE.get());
+		MountedFluidStorageType.REGISTRY.register(COPYCAT_FIRE_HOSE.get(), FIRE_HOSE_MOUNTED_FLUID_STORAGE.get());
 	}
 
 	private static void registerSableSchematicCompat() {
@@ -647,6 +666,11 @@ public class CreateFireFightingAdd {
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			FIRE_HOSE_BE.get(),
+			(be, context) -> be.getFluidHandler(context)
+		);
+		event.registerBlockEntity(
+			Capabilities.FluidHandler.BLOCK,
+			COPYCAT_FIRE_HOSE_BE.get(),
 			(be, context) -> be.getFluidHandler(context)
 		);
 		event.registerBlockEntity(
@@ -801,6 +825,7 @@ public class CreateFireFightingAdd {
 			ItemBlockRenderTypes.setRenderLayer(FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FLUID_FLOW_METER.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HOSE.get(), RenderType.cutout());
+			ItemBlockRenderTypes.setRenderLayer(COPYCAT_FIRE_HOSE.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(MULTIPURPOSE_BACKTANK.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_HYDRANT_CABINET.get(), RenderType.cutout());
 			ItemBlockRenderTypes.setRenderLayer(FIRE_EXTINGUISHER.get(), RenderType.cutout());
@@ -818,6 +843,7 @@ public class CreateFireFightingAdd {
 			registerCreateTooltip(EXTENSION_LADDER_ITEM.get());
 			registerCreateTooltip(TRAFFIC_CONE_ITEM.get());
 			registerCreateTooltip(FIRE_POLE_ITEM.get());
+			registerCreateTooltip(COPYCAT_FIRE_HOSE_ITEM.get());
 		}
 
 		private static void registerCreateTooltip(Item item) {
@@ -854,6 +880,7 @@ public class CreateFireFightingAdd {
 			event.registerBlockEntityRenderer(HIGH_PRESSURE_PUMP_BE.get(), ctx -> new HighPressurePumpRenderer(ctx));
 			event.registerBlockEntityRenderer(PIPELINE_TURBINE_BE.get(), ctx -> new ShaftRenderer<>(ctx));
 			event.registerBlockEntityRenderer(FIRE_HOSE_BE.get(), FireHoseRenderer::new);
+			event.registerBlockEntityRenderer(COPYCAT_FIRE_HOSE_BE.get(), CopycatFireHoseRenderer::new);
 			event.registerBlockEntityRenderer(HOSE_BRACKET_BE.get(), HoseBracketRenderer::new);
 			event.registerBlockEntityRenderer(FLOW_METER_BE.get(), FlowMeterRenderer::new);
 			event.registerBlockEntityRenderer(MULTIPURPOSE_BACKTANK_BE.get(), MultipurposeBacktankRenderer::new);

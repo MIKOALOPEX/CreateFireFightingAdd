@@ -1632,6 +1632,55 @@ public class FireHoseBlockEntity extends SmartBlockEntity implements FireHoseCon
         return FireHoseAppearances.get(getHoseAppearanceId());
     }
 
+    /** Copycat endpoints keep the same fluid and route engine with a disguise layer. */
+    public boolean isCopycat() {
+        return getBlockState().getBlock() instanceof CopycatFireHoseBlock;
+    }
+
+    public FireHoseSize getHoseSize() {
+        BlockState state = getBlockState();
+        return state.hasProperty(FireHoseBlock.SIZE) ? state.getValue(FireHoseBlock.SIZE) : FireHoseSize.EIGHT;
+    }
+
+    /** Server-authoritative size step shared by both endpoints of a connection. */
+    public boolean cycleSize() {
+        if (level == null || level.isClientSide || isRemoved() || assembling)
+            return false;
+        FireHoseBlockEntity partner = getPairedHose();
+        if (partnerPos != null && partner == null) {
+            // The other half is unloaded or moving. Changing only this endpoint
+            // would leave the saved route and the reloaded endpoint on different
+            // widths, so wait until both ends are available.
+            return false;
+        }
+        FireHoseSize size = getHoseSize().next();
+        setHoseSize(size);
+        if (partner != null)
+            partner.setHoseSize(size);
+        if (route != null) {
+            HoseRoutes data = HoseRoutes.get(level);
+            HoseRoute current = data.find(route.id);
+            if (current != null && current.size != size.width()) {
+                current.size = size.width();
+                data.publish(level, current);
+            }
+        }
+        return true;
+    }
+
+    public void setHoseSize(FireHoseSize size) {
+        if (level == null || level.isClientSide || isRemoved())
+            return;
+        BlockState state = level.getBlockState(worldPosition);
+        if (!state.is(getBlockState().getBlock()) || level.getBlockEntity(worldPosition) != this)
+            return;
+        if (!state.hasProperty(FireHoseBlock.SIZE) || state.getValue(FireHoseBlock.SIZE) == size)
+            return;
+        level.setBlock(worldPosition, state.setValue(FireHoseBlock.SIZE, size), Block.UPDATE_CLIENTS);
+        invalidateRenderBoundingBox();
+        notifyUpdate();
+    }
+
     public boolean setBlackHose(boolean black) {
         return setHoseAppearance(FireHoseAppearances.fromLegacy(black, false));
     }

@@ -32,6 +32,7 @@ public final class SableSchematicCompat {
 			Api api = Api.inspect();
 			Object mapper = FireHoseBlueprintMapper.create(api.mapperApi());
 			api.registerMethod().invoke(null, CreateFireFightingAdd.FIRE_HOSE_BE.get(), mapper);
+			api.registerMethod().invoke(null, CreateFireFightingAdd.COPYCAT_FIRE_HOSE_BE.get(), mapper);
 			registered = true;
 			LOGGER.debug("Registered Create Firefighting Add Sable Blueprint compatibility");
 		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {

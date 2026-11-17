@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.api.fire_hose.FireHoseAppearances;
 import com.mikoalopex.createfirefightingadd.integration.sable.SableStructureClientCompat;
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.contraptions.behaviour.MovementContext;
 
 import net.createmod.catnip.outliner.Outliner;
@@ -17,6 +18,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -119,9 +121,20 @@ public final class HoseRouteRenderer {
                 }
             }
         for (HoseRoute route : routes.values()) {
-            if (route.nodes.size() < 2 || !FireHoseAppearances.get(route.appearance).rendersHose())
+            BlockState material = CopycatFireHose.material(currentLevel, route);
+            if (material == null && route.copycatRoute)
+                // An unfilled copycat body still reads as a copycat surface, not as a normal hose.
+                material = AllBlocks.COPYCAT_BASE.getDefaultState();
+            FireHoseAppearances.Entry appearance = FireHoseAppearances.get(route.appearance);
+            // A copycat body is a visible mesh even when the dyed tube texture is hidden.
+            if (route.nodes.size() < 2 || (material == null && !appearance.rendersHose()))
                 continue;
-            RenderType type = RenderType.entityCutoutNoCull(FireHoseAppearances.get(route.appearance).hoseTexture());
+            RenderType type = material != null ? null : RenderType.entityCutoutNoCull(appearance.hoseTexture());
+            var copycat = material == null ? null : new CopycatFireHoseRendering(currentLevel,
+                route.nodes.getFirst().pos(), material, buffers, route.size);
+            if (copycat != null) type = copycat.type;
+            var consumer = copycat == null ? buffers.getBuffer(type) : copycat;
+            float[] phases = new float[4];
             for (int i = 0; i + 1 < route.nodes.size(); i++) {
                 HoseRoute.Node a = route.nodes.get(i);
                 HoseRoute.Node b = route.nodes.get(i + 1);
@@ -150,7 +163,7 @@ public final class HoseRouteRenderer {
                 Vec3 endNormal = b.endpoint() ? end.normal : end.normal.scale(-1);
                 var points = FireHoseDynamicRenderer.attachedSpline(start.outgoing, end.incoming,
                     start.normal, endNormal, start.up, end.up);
-                FireHoseDynamicRenderer.renderAttachedSpline(matrix, buffers.getBuffer(type), points, light);
+                FireHoseDynamicRenderer.renderAttachedSpline(matrix, consumer, points, light, phases, route.size);
                 if (selectedSegment)
                     highlightSegment(points);
             }

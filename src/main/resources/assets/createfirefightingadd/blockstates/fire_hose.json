@@ -1,38 +1,864 @@
 {
   "multipart": [
-    { "when": { "appearance": "default", "facing": "down" }, "apply": { "model": "createfirefightingadd:block/fire_hose", "x": 180 } },
-    { "when": { "appearance": "default", "facing": "east" }, "apply": { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 90 } },
-    { "when": { "appearance": "default", "facing": "north" }, "apply": { "model": "createfirefightingadd:block/fire_hose", "x": 90 } },
-    { "when": { "appearance": "default", "facing": "south" }, "apply": { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 180 } },
-    { "when": { "appearance": "default", "facing": "up" }, "apply": { "model": "createfirefightingadd:block/fire_hose" } },
-    { "when": { "appearance": "default", "facing": "west" }, "apply": { "model": "createfirefightingadd:block/fire_hose", "x": 90, "y": 270 } },
-
-    { "when": { "appearance": "black", "facing": "down" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black", "x": 180 } },
-    { "when": { "appearance": "black", "facing": "east" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black", "x": 90, "y": 90 } },
-    { "when": { "appearance": "black", "facing": "north" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black", "x": 90 } },
-    { "when": { "appearance": "black", "facing": "south" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black", "x": 90, "y": 180 } },
-    { "when": { "appearance": "black", "facing": "up" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black" } },
-    { "when": { "appearance": "black", "facing": "west" }, "apply": { "model": "createfirefightingadd:block/fire_hose_black", "x": 90, "y": 270 } },
-
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "down" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect", "x": 180 } },
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "east" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect", "x": 90, "y": 90 } },
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "north" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect", "x": 90 } },
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "south" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect", "x": 90, "y": 180 } },
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "up" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect" } },
-    { "when": { "appearance": "transparent", "connected": "false", "facing": "west" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_without_connect", "x": 90, "y": 270 } },
-
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "down" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected", "x": 180 } },
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "east" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected", "x": 90, "y": 90 } },
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "north" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected", "x": 90 } },
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "south" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected", "x": 90, "y": 180 } },
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "up" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected" } },
-    { "when": { "appearance": "transparent", "connected": "true", "facing": "west" }, "apply": { "model": "createfirefightingadd:block/fire_hose_transparent_connected", "x": 90, "y": 270 } },
-
-    { "when": { "appearance": "custom", "facing": "down" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } },
-    { "when": { "appearance": "custom", "facing": "east" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } },
-    { "when": { "appearance": "custom", "facing": "north" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } },
-    { "when": { "appearance": "custom", "facing": "south" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } },
-    { "when": { "appearance": "custom", "facing": "up" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } },
-    { "when": { "appearance": "custom", "facing": "west" }, "apply": { "model": "createfirefightingadd:block/fire_hose_empty" } }
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4"
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "4",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6"
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "6",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8"
+      }
+    },
+    {
+      "when": {
+        "appearance": "default",
+        "size": "8",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black"
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "4",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_black",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black"
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "6",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_black",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black"
+      }
+    },
+    {
+      "when": {
+        "appearance": "black",
+        "size": "8",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_black",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "true",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_connected",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "4",
+        "connected": "false",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_4_transparent_without_connect",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "true",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_connected",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "6",
+        "connected": "false",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_6_transparent_without_connect",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "true",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_connected",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect",
+        "x": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect"
+      }
+    },
+    {
+      "when": {
+        "appearance": "transparent",
+        "size": "8",
+        "connected": "false",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose/port_8_transparent_without_connect",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "appearance": "custom"
+      },
+      "apply": {
+        "model": "createfirefightingadd:block/fire_hose_empty"
+      }
+    }
   ]
 }

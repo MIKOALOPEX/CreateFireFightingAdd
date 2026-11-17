@@ -7,7 +7,8 @@
   "client": [
     "client.CreativeSectionTabMixin",
     "client.CreativeSectionMenuAccessor",
-    "client.CreativeSectionScreenMixin"
+    "client.CreativeSectionScreenMixin",
+    "client.RadialWrenchMenuGuardMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -37,11 +37,14 @@
   "config.jade.plugin_createfirefightingadd.water_intake_fluid": "取水口流体信息",
   "block.createfirefightingadd.firefighting_nozzle": "消防喷头 (旧版)",
   "block.createfirefightingadd.fire_hose": "消防水带",
+  "block.createfirefightingadd.copycat_fire_hose": "伪装消防水带",
   "block.createfirefightingadd.fire_hose_connector": "轻松连接器",
   "block.createfirefightingadd.pipeline_turbine": "管道叶轮机",
   "block.createfirefightingadd.fire_pole": "消防滑杆",
   "block.createfirefightingadd.multipurpose_backtank": "多功能背罐",
   "item.createfirefightingadd.fire_hose": "消防水带",
+  "item.createfirefightingadd.copycat_fire_hose": "伪装消防水带",
+  "item.createfirefightingadd.copycat_fire_hose.tooltip": "放置可伪装的消防水带端口。连接后手持方块右键，先填充带体再填充端口；扳手会先取回两种材质再旋转。",
   "item.createfirefightingadd.fire_hose_connector": "轻松连接器",
   "item.createfirefightingadd.hydraulic_ram": "水锤泵",
   "item.createfirefightingadd.pipeline_turbine": "管道叶轮机",
@@ -315,5 +318,9 @@
   "createfirefightingadd.extension_ladder.invalid_direction": "这个方向无法放置拉梯。",
   "createfirefightingadd.extension_ladder.first_point_floor": "请选择地面方块的顶部面。",
   "createfirefightingadd.extension_ladder.anchor_blocked": "拉梯锚定位置没有足够空间。",
-  "createfirefightingadd.extension_ladder.anchor_failed": "拉梯放置失败。"
+  "createfirefightingadd.extension_ladder.anchor_failed": "拉梯放置失败。",
+  "createfirefightingadd.fire_hose.copycat_hint": "连接后，手持方块右键端点可伪装整条水带；再次使用相同方块切换状态，扳手右键取回填料。",
+  "createfirefightingadd.hose_wrench.mode.rotate": "旋转",
+  "createfirefightingadd.hose_wrench.mode.size": "粗细",
+  "createfirefightingadd.hose_wrench.hint": "按住 ALT 滚动滚轮切换"
 }

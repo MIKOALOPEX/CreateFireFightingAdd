@@ -8,6 +8,13 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 public class PartialModels {
 	public static final PartialModel HOSE_SETPOINT_Y = block("fire_hose/setpoint_y");
 	public static final PartialModel HOSE_SETPOINT_Z = block("fire_hose/setpoint_z");
+	public static final PartialModel HOSE_SETPOINT_Y_6 = block("fire_hose/setpoint_y_6");
+	public static final PartialModel HOSE_SETPOINT_Z_6 = block("fire_hose/setpoint_z_6");
+	public static final PartialModel HOSE_SETPOINT_Y_4 = block("fire_hose/setpoint_y_4");
+	public static final PartialModel HOSE_SETPOINT_Z_4 = block("fire_hose/setpoint_z_4");
+	public static final PartialModel FIRE_HOSE_COPYCAT_PORT_8 = block("fire_hose/copycat_port_8");
+	public static final PartialModel FIRE_HOSE_COPYCAT_PORT_6 = block("fire_hose/copycat_port_6");
+	public static final PartialModel FIRE_HOSE_COPYCAT_PORT_4 = block("fire_hose/copycat_port_4");
 	public static final PartialModel HOSE_BRACKET_METAL = PartialModel.of(ResourceLocation.fromNamespaceAndPath("create", "block/bracket/pipe/ground_metal"));
 	public static final PartialModel HOSE_BRACKET_WOOD = PartialModel.of(ResourceLocation.fromNamespaceAndPath("create", "block/bracket/pipe/ground_wooden"));
 
@@ -44,10 +51,29 @@ public class PartialModels {
 		return PartialModel.of(ResourceLocation.fromNamespaceAndPath(CreateFireFightingAdd.MODID, "item/" + path));
 	}
 
+	/** Width is the drawn tube width: 4, 6 or 8 sixteenths. */
+	public static PartialModel hoseSetpoint(boolean zAxis, int width) {
+		if (zAxis)
+			return width == 4 ? HOSE_SETPOINT_Z_4 : width == 6 ? HOSE_SETPOINT_Z_6 : HOSE_SETPOINT_Z;
+		return width == 4 ? HOSE_SETPOINT_Y_4 : width == 6 ? HOSE_SETPOINT_Y_6 : HOSE_SETPOINT_Y;
+	}
+
+	public static PartialModel fireHoseCopycatPort(int width) {
+		return width == 4 ? FIRE_HOSE_COPYCAT_PORT_4
+			: width == 6 ? FIRE_HOSE_COPYCAT_PORT_6 : FIRE_HOSE_COPYCAT_PORT_8;
+	}
+
 	public static void registerAdditional(ModelEvent.RegisterAdditional event) {
 		init();
 		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Y.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Z.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Y_6.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Z_6.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Y_4.modelLocation()));
+		event.register(ModelResourceLocation.standalone(HOSE_SETPOINT_Z_4.modelLocation()));
+		event.register(ModelResourceLocation.standalone(FIRE_HOSE_COPYCAT_PORT_8.modelLocation()));
+		event.register(ModelResourceLocation.standalone(FIRE_HOSE_COPYCAT_PORT_6.modelLocation()));
+		event.register(ModelResourceLocation.standalone(FIRE_HOSE_COPYCAT_PORT_4.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HOSE_BRACKET_METAL.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HOSE_BRACKET_WOOD.modelLocation()));
 		event.register(ModelResourceLocation.standalone(HIGH_PRESSURE_PUMP_COG.modelLocation()));
