@@ -25,6 +25,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour;
 
 import net.createmod.catnip.data.Pair;
+import net.minecraft.core.component.DataComponentPatch;
 import net.createmod.catnip.math.BlockFace;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
@@ -67,6 +68,8 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 	private ScrollOptionBehaviour<MultipurposeBacktankMode> mode;
 	private Component customName;
 	private int airLevel;
+	private int capacityEnchantLevel;
+	private DataComponentPatch componentPatch = DataComponentPatch.EMPTY;
 	private int airLevelTimer;
 	private boolean airWasFull;
 	private boolean pumpNetworkDirty = true;
@@ -132,7 +135,7 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 			return;
 		}
 
-		int max = BacktankUtil.maxAirWithoutEnchants();
+		int max = getAirCapacity();
 		if (airLevel >= max) {
 			if (airLevel > max) {
 				airLevel = max;
@@ -448,7 +451,7 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 	private void spawnChargingParticles() {
 		if (getSpeed() == 0)
 			return;
-		int max = BacktankUtil.maxAirWithoutEnchants();
+		int max = getAirCapacity();
 		if (airLevel >= max)
 			return;
 		Vec3 center = VecHelper.getCenterOf(worldPosition);
@@ -486,20 +489,36 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 		return mode == null ? MultipurposeBacktankMode.INPUT : mode.get();
 	}
 
+	public int getAirCapacity() {
+		return BacktankUtil.maxAir(capacityEnchantLevel);
+	}
+
+	public void setCapacityEnchantLevel(int level) {
+		capacityEnchantLevel = Math.max(0, level);
+	}
+
+	public DataComponentPatch getComponentPatch() {
+		return componentPatch;
+	}
+
+	public void setComponentPatch(DataComponentPatch patch) {
+		componentPatch = patch;
+	}
+
 	public int getAirLevel() {
 		return airLevel;
 	}
 
 	public void setAirLevel(int airLevel) {
-		this.airLevel = Mth.clamp(airLevel, 0, BacktankUtil.maxAirWithoutEnchants());
-		airWasFull = this.airLevel >= BacktankUtil.maxAirWithoutEnchants();
+		this.airLevel = Mth.clamp(airLevel, 0, getAirCapacity());
+		airWasFull = this.airLevel >= getAirCapacity();
 		setChanged();
 		sendData();
 	}
 
 	public int getComparatorOutput() {
 		float fluidRatio = tank.getFluidAmount() / (float) tank.getCapacity();
-		float airRatio = airLevel / (float) BacktankUtil.maxAirWithoutEnchants();
+		float airRatio = airLevel / (float) getAirCapacity();
 		return ComparatorUtil.fractionToRedstoneLevel(Math.max(fluidRatio, airRatio));
 	}
 
@@ -510,6 +529,11 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 			: Component.translatable("block.createfirefightingadd.multipurpose_backtank");
 	}
 
+	@Override
+	public Component getCustomName() {
+		return customName;
+	}
+
 	public void setCustomName(Component customName) {
 		this.customName = customName;
 	}
@@ -517,6 +541,9 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 	@Override
 	protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 		super.write(tag, registries, clientPacket);
+		tag.putInt("CapacityEnchantment", capacityEnchantLevel);
+		tag.put("Components", DataComponentPatch.CODEC.encodeStart(registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), componentPatch).result()
+			.orElse(new CompoundTag()));
 		tag.putInt(AIR_TAG, airLevel);
 		tag.putInt(AIR_TIMER_TAG, airLevelTimer);
 		tag.put(FLUID_TAG, tank.writeToNBT(registries, new CompoundTag()));
@@ -527,8 +554,12 @@ public class MultipurposeBacktankBlockEntity extends KineticBlockEntity implemen
 	@Override
 	protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
 		super.read(tag, registries, clientPacket);
-		airLevel = Mth.clamp(tag.getInt(AIR_TAG), 0, BacktankUtil.maxAirWithoutEnchants());
-		airWasFull = airLevel >= BacktankUtil.maxAirWithoutEnchants();
+		// Restore capacity before clamping air so enchanted tanks retain their stored charge.
+		capacityEnchantLevel = Math.max(0, tag.getInt("CapacityEnchantment"));
+		componentPatch = DataComponentPatch.CODEC.parse(registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), tag.getCompound("Components")).result()
+			.orElse(DataComponentPatch.EMPTY);
+		airLevel = Mth.clamp(tag.getInt(AIR_TAG), 0, getAirCapacity());
+		airWasFull = airLevel >= getAirCapacity();
 		airLevelTimer = tag.getInt(AIR_TIMER_TAG);
 		if (tag.contains(FLUID_TAG))
 			tank.readFromNBT(registries, tag.getCompound(FLUID_TAG));

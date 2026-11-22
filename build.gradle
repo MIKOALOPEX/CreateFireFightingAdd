@@ -124,6 +124,7 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkMultipurposeBacktank: 'com.mikoalopex.createfirefightingadd.content.equipment.backtank.MultipurposeBacktankTest',
     checkCopycatHoseRoute: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseRouteTest',
     checkCopycatHoseUv: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseUvTest',
     checkFireHoseSizes: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseSizesTest',

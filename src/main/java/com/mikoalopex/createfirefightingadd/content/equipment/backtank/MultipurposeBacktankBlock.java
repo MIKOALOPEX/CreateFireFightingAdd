@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
 import com.mikoalopex.createfirefightingadd.api.backtank.MultipurposeBacktankFluidApi;
 import com.simibubi.create.AllDataComponents;
+import com.simibubi.create.AllEnchantments;
 import com.simibubi.create.content.equipment.armor.BacktankItem;
 import com.simibubi.create.content.fluids.FluidPropagator;
 import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock;
@@ -114,6 +115,8 @@ public class MultipurposeBacktankBlock extends HorizontalKineticBlock
 			return;
 
 		withBlockEntityDo(level, pos, be -> {
+			be.setCapacityEnchantLevel(stack.getEnchantmentLevel(level.holderOrThrow(AllEnchantments.CAPACITY)));
+			be.setComponentPatch(stack.getComponentsPatch());
 			be.setAirLevel(stack.getOrDefault(AllDataComponents.BACKTANK_AIR, 0));
 			be.setFluid(MultipurposeBacktankFluidApi.getFluid(stack, level.registryAccess()));
 			if (stack.has(DataComponents.CUSTOM_NAME))
@@ -159,7 +162,7 @@ public class MultipurposeBacktankBlock extends HorizontalKineticBlock
 		return drops.stream()
 			.peek(stack -> {
 				if (stack.is(CreateFireFightingAdd.MULTIPURPOSE_BACKTANK_ITEM.get()))
-					copyStorageToStack(stack, backtank);
+					copyStorageToStack(stack, backtank, builder.getLevel().registryAccess());
 			})
 			.toList();
 	}
@@ -171,14 +174,16 @@ public class MultipurposeBacktankBlock extends HorizontalKineticBlock
 			item = placeable.getActualItem();
 		ItemStack stack = new ItemStack(item);
 		Optional<MultipurposeBacktankBlockEntity> be = getBlockEntityOptional(level, pos);
-		be.ifPresent(backtank -> copyStorageToStack(stack, backtank));
+		be.ifPresent(backtank -> copyStorageToStack(stack, backtank, level.registryAccess()));
 		return stack;
 	}
 
-	private static void copyStorageToStack(ItemStack stack, MultipurposeBacktankBlockEntity be) {
+	static void copyStorageToStack(ItemStack stack, MultipurposeBacktankBlockEntity be, net.minecraft.core.HolderLookup.Provider registries) {
+		// Restore metadata first so the saved component patch cannot overwrite live air or fluid contents.
+		stack.applyComponents(be.getComponentPatch().forget(type -> type.equals(AllDataComponents.BACKTANK_AIR)));
+		if (be.getCustomName() != null) stack.set(DataComponents.CUSTOM_NAME, be.getCustomName());
 		stack.set(AllDataComponents.BACKTANK_AIR, be.getAirLevel());
-		if (be.getLevel() != null)
-			MultipurposeBacktankFluidApi.setFluid(stack, be.getLevel().registryAccess(), be.getFluid());
+		MultipurposeBacktankFluidApi.setFluid(stack, registries, be.getFluid());
 	}
 
 	@Override
