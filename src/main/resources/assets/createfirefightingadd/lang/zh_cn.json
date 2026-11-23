@@ -1,7 +1,7 @@
 {
-  "createfirefightingadd.legacy_notice.title": "旧版存档兼容提示",
-  "createfirefightingadd.legacy_notice.message": "检测到旧版消防或动力总成模组（0.2.9-beta 或更早）与当前版本同时存在。将这一代旧版与新版本共用或升级，不保证已有存档仍然安全：当前版本不会自动迁移存档，也不保证旧存档能够正常加载。请自行备份世界，并在继续前决定如何处理旧模组和旧存档。此提示保存在当前客户端，关闭后不再显示。",
-  "createfirefightingadd.legacy_notice.detected": "检测到旧版模组：%s %s",
+  "createfirefightingadd.legacy_notice.title": "原版消防附加存档兼容提示",
+  "createfirefightingadd.legacy_notice.message": "检测到原版消防附加（0.2.9-beta 或更早）与当前拆分版本（0.3.0-release 或之后）同时存在。当前版本不会自动迁移存档，也不保证旧存档能够正常加载。请自行备份世界，并在继续前决定如何处理旧模组和旧存档。此提示保存在当前客户端，关闭后不再显示。",
+  "createfirefightingadd.legacy_notice.detected": "检测到原版消防附加：%s %s",
   "createfirefightingadd.legacy_notice.close": "关闭",
   "createfirefightingadd.compatibility.disabled": "此组件已停用：缺少可选物理前置或版本不兼容。请查看服务器兼容性日志。",
   "createfirefightingadd.creative_section.firefighting": "消防附加",

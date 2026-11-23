@@ -14,11 +14,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 
 /**
- * Client-side persistence for the legacy coexistence notice.
+ * Client-side persistence for the original Firefighting Add compatibility
+ * notice.
  *
  * <p>The marker lives in the client config directory, not in world or server
  * data, so it follows the installation instead of a single save. The file is
- * shared by both projects and is written only after the player closes the
+ * shared by the split projects and is written only after the player closes the
  * notice, which keeps the warning one-time across the split releases.</p>
  */
 public final class LegacyNoticeState {

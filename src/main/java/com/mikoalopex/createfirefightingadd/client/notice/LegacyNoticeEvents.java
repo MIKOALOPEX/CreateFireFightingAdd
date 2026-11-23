@@ -13,7 +13,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 
 /**
- * Opens the legacy coexistence notice over a plain title screen.
+ * Opens the one-time original Firefighting Add compatibility notice over a
+ * plain title screen.
  *
  * <p>The listener runs late so a page already opened by another mod is left
  * untouched. It only replaces an exact vanilla {@link TitleScreen}; any other

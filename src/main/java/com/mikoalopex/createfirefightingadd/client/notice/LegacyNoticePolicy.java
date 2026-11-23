@@ -1,55 +1,102 @@
 package com.mikoalopex.createfirefightingadd.client.notice;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 /**
- * Decides whether the one-time legacy coexistence notice applies to this client.
+ * Decides whether the one-time notice applies to this client.
  *
- * <p>The notice is only about running a split release next to an older release
- * of the other project. Two jars that share one mod id are rejected by NeoForge
- * before mod construction, so this policy never inspects or works around the
- * loader. It also never reads worlds or save data.</p>
+ * <p>The notice covers an original combined Firefighting Add release
+ * (0.2.9-beta or earlier) that is installed together with a split release
+ * (0.3.0-release or later) of either split project. It is an extra save
+ * compatibility warning, not a NeoForge loader version check.</p>
+ *
+ * <p>The original Firefighting Add mod id is {@code createfirefightingadd},
+ * which is also the current split firefighting mod id. NeoForge rejects two
+ * jars with the same mod id before mod construction, so a real ModList can
+ * contain the original firefighting jar only when the current split
+ * firefighting jar is absent. The exact rule is still expressed over an
+ * installed mod list so it is testable; the runtime adapter passes the real
+ * ModList and therefore can observe the original firefighting jar only next to
+ * the current powertrain jar.</p>
  */
 public final class LegacyNoticePolicy {
-    /** First split release. Older versions belong to the previous combined generation. */
-    static final String SPLIT_BASELINE = "0.3.0";
-    /** The mod id of the other project in the split. */
-    static final String OTHER_PROJECT_MOD_ID = "createpowertrain";
+    /** Original combined and current split firefighting mod id. */
+    static final String FIREFIGHTING_MOD_ID = "createfirefightingadd";
+    /** Current split powertrain mod id. */
+    static final String POWERTRAIN_MOD_ID = "createpowertrain";
+    /** Inclusive upper bound of the original combined firefighting generation. */
+    static final String ORIGINAL_FIRE_LAST_VERSION = "0.2.9-beta";
+    /** Inclusive lower bound of the split generation. */
+    static final String SPLIT_FIRST_VERSION = "0.3.0-release";
     /**
      * Shared client-side marker. Both projects use the same file so the same
      * generation warning is stored at most once per client.
      */
     static final String STATE_FILE_NAME = "create-split-legacy-notice.json";
 
-    /** The older mod that was detected next to this release. */
+    /** One installed mod record, used by the pure policy and its tests. */
+    public record ModRecord(String modId, String version) {
+    }
+
+    /** The original firefighting release that triggered the notice. */
     public record Detected(String modId, String version) {
     }
 
     /**
-     * Reads the other project's version without touching any world data.
+     * Applies the exact notice rule to an installed mod list.
      *
-     * @param versionOf returns the installed version string for a mod id, or null
+     * <p>The rule is: an original firefighting release at or below
+     * {@link #ORIGINAL_FIRE_LAST_VERSION}, and a current split firefighting or
+     * powertrain release at or above {@link #SPLIT_FIRST_VERSION}. An older
+     * powertrain release is not a risk source and never satisfies the rule on
+     * its own.</p>
      */
-    public static Optional<Detected> detect(Function<String, String> versionOf) {
-        String version = versionOf.apply(OTHER_PROJECT_MOD_ID);
-        if (!isLegacy(version)) {
+    public static Optional<Detected> detect(List<ModRecord> installed) {
+        Optional<ModRecord> originalFire = installed.stream()
+            .filter(mod -> FIREFIGHTING_MOD_ID.equals(mod.modId()))
+            .filter(mod -> atMost(mod.version(), ORIGINAL_FIRE_LAST_VERSION))
+            .findFirst();
+        if (originalFire.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new Detected(OTHER_PROJECT_MOD_ID, version));
+
+        boolean currentFire = installed.stream()
+            .anyMatch(mod -> FIREFIGHTING_MOD_ID.equals(mod.modId())
+                && atLeast(mod.version(), SPLIT_FIRST_VERSION));
+        boolean currentPowertrain = installed.stream()
+            .anyMatch(mod -> POWERTRAIN_MOD_ID.equals(mod.modId())
+                && atLeast(mod.version(), SPLIT_FIRST_VERSION));
+        if (!currentFire && !currentPowertrain) {
+            return Optional.empty();
+        }
+
+        ModRecord detected = originalFire.get();
+        return Optional.of(new Detected(detected.modId(), detected.version()));
     }
 
-    /** Returns true for versions older than the first split release. */
-    public static boolean isLegacy(String version) {
+    /** Returns true when the version is at or below the inclusive maximum. */
+    static boolean atMost(String version, String maximum) {
         if (version == null || version.isBlank()) {
             return false;
         }
         try {
-            return new ComparableVersion(version).compareTo(new ComparableVersion(SPLIT_BASELINE)) < 0;
+            return new ComparableVersion(version).compareTo(new ComparableVersion(maximum)) <= 0;
         } catch (RuntimeException e) {
-            // Unknown version syntax should not open a notice or break the menu.
+            return false;
+        }
+    }
+
+    /** Returns true when the version is at or above the inclusive minimum. */
+    static boolean atLeast(String version, String minimum) {
+        if (version == null || version.isBlank()) {
+            return false;
+        }
+        try {
+            return new ComparableVersion(version).compareTo(new ComparableVersion(minimum)) >= 0;
+        } catch (RuntimeException e) {
             return false;
         }
     }
@@ -62,7 +109,7 @@ public final class LegacyNoticePolicy {
      * @param acknowledged     true after the shared client marker was stored
      * @param shownThisSession true after this client already replaced a title
      *                         screen during the current session
-     * @param detected         the other project's older version, if any
+     * @param detected         the original firefighting release, if any
      */
     public static boolean shouldOpen(boolean plainTitleScreen, boolean acknowledged, boolean shownThisSession,
                                      Optional<Detected> detected) {

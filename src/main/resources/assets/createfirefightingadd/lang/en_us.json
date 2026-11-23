@@ -1,7 +1,7 @@
 {
-  "createfirefightingadd.legacy_notice.title": "Legacy Save Compatibility Notice",
-  "createfirefightingadd.legacy_notice.message": "An older Firefighting or Powertrain release (0.2.9-beta or earlier) was detected next to this version. Combining or upgrading from that generation is not guaranteed to keep existing saves safe: this version does not migrate saves automatically and cannot guarantee that old saves load correctly. Back up your world and decide yourself how to handle the old mod and save before continuing. This notice is stored on this client and is not shown again after it is closed.",
-  "createfirefightingadd.legacy_notice.detected": "Detected legacy mod: %s %s",
+  "createfirefightingadd.legacy_notice.title": "Original Firefighting Save Compatibility Notice",
+  "createfirefightingadd.legacy_notice.message": "An original Firefighting Add release (0.2.9-beta or earlier) was detected together with a current split release (0.3.0-release or later). The current version does not migrate saves automatically and cannot guarantee that old saves load correctly. Back up your world and decide yourself how to handle the old mod and save before continuing. This notice is stored on this client and is not shown again after it is closed.",
+  "createfirefightingadd.legacy_notice.detected": "Detected original Firefighting Add: %s %s",
   "createfirefightingadd.legacy_notice.close": "Close",
   "createfirefightingadd.compatibility.disabled": "This component is disabled: its optional physics dependencies are missing or incompatible. See the server compatibility log.",
   "createfirefightingadd.creative_section.firefighting": "Fire Fighting",

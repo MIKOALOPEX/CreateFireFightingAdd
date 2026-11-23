@@ -9,8 +9,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
- * One-time client notice about save compatibility when an older release of the
- * other project is installed next to this split release.
+ * One-time client notice about save compatibility when an original combined
+ * Firefighting Add release is installed next to a current split release.
  *
  * <p>The screen replaces only a plain title screen, returns to it when closed,
  * and stores the acknowledgement in the client config directory. It never
