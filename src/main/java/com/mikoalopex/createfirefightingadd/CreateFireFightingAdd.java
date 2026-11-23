@@ -3,6 +3,10 @@ package com.mikoalopex.createfirefightingadd;
 import java.util.EnumMap;
 import java.util.List;
 
+import com.mikoalopex.createfirefightingadd.api.flowmeter.FlowMeterApi;
+import com.mikoalopex.createfirefightingadd.integration.computercraft.ComputerCraftFlowMeterCompat;
+import com.mikoalopex.createfirefightingadd.integration.synaxis.SynaxisFlowMeterCompat;
+
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.FireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlock;
 import com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatFireHoseBlockEntity;
@@ -594,6 +598,8 @@ public class CreateFireFightingAdd {
 	}
 
 	private void commonSetup(final FMLCommonSetupEvent event) {
+		if (ModList.get().isLoaded("synaxis"))
+			event.enqueueWork(CreateFireFightingAdd::registerSynaxisFlowMeterCompat);
 		if (ModList.get().getModContainerById("sable").map(mod -> mod.getModInfo().getVersion().getMajorVersion() == 1).orElse(false))
 			LOGGER.warn("Sable 1.x compatibility is deprecated and will no longer be maintained starting with the next Create Firefighting Add release. Please migrate to Sable 2.x.");
 
@@ -622,6 +628,14 @@ public class CreateFireFightingAdd {
 		MountedFluidStorageType.REGISTRY.register(COPYCAT_FIRE_HOSE.get(), FIRE_HOSE_MOUNTED_FLUID_STORAGE.get());
 	}
 
+	private static void registerSynaxisFlowMeterCompat() {
+		try {
+			SynaxisFlowMeterCompat.register(FLOW_METER_BE.get());
+		} catch (LinkageError e) {
+			LOGGER.warn("Synaxis flow meter integration requires the PlantPort API from Synaxis 1.3.4 or newer: {}", e.toString());
+		}
+	}
+
 	private static void registerSableSchematicCompat() {
 		try {
 			Class<?> compat = Class.forName(
@@ -638,6 +652,10 @@ public class CreateFireFightingAdd {
 	}
 
 	private void registerCapabilities(RegisterCapabilitiesEvent event) {
+		event.registerBlockEntity(FlowMeterApi.READING,
+			FLOW_METER_BE.get(), (meter, context) -> meter);
+		if (ModList.get().isLoaded("computercraft"))
+			ComputerCraftFlowMeterCompat.register(event, FLOW_METER_BE.get());
 		event.registerBlockEntity(
 			Capabilities.FluidHandler.BLOCK,
 			CONE_NOZZLE_BE.get(),

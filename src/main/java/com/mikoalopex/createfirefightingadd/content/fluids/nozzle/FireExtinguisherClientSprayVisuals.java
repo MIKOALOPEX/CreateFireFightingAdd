@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
+
 import org.joml.Vector3f;
 
 import com.mikoalopex.createfirefightingadd.ClientConfig;
@@ -123,6 +125,9 @@ public final class FireExtinguisherClientSprayVisuals {
 				}
 			}
 			case MILK -> level.addParticle(new SprayParticleOptions(WHITE, size, 1f, 0.08f),
+				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
+			case DYE -> level.addParticle(new SprayParticleOptions(
+				DragonsPlusCompat.tintVector(fluid), size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);
 			case POTION -> level.addParticle(new SprayParticleOptions(SprayProjectileVisuals.potionColor(fluid), size, 1f, 0.08f),
 				pos.x, pos.y, pos.z, velocity.x, velocity.y, velocity.z);

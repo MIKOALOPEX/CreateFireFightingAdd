@@ -221,6 +221,7 @@ public final class HandheldNozzleSprayEffects {
 	private static NozzleSprayFluidType apiType(AbstractSprayDeviceBlockEntity.FluidBehavior behavior) {
 		return switch (behavior) {
 			case WATER -> NozzleSprayFluidType.WATER;
+			case DYE -> NozzleSprayFluidType.DYE;
 			case LAVA -> NozzleSprayFluidType.LAVA;
 			case MILK -> NozzleSprayFluidType.MILK;
 			case POTION -> NozzleSprayFluidType.POTION;

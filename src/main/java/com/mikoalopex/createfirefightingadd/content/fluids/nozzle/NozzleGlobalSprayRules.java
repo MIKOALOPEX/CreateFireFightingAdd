@@ -130,6 +130,7 @@ public final class NozzleGlobalSprayRules {
 				.withFanProcessing(ResourceLocation.fromNamespaceAndPath("create", "blasting")).asLocked();
 			case FLAMMABLE -> rule.withFlags(true, false, false).asLocked();
 			case POTION -> rule.withFlags(false, true, false).withEffects(potionEffects(stack)).asLocked();
+			case DYE -> rule.withFlags(false, true, false).asLocked();
 			case MILK, DRAGON_BREATH -> rule.asLocked();
 			default -> rule.asLocked();
 		};

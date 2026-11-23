@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Data-only spray projectile used for collision and effects without Entity overhead.
@@ -14,6 +15,8 @@ public class LightweightProjectile {
 	public final int maxLifetime;
 	public final AbstractSprayDeviceBlockEntity.FluidBehavior fluidBehavior;
 	public final float pushSpeed;
+	/** Dye identity is captured at emission so later tank changes cannot recolor an in-flight contact. */
+	public FluidStack dyeFluid = FluidStack.EMPTY;
 	public Vec3 gravity;
 	public final double friction;
 	/** Tick when forward momentum was first lost (-1 = still has momentum). */

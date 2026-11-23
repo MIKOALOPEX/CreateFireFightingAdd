@@ -12,5 +12,6 @@ public enum NozzleSprayFluidType {
 	POTION,
 	DRAGON_BREATH,
 	FLAMMABLE,
-	UNSUPPORTED
+	UNSUPPORTED,
+	DYE
 }

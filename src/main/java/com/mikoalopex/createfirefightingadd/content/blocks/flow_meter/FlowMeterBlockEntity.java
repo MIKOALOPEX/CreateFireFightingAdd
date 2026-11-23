@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.mikoalopex.createfirefightingadd.api.flowmeter.FlowMeterReading;
+import com.mikoalopex.createfirefightingadd.api.flowmeter.IFlowMeter;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
@@ -13,6 +15,7 @@ import com.simibubi.create.foundation.utility.CreateLang;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -25,7 +28,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * collected by {@link FlowMeterBehaviour} each tick and displayed through
  * Engineer's Goggles via {@link IHaveGoggleInformation}.
  */
-public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggleInformation {
+public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggleInformation, IFlowMeter {
 	private static final String TAG_INBOUND_PRESSURE = "InPressure";
 	private static final String TAG_OUTBOUND_PRESSURE = "OutPressure";
 	private static final String TAG_PUMP_SPEED = "PumpSpeed";
@@ -70,6 +73,12 @@ public class FlowMeterBlockEntity extends SmartBlockEntity implements IHaveGoggl
 	public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
 		meterBehaviour = new FlowMeterBehaviour(this);
 		behaviours.add(meterBehaviour);
+	}
+
+	@Override
+	public FlowMeterReading getReading() {
+		return new FlowMeterReading(cachedInboundPressure, cachedOutboundPressure, cachedPumpSpeed,
+			cachedFluid.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(cachedFluid.getFluid()));
 	}
 
 	@Override

@@ -9,6 +9,7 @@ import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
 import com.mikoalopex.createfirefightingadd.content.items.firefighter.FirefighterRecordStore;
 import com.mikoalopex.createfirefightingadd.integration.burnt.BurntCompat;
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
 import com.simibubi.create.api.registry.CreateBuiltInRegistries;
 import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
 import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType;
@@ -85,6 +86,10 @@ final class NozzleSprayEffects {
 
 		BlockState state = context.state();
 		return switch (behavior) {
+			case DYE -> DragonsPlusCompat.recolor(state, context.fluid()) != null
+				|| isExtinguishable(state) || SprayEffectUtils.isConcretePowder(state)
+				|| SprayEffectUtils.isDryFarmland(state)
+				|| (options.includePhaseChanges() && isSnow(state));
 			case WATER -> isExtinguishable(state)
 				|| SprayEffectUtils.isConcretePowder(state)
 				|| SprayEffectUtils.isDryFarmland(state)
@@ -107,6 +112,7 @@ final class NozzleSprayEffects {
 
 		BlockState state = context.state();
 		return switch (behavior) {
+			case DYE -> applyDyeBlockEffect(context, options);
 			case WATER -> {
 				if (SprayEffectUtils.hydrateConcretePowder(context.level(), context.pos(), state)
 					|| SprayEffectUtils.moistenFarmland(context.level(), context.pos(), state))
@@ -118,6 +124,27 @@ final class NozzleSprayEffects {
 			case FLAMMABLE -> ignited && applyHeatedBlockEffect(context, options);
 			case CUSTOM, DRAGON_BREATH, UNSUPPORTED -> false;
 		};
+	}
+
+	private static boolean applyDyeBlockEffect(NozzleSprayHitContext context, BlockEffectOptions options) {
+		if (context.level().isClientSide || !context.level().isLoaded(context.pos()))
+			return false;
+		// Interaction callbacks may have replaced the block. Never hydrate a stale powder state.
+		BlockState state = context.level().getBlockState(context.pos());
+		BlockState colored = DragonsPlusCompat.recolor(state, context.fluid());
+		if (colored != null && colored != state) {
+			if (!SprayColoringBudget.tryAcquire(context.level(), context.pos()))
+				return false;
+			// Powder is converted directly to colored concrete, with one neighbor/client update.
+			return context.level().setBlock(context.pos(), colored, 3);
+		}
+		if (SprayEffectUtils.hydrateConcretePowder(context.level(), context.pos(), state)
+			|| SprayEffectUtils.moistenFarmland(context.level(), context.pos(), state))
+			return true;
+		NozzleSprayHitContext current = new NozzleSprayHitContext(context.level(), context.pos(), state,
+			context.fluid(), context.fluidType(), context.ignited(), context.origin(), context.hitLocation(),
+			context.direction(), context.distance(), context.firefighterOwners());
+		return applyWaterLikeBlockEffect(current, options);
 	}
 
 	private static boolean applyWaterLikeBlockEffect(NozzleSprayHitContext context, BlockEffectOptions options) {
@@ -284,6 +311,11 @@ final class NozzleSprayEffects {
 			case WATER -> {
 				if (entity instanceof ItemEntity itemEntity)
 					processItemEntity(itemEntity, processingType);
+				SprayEntityEffects.applyWaterContact(level, entity);
+				if (pushWater)
+					pushEntity(entity, sample, range);
+			}
+			case DYE -> {
 				SprayEntityEffects.applyWaterContact(level, entity);
 				if (pushWater)
 					pushEntity(entity, sample, range);

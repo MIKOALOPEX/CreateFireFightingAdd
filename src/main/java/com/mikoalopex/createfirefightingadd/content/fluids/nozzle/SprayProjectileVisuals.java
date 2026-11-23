@@ -257,7 +257,7 @@ final class SprayProjectileVisuals {
 				}
 			}
 			case MILK -> level.addParticle(new SprayParticleOptions(WHITE, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
-			case POTION -> level.addParticle(new SprayParticleOptions(potionColor, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
+			case POTION, DYE -> level.addParticle(new SprayParticleOptions(potionColor, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);
 			case CUSTOM -> {
 				Vector3f color = customPalette == null ? potionColor : customPalette.pickVector(level.random);
 				level.addParticle(new SprayParticleOptions(color, size, mistFactor, 0.6f), pos.x, pos.y, pos.z, velX, velY, velZ);

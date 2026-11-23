@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 
 import com.mikoalopex.createfirefightingadd.Config;
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayInteractionRegistry;
@@ -114,7 +115,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		TagKey.create(Registries.FLUID, ResourceLocation.fromNamespaceAndPath("c", "dragon_breath"));
 
 	enum FluidBehavior {
-		WATER, LAVA, MILK, POTION, DRAGON_BREATH, FLAMMABLE, CUSTOM, UNSUPPORTED
+		WATER, LAVA, MILK, POTION, DRAGON_BREATH, FLAMMABLE, CUSTOM, UNSUPPORTED, DYE
 	}
 
 	private static boolean tfcAvailable;
@@ -354,6 +355,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	private int fullSweepCounter;
 	private int ticksSinceLastExtinguishSound = 100;
 	protected FluidBehavior currentFluid = FluidBehavior.UNSUPPORTED;
+	private FluidStack activeDyeFluid = FluidStack.EMPTY;
 	protected Vector3f potionColor = WHITE;
 	protected PotionContents currentPotionContents = PotionContents.EMPTY;
 	protected NozzleSprayRuleSet customSprayRules = NozzleSprayRuleSet.EMPTY;
@@ -495,6 +497,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			Vec3 velocity = dir.scale(getProjectileSpeed());
 			LightweightProjectile proj = new LightweightProjectile(spawnPos, velocity, lifetime,
 				currentFluid, (float) PUSH_STREAM_SPEED, getGravityVector(), getProjectileFriction());
+			if (currentFluid == FluidBehavior.DYE)
+				proj.dyeFluid = fluidForProjectile.copyWithAmount(1);
 			serverProjectiles.add(proj);
 		}
 		int spawned = serverProjectiles.size() - before;
@@ -785,7 +789,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 		tickCounter++;
 		switch (currentFluid) {
-			case WATER -> {
+			case WATER, DYE -> {
 				if (tickCounter % getScanInterval() == 0)
 					waterBehavior();
 				fullSweepCounter++;
@@ -921,6 +925,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	private boolean usesWaterExtinguishRules() {
 		return currentFluid == FluidBehavior.WATER
+			|| currentFluid == FluidBehavior.DYE
 			|| currentFluid == FluidBehavior.MILK
 			|| currentFluid == FluidBehavior.POTION
 			|| (currentFluid == FluidBehavior.CUSTOM && customRuleExtinguishesBlocks(sprayIgnited));
@@ -1088,6 +1093,9 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	private void sampleBlocksAlongPath(LightweightProjectile proj, BlockHitResult blockHit) {
+		// Dye changes only traced contacts, not the neighboring fire-extinguishing sweep.
+		if (proj.fluidBehavior == FluidBehavior.DYE)
+			return;
 		Vec3 start = proj.prevPosition;
 		Vec3 end = blockHit.getType() == HitResult.Type.MISS ? proj.position : blockHit.getLocation();
 		double totalDist = start.distanceTo(end);
@@ -1231,6 +1239,16 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		if (level.isClientSide) return;
 		if (proj.fluidBehavior == FluidBehavior.CUSTOM) {
 			applyCustomProjectileBlockEffect(proj, hit);
+			return;
+		}
+
+		if (proj.fluidBehavior == FluidBehavior.DYE) {
+			BlockPos pos = hit.getBlockPos();
+			if (level.isLoaded(pos))
+				NozzleSprayEffects.applyBlockSample(
+					projectileHitContext(proj, pos, level.getBlockState(pos), hit.getLocation()),
+					FluidBehavior.DYE, false,
+					NozzleSprayEffects.BlockEffectOptions.projectilePath(this::playExtinguishSoundIfReady));
 			return;
 		}
 
@@ -1481,7 +1499,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 					Vector3f color;
 					if (currentFluid == FluidBehavior.MILK) {
 						color = new Vector3f(1.0f, 1.0f, 1.0f);
-					} else if (currentFluid == FluidBehavior.POTION || currentFluid == FluidBehavior.CUSTOM) {
+					} else if (currentFluid == FluidBehavior.POTION || currentFluid == FluidBehavior.DYE || currentFluid == FluidBehavior.CUSTOM) {
 						color = potionColor;
 					} else {
 						if (level.random.nextFloat() < 0.6f * progress) {
@@ -1556,6 +1574,11 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 			return FluidBehavior.CUSTOM;
 		}
 		FluidBehavior behavior = classifyBuiltInFluidForSpray(level, stack);
+		if (behavior == FluidBehavior.DYE) {
+			currentPotionContents = PotionContents.EMPTY;
+			potionColor = DragonsPlusCompat.tintVector(stack);
+			activeDyeFluid = stack.copyWithAmount(1);
+		}
 		if (behavior == FluidBehavior.POTION) {
 			currentPotionContents = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
 			int rgb = currentPotionContents.getColor();
@@ -1595,6 +1618,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		if (stack.isEmpty())
 			return FluidBehavior.UNSUPPORTED;
 		Fluid fluid = stack.getFluid();
+		if (DragonsPlusCompat.color(stack) != null)
+			return FluidBehavior.DYE;
 		if (fluid.is(FluidTags.WATER))
 			return FluidBehavior.WATER;
 		if (fluid.is(FluidTags.LAVA))
@@ -1631,6 +1656,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	private static NozzleSprayFluidType apiFluidType(FluidBehavior behavior) {
 		return switch (behavior) {
 			case WATER -> NozzleSprayFluidType.WATER;
+			case DYE -> NozzleSprayFluidType.DYE;
 			case LAVA -> NozzleSprayFluidType.LAVA;
 			case MILK -> NozzleSprayFluidType.MILK;
 			case POTION -> NozzleSprayFluidType.POTION;
@@ -1641,6 +1667,8 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 	}
 
 	private FluidStack currentSprayFluidStack() {
+		if (currentFluid == FluidBehavior.DYE)
+			return activeDyeFluid.copy();
 		return tank == null ? FluidStack.EMPTY : SafeFluidStacks.copy(tank.getPrimaryHandler().getFluidInTank(0));
 	}
 
@@ -1650,6 +1678,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 		return new NozzleSprayHitContext(level, pos, state, currentSprayFluidStack(),
 			apiFluidType(behavior), ignited, origin, hitLocation, direction, distance,
 			FirefighterRecordStore.activeOwners(level, worldPosition));
+	}
+
+	private NozzleSprayHitContext projectileHitContext(LightweightProjectile projectile, BlockPos pos,
+			BlockState state, Vec3 hit) {
+		return new NozzleSprayHitContext(level, pos, state, projectile.dyeFluid.copy(),
+			NozzleSprayFluidType.DYE, false, projectile.prevPosition, hit, projectile.velocity.normalize(),
+			projectile.prevPosition.distanceTo(hit), FirefighterRecordStore.activeOwners(level, worldPosition));
 	}
 
 	private static boolean isDragonBreath(Fluid fluid) {
@@ -2136,12 +2171,13 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 
 	protected void waterBehavior() {
 		NozzleSprayEffects.BlockEffectOptions options = waterLikeSprayBlockOptions();
+		FluidBehavior behavior = currentFluid == FluidBehavior.DYE ? FluidBehavior.DYE : FluidBehavior.WATER;
 		forEachBlockInSpray((pos, state) -> {
 			NozzleSprayEffects.applyBlockSample(
-				sprayHitContext(pos, state, FluidBehavior.WATER, false,
+				sprayHitContext(pos, state, behavior, false,
 					getWorldSprayOrigin(), Vec3.atCenterOf(pos), getWorldSprayDirection(),
 					getWorldSprayOrigin().distanceTo(Vec3.atCenterOf(pos))),
-				FluidBehavior.WATER, false, options);
+				behavior, false, options);
 		});
 		forEachEntityInSpray((entity, axialDist) -> {
 			Vec3 direction = getWorldSprayDirection();
@@ -2399,7 +2435,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				yield r < 0.4f ? LAVA_RED : (r < 0.75f ? LAVA_ORANGE : LAVA_YELLOW);
 			}
 			case MILK -> WHITE;
-			case POTION -> potionColor;
+			case POTION, DYE -> potionColor;
 			case CUSTOM -> currentCustomRule == null ? potionColor : currentCustomRule.particles().pickVector(random);
 			case DRAGON_BREATH -> pickDragonBreathColor(random);
 			case FLAMMABLE -> {
@@ -2420,7 +2456,7 @@ public abstract class AbstractSprayDeviceBlockEntity extends SmartBlockEntity
 				yield r < 0.5f ? LAVA_ORANGE : (r < 0.8f ? LAVA_RED : LAVA_YELLOW);
 			}
 			case MILK -> WHITE;
-			case POTION -> potionColor;
+			case POTION, DYE -> potionColor;
 			case CUSTOM -> currentCustomRule == null ? potionColor : currentCustomRule.particles().pickVector(random);
 			case DRAGON_BREATH -> pickDragonBreathColor(random);
 			case FLAMMABLE -> {

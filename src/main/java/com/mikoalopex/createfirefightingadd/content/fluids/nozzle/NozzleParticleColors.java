@@ -1,6 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
 import com.simibubi.create.AllFluids;
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,6 +29,8 @@ public final class NozzleParticleColors {
 	public static int baseColor(FluidStack stack) {
 		if (stack == null || stack.isEmpty())
 			return DEFAULT_BLUE;
+		if (DragonsPlusCompat.color(stack) != null)
+			return DragonsPlusCompat.tint(stack);
 		if (stack.getFluid().is(FluidTags.WATER))
 			return DEFAULT_BLUE;
 		if (stack.getFluid().is(FluidTags.LAVA))

@@ -12,6 +12,7 @@ import java.util.WeakHashMap;
 
 import com.mikoalopex.createfirefightingadd.ClientConfig;
 import com.mikoalopex.createfirefightingadd.Config;
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayFluidType;
 import com.mikoalopex.createfirefightingadd.api.nozzle.NozzleSprayHitContext;
 import com.mikoalopex.createfirefightingadd.content.contraptions.ContraptionFluidAccess;
@@ -791,6 +792,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 	private static NozzleSprayFluidType apiFluidType(AbstractSprayDeviceBlockEntity.FluidBehavior behavior) {
 		return switch (behavior) {
 			case WATER -> NozzleSprayFluidType.WATER;
+			case DYE -> NozzleSprayFluidType.DYE;
 			case LAVA -> NozzleSprayFluidType.LAVA;
 			case MILK -> NozzleSprayFluidType.MILK;
 			case POTION -> NozzleSprayFluidType.POTION;
@@ -915,7 +917,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		} else {
 			potionColor = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.POTION
 				? SprayProjectileVisuals.potionColor(fluid)
-				: WHITE;
+				: behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.DYE ? DragonsPlusCompat.tintVector(fluid) : WHITE;
 		}
 		String fuelPath = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
 			? SprayProjectileVisuals.fuelPath(fluid)
@@ -978,6 +980,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 		return switch (behavior) {
 			case LAVA, FLAMMABLE -> random.nextBoolean() ? LAVA : LAVA_LIGHT;
 			case MILK -> WHITE;
+			case DYE -> DragonsPlusCompat.tintVector(fluid);
 			case POTION, CUSTOM -> {
 				if (behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.CUSTOM && particles != null)
 					yield particles.pickVector(random);
@@ -1027,7 +1030,7 @@ public class SprayDeviceMovementBehaviour implements MovementBehaviour {
 			} else {
 				potionColor = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.POTION
 					? SprayProjectileVisuals.potionColor(fluid)
-					: WHITE;
+					: behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.DYE ? DragonsPlusCompat.tintVector(fluid) : WHITE;
 			}
 			boolean ignited = behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.FLAMMABLE
 				&& context.data.getBoolean(IGNITED)

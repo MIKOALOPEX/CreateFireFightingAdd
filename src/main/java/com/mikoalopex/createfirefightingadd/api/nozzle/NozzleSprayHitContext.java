@@ -43,6 +43,7 @@ public record NozzleSprayHitContext(
 	public boolean isWaterLike() {
 		return fluidType == NozzleSprayFluidType.WATER
 			|| fluidType == NozzleSprayFluidType.MILK
-			|| fluidType == NozzleSprayFluidType.POTION;
+			|| fluidType == NozzleSprayFluidType.POTION
+			|| fluidType == NozzleSprayFluidType.DYE;
 	}
 }

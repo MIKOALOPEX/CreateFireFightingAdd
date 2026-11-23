@@ -10,6 +10,10 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    exclusiveContent {
+        forRepository { maven { url = "https://maven.squiddev.cc" } }
+        filter { includeGroup("cc.tweaked") }
+    }
     maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
     maven { url = "https://maven.ithundxr.dev/snapshots" } // Registrate
 
@@ -124,6 +128,8 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkNozzleDyeBudget: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleDyeBudgetTest',
+    checkFlowMeterApi: 'com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterApiTest',
     checkMultipurposeBacktank: 'com.mikoalopex.createfirefightingadd.content.equipment.backtank.MultipurposeBacktankTest',
     checkCopycatHoseRoute: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseRouteTest',
     checkCopycatHoseUv: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.CopycatHoseUvTest',
@@ -146,8 +152,41 @@ regressionChecks.each { taskName, entryPoint ->
 }
 tasks.named('check') { dependsOn regressionChecks.keySet() }
 
+tasks.register('checkFlowMeterIntegrations', JavaExec) {
+    group = 'verification'
+    description = 'Checks optional flow meter adapters against the CC and Synaxis APIs.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    if (project.hasProperty('flowMeterSynaxisJar')) {
+        classpath = classpath.filter { !it.name.startsWith('synaxis-') } + files(project.property('flowMeterSynaxisJar'))
+    }
+    mainClass = 'com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterIntegrationsTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn tasks.named('checkFlowMeterIntegrations') }
+
+[
+    checkNozzleColoringIndex: 'com.mikoalopex.createfirefightingadd.integration.dragonsplus.NozzleColoringIndexTest',
+    checkNozzleSpecialColoring: 'com.mikoalopex.createfirefightingadd.integration.dragonsplus.NozzleSpecialColoringTest',
+    checkDragonsPlusColoring: 'com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusColoringTest',
+].each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        group = 'verification'
+        description = 'Checks nozzle coloring against the current Dragons Plus API without launching Minecraft.'
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+        mainClass = entryPoint
+        javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    }
+    tasks.named('check') { dependsOn tasks.named(taskName) }
+}
+
 
 dependencies {
+    compileOnly("maven.modrinth:create-dragons-plus:EAW88SvH") { transitive = false } // Dragons Plus 1.11.0
+    compileOnly("cc.tweaked:cc-tweaked-${minecraft_version}-forge-api:1.118.0") { transitive = false }
+    compileOnly("cc.tweaked:cc-tweaked-${minecraft_version}-core-api:1.118.0") { transitive = false }
+    compileOnly("maven.modrinth:synaxis:RFBeUM47") { transitive = false } // Synaxis 1.5.0
     implementation("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
     implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")

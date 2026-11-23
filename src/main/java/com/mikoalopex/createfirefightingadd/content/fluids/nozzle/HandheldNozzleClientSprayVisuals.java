@@ -1,5 +1,7 @@
 package com.mikoalopex.createfirefightingadd.content.fluids.nozzle;
 
+import com.mikoalopex.createfirefightingadd.integration.dragonsplus.DragonsPlusCompat;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -86,7 +88,10 @@ public final class HandheldNozzleClientSprayVisuals {
 		HandheldNozzleType nozzleType = binding.nozzleType();
 		state.behavior = behavior;
 		state.fuelPath = SprayProjectileVisuals.fuelPath(fluid);
-		state.potionColor = customRule == null ? potionColor(fluid) : customRule.particles().primaryVector();
+		state.potionColor = customRule != null ? customRule.particles().primaryVector()
+			: behavior == AbstractSprayDeviceBlockEntity.FluidBehavior.DYE
+				? DragonsPlusCompat.tintVector(fluid)
+				: potionColor(fluid);
 		state.particles = customRule == null ? null : customRule.particles();
 		state.trailParticles = trailParticlesPerTick(nozzleType);
 
