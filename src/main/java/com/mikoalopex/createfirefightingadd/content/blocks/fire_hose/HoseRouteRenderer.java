@@ -120,6 +120,7 @@ public final class HoseRouteRenderer {
                     if (!selected.isEmpty()) break;
                 }
             }
+        var bellowsSegments = new java.util.ArrayList<BellowsHoseRenderer.Segment>();
         for (HoseRoute route : routes.values()) {
             BlockState material = CopycatFireHose.material(currentLevel, route);
             if (material == null && route.copycatRoute)
@@ -135,6 +136,7 @@ public final class HoseRouteRenderer {
             if (copycat != null) type = copycat.type;
             var consumer = copycat == null ? buffers.getBuffer(type) : copycat;
             float[] phases = new float[4];
+            double bellowsDistance = 0;
             for (int i = 0; i + 1 < route.nodes.size(); i++) {
                 HoseRoute.Node a = route.nodes.get(i);
                 HoseRoute.Node b = route.nodes.get(i + 1);
@@ -164,12 +166,25 @@ public final class HoseRouteRenderer {
                 var points = FireHoseDynamicRenderer.attachedSpline(start.outgoing, end.incoming,
                     start.normal, endNormal, start.up, end.up);
                 FireHoseDynamicRenderer.renderAttachedSpline(matrix, consumer, points, light, phases, route.size);
+                if (copycat == null && FireHoseAppearances.BELLOWS.equals(appearance.id())) {
+                    for (int point = 0; point + 1 < points.size(); point++) {
+                        var first = points.get(point);
+                        var second = points.get(point + 1);
+                        bellowsSegments.add(BellowsHoseRenderer.segment(first.point(), second.point(),
+                            first.normal(), second.normal(), first.up(), second.up(),
+                            bellowsDistance, route.size, light, 0xFFFFFFFF));
+                        bellowsDistance += first.point().distance(second.point());
+                    }
+                }
                 if (selectedSegment)
                     highlightSegment(points);
             }
             buffers.endBatch(type);
         }
+        BellowsHoseRenderer.render(matrix, buffers, bellowsSegments);
         matrix.popPose();
+        buffers.endBatch(BellowsHoseRenderer.SIDES);
+        buffers.endBatch(BellowsHoseRenderer.CAPS);
     }
 
     private static void highlightNode(String key, Vec3 center) {

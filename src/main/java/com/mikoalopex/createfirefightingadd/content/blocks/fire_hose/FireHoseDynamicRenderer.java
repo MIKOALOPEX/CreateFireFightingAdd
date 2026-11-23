@@ -45,7 +45,12 @@ public final class FireHoseDynamicRenderer {
 
 	public static void submit(int key, Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
 			ResourceLocation appearance, long expiresAt) {
-		DYNAMIC_HOSES.put(key, new DynamicHose(start, end, startFacing, endFacing, appearance, expiresAt));
+		submit(key, start, end, startFacing, endFacing, appearance, expiresAt, TUBE_WIDTH);
+	}
+
+	public static void submit(int key, Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
+			ResourceLocation appearance, long expiresAt, float width) {
+		DYNAMIC_HOSES.put(key, new DynamicHose(start, end, startFacing, endFacing, appearance, expiresAt, width));
 	}
 
 	public static void render(RenderLevelStageEvent event) {
@@ -67,14 +72,18 @@ public final class FireHoseDynamicRenderer {
 
 		poseStack.pushPose();
 		poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+		var bellowsSegments = new java.util.ArrayList<BellowsHoseRenderer.Segment>();
 		for (DynamicHose hose : DYNAMIC_HOSES.values()) {
 			RenderType renderType = hoseRenderType(FireHoseAppearances.get(hose.appearance()));
 			if (renderType == null)
 				continue;
 			VertexConsumer buffer = bufferSource.getBuffer(renderType);
-			renderHose(poseStack, buffer, hose, sampleLight(minecraft.level, hose));
+			renderHose(poseStack, buffer, hose, sampleLight(minecraft.level, hose), bellowsSegments);
 		}
+		BellowsHoseRenderer.render(poseStack, bufferSource, bellowsSegments);
 		poseStack.popPose();
+		bufferSource.endBatch(BellowsHoseRenderer.SIDES);
+		bufferSource.endBatch(BellowsHoseRenderer.CAPS);
 		for (RenderType renderType : HOSE_RENDER_TYPES.values())
 			bufferSource.endBatch(renderType);
 	}
@@ -95,8 +104,12 @@ public final class FireHoseDynamicRenderer {
 		return LevelRenderer.getLightColor(level, BlockPos.containing(center));
 	}
 
-	private static void renderHose(PoseStack poseStack, VertexConsumer buffer, DynamicHose hose, int light) {
-		renderSplineHose(poseStack, buffer, hose.start(), hose.end(), hose.startFacing(), hose.endFacing(), light, true);
+	private static void renderHose(PoseStack poseStack, VertexConsumer buffer, DynamicHose hose, int light,
+			List<BellowsHoseRenderer.Segment> bellows) {
+		renderSplineHose(poseStack, buffer, hose.start(), hose.end(),
+			Vec3.atLowerCornerOf(hose.startFacing().getNormal()), Vec3.atLowerCornerOf(hose.endFacing().getNormal()),
+			null, light, true, hose.width(), hose.width(),
+			FireHoseAppearances.BELLOWS.equals(hose.appearance()) ? bellows : null);
 	}
 
 	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
@@ -128,6 +141,13 @@ public final class FireHoseDynamicRenderer {
 	public static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
 			Vec3 startNormal, Vec3 endNormal, Vec3 endUp, int light, boolean applyStressColor,
 			float tubeWidth, float uvTubeWidth) {
+		renderSplineHose(poseStack, buffer, startPos, endPos, startNormal, endNormal, endUp, light,
+			applyStressColor, tubeWidth, uvTubeWidth, null);
+	}
+
+	private static void renderSplineHose(PoseStack poseStack, VertexConsumer buffer, Vec3 startPos, Vec3 endPos,
+			Vec3 startNormal, Vec3 endNormal, Vec3 endUp, int light, boolean applyStressColor,
+			float tubeWidth, float uvTubeWidth, List<BellowsHoseRenderer.Segment> bellows) {
 		Vector3d start = vector(startPos);
 		Vector3d end = vector(endPos);
 		Vector3d normalA = vector(startNormal).normalize();
@@ -172,6 +192,9 @@ public final class FireHoseDynamicRenderer {
 				point.point(), next.point(),
 				(float) runningLength, (float) (runningLength + length),
 				light, color, buffer, tubeWidth, uvTubeWidth);
+			if (bellows != null)
+				bellows.add(BellowsHoseRenderer.segment(point.point(), next.point(), point.normal(), next.normal(),
+					up, nextUp, runningLength, tubeWidth, light, color));
 
 			runningLength += length;
 		}
@@ -493,7 +516,7 @@ public final class FireHoseDynamicRenderer {
 	}
 
 	private record DynamicHose(Vec3 start, Vec3 end, Direction startFacing, Direction endFacing,
-			ResourceLocation appearance, long expiresAt) {
+			ResourceLocation appearance, long expiresAt, float width) {
 	}
 
 	record SplinePoint(Vector3dc point, Vector3dc normal) {

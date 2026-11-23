@@ -337,6 +337,7 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
         double twist = java.lang.Math.floor((deg + PI4) / PI2) * PI2 - deg;
 
         double runningSpringLength = 0.0;
+        var bellowsSegments = new java.util.ArrayList<BellowsHoseRenderer.Segment>();
 
         matrix.set(startUpDir, pointNormal,
                 startUpDir.cross(pointNormal, new Vector3d()));
@@ -359,8 +360,14 @@ public class FireHoseRenderer extends SmartBlockEntityRenderer<FireHoseBlockEnti
                     (float) (runningSpringLength + length),
                     light, color, buffer, be.getHoseSize().width(), be.getHoseSize().textureWidth());
 
+            if (!be.isCopycat() && FireHoseAppearances.BELLOWS.equals(appearance.id()))
+                bellowsSegments.add(BellowsHoseRenderer.segment(point.point, nextPoint.point,
+                    point.normal, nextPoint.normal, upDir, nextUpDir,
+                    runningSpringLength, tubeWidth, light, color));
+
             runningSpringLength += length;
         }
+        BellowsHoseRenderer.render(ps, bufferSource, bellowsSegments);
 
         ps.popPose();
     }

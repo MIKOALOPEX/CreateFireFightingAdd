@@ -63,6 +63,7 @@ public class Config {
 	private static final ModConfigSpec.DoubleValue PIPELINE_TURBINE_STRESS_EFFICIENCY;
 	private static final ModConfigSpec.IntValue PIPELINE_TURBINE_SOURCE_SCAN_RANGE;
 	private static final ModConfigSpec.IntValue NOZZLE_SPRAY_BUILDUP_TICKS;
+	private static final ModConfigSpec.IntValue NOZZLE_TANK_CAPACITY;
 	private static final ModConfigSpec.BooleanValue NOZZLE_THRUST_ENABLED;
 	private static final ModConfigSpec.DoubleValue NOZZLE_THRUST_MULTIPLIER;
 	private static final ModConfigSpec.ConfigValue<List<? extends String>> NOZZLE_GLOBAL_FLUID_RULES;
@@ -239,6 +240,10 @@ public class Config {
 		BUILDER.pop();
 
 		BUILDER.push("NozzleSpray");
+		NOZZLE_TANK_CAPACITY = BUILDER
+			.comment("Internal fluid buffer of each cone or flat nozzle (10-64000 mB). Both consume 10 mB per spraying tick; larger buffers tolerate gaps between fluid deliveries. Requires a world restart.")
+			.worldRestart()
+			.defineInRange("nozzleTankCapacity", 10, 10, 64000);
 		SERVER_PROJECTILES_PER_TICK = BUILDER
 			.comment("Number of projectile entities spawned per tick on the server for game logic (1-10). Lower TPS cost. Visual density comes from client particles")
 			.defineInRange("serverProjectilesPerTick", 1, 1, 10);
@@ -348,6 +353,7 @@ public class Config {
 	public static float pipelineTurbineStressEfficiency;
 	public static int pipelineTurbineSourceScanRange;
 	public static int nozzleSprayBuildupTicks;
+	public static int nozzleTankCapacity = 10;
 	public static double mistSpreadRadius;
 	public static double mistTransitionStart;
 	public static int serverProjectilesPerTick;
@@ -415,6 +421,7 @@ public class Config {
 		pipelineTurbineStressEfficiency = PIPELINE_TURBINE_STRESS_EFFICIENCY.get().floatValue();
 		pipelineTurbineSourceScanRange = PIPELINE_TURBINE_SOURCE_SCAN_RANGE.get();
 		nozzleSprayBuildupTicks = NOZZLE_SPRAY_BUILDUP_TICKS.get();
+		nozzleTankCapacity = NOZZLE_TANK_CAPACITY.get();
 		mistSpreadRadius = MIST_SPREAD_RADIUS.get();
 		mistTransitionStart = MIST_TRANSITION_START.get();
 		serverProjectilesPerTick = SERVER_PROJECTILES_PER_TICK.get();

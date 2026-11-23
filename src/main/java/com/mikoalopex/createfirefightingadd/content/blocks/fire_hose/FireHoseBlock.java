@@ -131,6 +131,9 @@ public class FireHoseBlock extends WrenchableDirectionalBlock
 		ResourceLocation appearance = FireHoseAppearances.fromDyeItem(stack).orElse(null);
 		if (appearance == null)
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+		// Bellows are an ordinary hose appearance, separate from copycat materials.
+		if (this instanceof CopycatFireHoseBlock && FireHoseAppearances.BELLOWS.equals(appearance))
+			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 		if (level.isClientSide())
 			return ItemInteractionResult.SUCCESS;
 		if (!(level.getBlockEntity(pos) instanceof FireHoseBlockEntity hose))

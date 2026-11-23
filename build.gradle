@@ -128,6 +128,9 @@ sourceSets.test {
 }
 
 def regressionChecks = [
+    checkLegacyNotice: 'com.mikoalopex.createfirefightingadd.client.notice.LegacyNoticeTest',
+    checkBellowsHose: 'com.mikoalopex.createfirefightingadd.content.blocks.fire_hose.BellowsHoseTest',
+    checkNozzleTankCapacity: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleTankCapacityTest',
     checkNozzleDyeBudget: 'com.mikoalopex.createfirefightingadd.content.fluids.nozzle.NozzleDyeBudgetTest',
     checkFlowMeterApi: 'com.mikoalopex.createfirefightingadd.content.blocks.flow_meter.FlowMeterApiTest',
     checkMultipurposeBacktank: 'com.mikoalopex.createfirefightingadd.content.equipment.backtank.MultipurposeBacktankTest',

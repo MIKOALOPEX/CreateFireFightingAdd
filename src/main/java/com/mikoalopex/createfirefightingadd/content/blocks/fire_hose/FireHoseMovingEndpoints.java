@@ -347,16 +347,18 @@ final class FireHoseMovingEndpoints {
 			Direction partnerFacing = movingPartner != null ? movingPartner.facing()
 				: staticPartner != null ? staticPartner.getFacingDirection()
 				: endpoint.facing();
+			float width = context.state.hasProperty(FireHoseBlock.SIZE)
+				? context.state.getValue(FireHoseBlock.SIZE).width() : 8;
 			FireHoseDynamicRenderer.submit(endpoint.renderKey(), endpoint.worldCenter(), partnerCenter,
 				endpoint.facing(), partnerFacing, storage.getHoseAppearanceId(),
-				context.world.getGameTime() + 2);
+				context.world.getGameTime() + 2, width);
 			return;
 		}
 
 		if (staticPartner != null && staticPartner.isController()) {
 			FireHoseDynamicRenderer.submit(endpoint.renderKey(), staticPartner.getWorldCenterVec(), endpoint.worldCenter(),
 				staticPartner.getFacingDirection(), endpoint.facing(), storage.getHoseAppearanceId(),
-				context.world.getGameTime() + 2);
+				context.world.getGameTime() + 2, staticPartner.getHoseSize().width());
 		}
 	}
 

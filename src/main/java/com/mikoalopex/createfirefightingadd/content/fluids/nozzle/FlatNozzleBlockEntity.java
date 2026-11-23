@@ -96,7 +96,7 @@ public class FlatNozzleBlockEntity extends AbstractSprayDeviceBlockEntity {
 
 	@Override
 	protected int getTankCapacity() {
-		return getFluidConsumptionPerTick();
+		return Config.nozzleTankCapacity;
 	}
 
 	@Override

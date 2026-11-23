@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.jetbrains.annotations.Nullable;
 
 import com.mikoalopex.createfirefightingadd.CreateFireFightingAdd;
+import com.simibubi.create.AllItems;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -26,6 +27,8 @@ public final class FireHoseAppearances {
 	public static final ResourceLocation DEFAULT = CreateFireFightingAdd.path("default");
 	public static final ResourceLocation BLACK = CreateFireFightingAdd.path("black");
 	public static final ResourceLocation TRANSPARENT = CreateFireFightingAdd.path("transparent");
+	/** Test-only appearance applied by Create's belt connector; rendering is black for now. */
+	public static final ResourceLocation BELLOWS = CreateFireFightingAdd.path("bellows");
 
 	private static final Map<ResourceLocation, Entry> ENTRIES = new LinkedHashMap<>();
 	private static final Map<Item, ResourceLocation> DYE_ITEMS = new LinkedHashMap<>();
@@ -35,6 +38,12 @@ public final class FireHoseAppearances {
 			CreateFireFightingAdd.path("textures/block/fire_hose_end.png"),
 			CreateFireFightingAdd.path("textures/block/fire_hose.png"));
 		register(BLACK, Items.BLACK_DYE,
+			CreateFireFightingAdd.path("textures/block/fire_hose_end_black.png"),
+			CreateFireFightingAdd.path("textures/block/fire_hose_black.png"));
+		// The belt connector is not a dye, so it is resolved in fromDyeItem at
+		// interaction time. Keep this entry dye-less to avoid touching Create's
+		// item registry while this class initializes.
+		register(BELLOWS, null,
 			CreateFireFightingAdd.path("textures/block/fire_hose_end_black.png"),
 			CreateFireFightingAdd.path("textures/block/fire_hose_black.png"));
 		register(TRANSPARENT, Items.PHANTOM_MEMBRANE,
@@ -72,6 +81,10 @@ public final class FireHoseAppearances {
 	public static Optional<ResourceLocation> fromDyeItem(ItemStack stack) {
 		if (stack.isEmpty())
 			return Optional.empty();
+		// Resolve Create's belt connector lazily: touching AllItems during class
+		// initialization could run before Create has registered its items.
+		if (AllItems.BELT_CONNECTOR.isIn(stack))
+			return Optional.of(BELLOWS);
 		return Optional.ofNullable(DYE_ITEMS.get(stack.getItem()));
 	}
 
@@ -99,7 +112,7 @@ public final class FireHoseAppearances {
 
 	public static FireHoseEndpointModel endpointModel(@Nullable ResourceLocation id) {
 		ResourceLocation normalized = normalize(id);
-		if (BLACK.equals(normalized))
+		if (BLACK.equals(normalized) || BELLOWS.equals(normalized))
 			return FireHoseEndpointModel.BLACK;
 		if (TRANSPARENT.equals(normalized))
 			return FireHoseEndpointModel.TRANSPARENT;
